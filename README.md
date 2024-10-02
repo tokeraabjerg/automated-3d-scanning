@@ -3,3 +3,9 @@
 MP5 - 2024 - Automation Semester Project
 
 The goal of this project is to implement automation in a PLC-controlled 3D scanner setup, featuring tilt-pan actuation.
+
+Downgrading numpy:
+
+    pip uninstall numpy
+
+    pip install numpy==1.26.4
