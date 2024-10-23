@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Scanner Control Panel</title>
+    <style>
+        body {
+            display: flex;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #left-panel {
+            flex: 1;
+            padding: 20px;
+        }
+        #right-panel {
+            width: 45%;
+            max-width: 800px;
+            border-left: 1px solid #ccc;
+            padding: 20px;
+            background-color: #f9f9f9;
+            overflow-y: auto;
+        }
+        #log-output {
+            width: 100%;
+            height: calc(100vh - 300px);
+            overflow-y: scroll;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
+            font-family: monospace;
+            background-color: #f1f1f1;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        h1 {
+            margin-top: 0;
+            background-color: #363636;
+            color: white;
+            padding: 10px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        table {
+            width: 100%;
+            max-width: 800px;
+            border-collapse: collapse;
+        }
+        td, th {
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="submit"], button {
+            padding: 10px;
+        }
+        .config-description {
+            font-size: 0.9em;
+            color: #555;
+        }
+        .config-range {
+            font-size: 0.9em;
+            color: #777;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .start-button {
+            background-color: #4CAF50; /* Green */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .stop-button {
+            background-color: #f44336; /* Red */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .restart-button {
+            background-color: #ff9800; /* Orange */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .validate-button {
+            background-color: #2196F3; /* Blue */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .start-button, .stop-button, .restart-button, .validate-button {
+            height: 100%;
+            box-sizing: border-box;
+        }
+        #viewer-container {
+            margin-bottom: 20px;
+        }
+        #viewer {
+            border: 1px solid #ccc;
+        }
+        #loading-indicator {
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+    <script src="{{ url_for('static', filename='three.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='OrbitControls.js') }}"></script>
+    <script src="{{ url_for('static', filename='PLYLoader.js') }}"></script>
+    <script>
+        let shouldAutoScroll = true;
+    
+        function fetchLogs() {
+            fetch('/get_logs')
+                .then(response => response.text())
+                .then(data => {
+                    const logOutput = document.getElementById('log-output');
+                    const isScrolledToBottom = logOutput.scrollHeight - logOutput.clientHeight <= logOutput.scrollTop + 1;
+                    logOutput.textContent = data;
+                    if (shouldAutoScroll && isScrolledToBottom) {
+                        logOutput.scrollTop = logOutput.scrollHeight;
+                    }
+                });
+        }
+    
+        setInterval(fetchLogs, 2000); // Fetch logs every 2 seconds
+    
+        window.onload = function() {
+            fetchLogs();
+            document.querySelectorAll('input[name], select[name]').forEach(element => {
+                element.addEventListener('change', trackConfigurationChange);
+            });
+            load3DPreviewSetting();
+            checkAndLoadPointCloud(false); // Load point cloud immediately without delay on page load
+        };
+    
+        function trackConfigurationChange(event) {
+            const key = event.target.name;
+            const value = event.target.value;
+            changedConfigurations[key] = value;
+        }
+    
+        function load3DPreviewSetting() {
+            const checkbox = document.getElementById('3d-preview-checkbox');
+            const isEnabled = localStorage.getItem('3DPreviewEnabled');
+            if (isEnabled === null || isEnabled === 'true') {
+                checkbox.checked = true;
+            } else {
+                checkbox.checked = false;
+            }
+        }
+    
+        function save3DPreviewSetting() {
+            const checkbox = document.getElementById('3d-preview-checkbox');
+            localStorage.setItem('3DPreviewEnabled', checkbox.checked);
+            checkAndLoadPointCloud(false); // Reload the point cloud if the setting changes without delay
+        }
+    
+        function checkAndLoadPointCloud(delayedLoad) {
+            // Fetch the current setting for 3D preview
+            fetch('/get_3d_preview_setting')
+                .then(response => response.json())
+                .then(data => {
+                    if (data['3DPreviewEnabled']) {
+                        if (delayedLoad) {
+                            setTimeout(loadPointCloud, 5000); // Wait 5 seconds before loading the point cloud after scan
+                        } else {
+                            loadPointCloud(); // Load immediately
+                        }
+                    } else {
+                        // Hide the viewer if the preview is disabled
+                        const container = document.getElementById('viewer-container');
+                        container.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching 3D preview setting:', error);
+                });
+        }
+    
+        function toggleViewer() {
+            const container = document.getElementById('viewer-container');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+    
+        function manualRefresh() {
+            loadPointCloud(); // Load point cloud on manual refresh
+        }
+    
+        // Function to load the point cloud
+        function loadPointCloud() {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            loadingIndicator.style.display = 'block';
+    
+            // Check if reduced point cloud is available
+            fetch('/get_reduced_point_cloud')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('No reduced point cloud available.');
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(buffer => {
+                    loadingIndicator.style.display = 'none';
+                    // Initialize three.js scene and render the point cloud
+                    initThreeJS(buffer);
+                })
+                .catch(error => {
+                    loadingIndicator.style.display = 'none';
+                    console.error('Error loading point cloud:', error);
+                });
+        }
+    
+        // Initialize three.js scene
+        function initThreeJS(buffer) {
+            const container = document.getElementById('viewer');
+    
+            // Clear any existing content
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+    
+            // Create scene, camera, renderer
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 100000);
+            camera.position.set(0, 0, 100);
+    
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            
+            // Set the background color to white
+            renderer.setClearColor(0xffffff, 1); // white background
+    
+            container.appendChild(renderer.domElement);
+    
+            // Add controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    
+            // Load point cloud
+            const loader = new THREE.PLYLoader();
+            const geometry = loader.parse(buffer);
+            const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
+            const points = new THREE.Points(geometry, material);
+            scene.add(points);
+    
+            // Fit camera to point cloud
+            const boundingBox = new THREE.Box3().setFromObject(points);
+            const center = boundingBox.getCenter(new THREE.Vector3());
+            const size = boundingBox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            camera.position.z = cameraZ * 1.5;
+            camera.lookAt(center);
+    
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+    
+            // Animate
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+    </script>    
+</head>
+<body>
+    <div id="left-panel">
+        <h1>3D Scanner Control Panel</h1>
+
+        <h2>Scan Controls</h2>
+        <form action="{{ url_for('start_scan') }}" method="post" onsubmit="startScan()">
+            Number of Scans: <input type="number" name="nrScans" value="1" min="1">
+            <div class="button-group">
+                <input type="submit" value="Start Scan" class="start-button">
+        </form>
+        <form action="{{ url_for('stop_scan') }}" method="post" style="display: inline;">
+                <input type="submit" value="Stop Scan" class="stop-button">
+            </div>
+        </form>
+
+        <form action="{{ url_for('update_configurations') }}" method="post" style="margin-top: 10px;" onsubmit="addChangedConfigurationsToForm()">
+            <input type="submit" value="Validate Configurations" class="validate-button">
+        </form>
+
+        <h2>Configurations</h2>
+        <form action="{{ url_for('update_configurations') }}" method="post" onsubmit="addChangedConfigurationsToForm()">
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                    <th>Description</th>
+                    <th>Range</th>
+                </tr>
+                {% for key, config in configurations.items() %}
+                <tr>
+                    <td>{{ key }}</td>
+                    <td>
+                        {% if config.type == 'enum' %}
+                        <select name="{{ key }}" onchange="trackConfigurationChange(event)">
+                            {% for option_value, option_label in config.options.items() %}
+                            <option value="{{ option_value }}" {% if config.value == option_value %}selected{% endif %}>
+                                {{ option_label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <input type="text" name="{{ key }}" value="{{ config.value }}" onchange="trackConfigurationChange(event)">
+                        {% endif %}
+                    </td>
+                    <td class="config-description">{{ config.description }}</td>
+                    <td class="config-range">
+                        {% if config.options %}
+                            Options: {{ config.options.values()|join(', ') }}
+                        {% else %}
+                            {% if config.min and config.max %}
+                                Min: {{ config.min }}, Max: {{ config.max }}
+                            {% endif %}
+                            {% if config.default %}
+                                Default: {{ config.default }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            <input type="submit" value="Update Configurations">
+        </form>
+
+        <h2>Output Directory</h2>
+        <form action="{{ url_for('change_output_directory') }}" method="post">
+            Current Output Directory: <input type="text" name="output_directory" value="{{ output_directory }}"><br>
+            <input type="submit" value="Change Output Directory">
+        </form>
+
+        <h2>Server Controls</h2>
+        <form action="{{ url_for('shutdown') }}" method="post">
+            <input type="submit" value="Restart Flask Server" class="restart-button">
+        </form>
+    </div>
+    <div id="right-panel">
+        <h2>
+            <button type="button" onclick="toggleViewer()">3D Viewer</button>
+            <input type="checkbox" id="3d-preview-checkbox" onchange="save3DPreviewSetting()" checked> Enable 3D Preview
+            <button type="button" onclick="manualRefresh()">Refresh Viewer</button>
+        </h2>
+        <div id="viewer-container">
+            <!-- Visual indicator when loading -->
+            <div id="loading-indicator" style="display: none;">Loading point cloud...</div>
+            <!-- 3D Viewer Canvas -->
+            <div id="viewer" style="width: 100%; height: 400px"></div>
+        </div>
+        <h2>Logs</h2>
+        <div id="log-output">
+            Loading logs...
+        </div>
+    </div>
+</body>
+</html>
