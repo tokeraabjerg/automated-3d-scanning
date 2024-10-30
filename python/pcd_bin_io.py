@@ -36,6 +36,7 @@ def read(bin_path, transpose=True):
         # Reshape the data into 4 columns without transposing
         return point_data.reshape(n_points, 4)    # Shape: (n_points, 4)
 
+
 def save(bin_path, data, transpose=True):
     """
     Save point cloud data to a binary file in the same format and structure as the input.
@@ -54,5 +55,5 @@ def save(bin_path, data, transpose=True):
         data_to_save = data  # Shape: (n_points, 4)
 
     # Flatten the data and write to file
-    data_to_save.astype('<f8').tofile(bin_path)
+    data_to_save.astype('<f8').tofile(bin_path)  # Little-endian 64-bit float
 
