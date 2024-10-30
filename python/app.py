@@ -61,7 +61,8 @@ def initialize():
     global scanner, config_manager
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
-        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
+        # Corrected DLL filename to 'Sensor3D.dll' (ensure exact casing)
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3D.dll")
     else:
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0", "Sensor3D", "lib", "libSensor3D.so")
     
@@ -76,10 +77,13 @@ def initialize():
         config_manager = Configurations(scanner)
         if not scanner.connect():
             logger.error("Failed to connect to the sensor.")
+            config_manager = None  # Ensure config_manager is None if connection fails
         else:
             config_manager.read_all_configurations()
+            logger.info("Configuration Manager initialized successfully.")
     except Exception as e:
-        logger.error(f"Error initializing scanner: {e}")
+        logger.error(f"Error initializing scanner or configuration manager: {e}")
+        config_manager = None  # Ensure config_manager is None in case of exception
 
 
 def disconnect_scanner():
@@ -88,6 +92,8 @@ def disconnect_scanner():
     """
     if scanner is not None:
         scanner.disconnect()
+    else:
+        logger.warning("Attempted to disconnect scanner, but scanner instance is None.")
 
 
 # Initialize scanner and configurations
@@ -106,12 +112,15 @@ def index():
         # Attempt to connect if the scanner handle is not available
         if not scanner.connect():
             logger.warning("Scanner not connected. Proceeding without sensor data.")
+            config_manager = None  # Reset config_manager if connection fails
         else:
             # Read configurations if the scanner connects successfully
             config_manager.read_all_configurations()
+            logger.info("Configuration Manager re-initialized after successful connection.")
     elif scanner is not None:
         # Read configurations if the scanner is already connected
         config_manager.read_all_configurations()
+        logger.info("Configurations read successfully.")
 
     # Get the log contents
     logs = log_stream.getvalue()
@@ -131,48 +140,64 @@ def update_configurations():
     """
     global config_manager
     if config_manager is None:
+        logger.error("Configurations manager is not available.")
         return "Configurations manager is not available.", 400
     # Iterate through each configuration key and update its value
     for key in list(config_manager.configurations.keys()):
         value = request.form.get(key)
         if value is not None:
             if not config_manager.update_configuration(key, value):
+                logger.error(f"Failed to set configuration: {key} to value: {value}")
                 return f"Failed to set {key}", 400
+    logger.info("All configurations updated successfully.")
     return redirect(url_for('index'))
 
 @app.route('/start_scan', methods=['POST'])
 def start_scan():
     global scan_in_progress
     if scanner is None or not scanner.sensorHandle:
+        logger.error("Scanner is not connected.")
         return "Scanner is not connected.", 400
-    if scan_in_progress:
-        return "Scan is already in progress.", 400
-    try:
-        nrScans = int(request.form.get('nrScans', 1))
-    except ValueError:
-        return "Invalid number of scans.", 400
+    with threading.Lock():
+        if scan_in_progress:
+            logger.warning("Attempted to start a scan while another scan is in progress.")
+            return "Scan is already in progress.", 400
+        try:
+            nrScans = int(request.form.get('nrScans', 1))
+        except ValueError:
+            logger.error("Invalid number of scans provided.")
+            return "Invalid number of scans.", 400
 
-    scan_in_progress = True
-    executor.submit(scan_thread, nrScans)
+        scan_in_progress = True
+        logger.info(f"Starting scan with {nrScans} scan(s).")
+        executor.submit(scan_thread, nrScans)
     return redirect(url_for('index'))
 
 def scan_thread(nrScans):
     global scan_in_progress
     try:
         scanner.perform_scan(nrScans)
+    except Exception as e:
+        logger.exception(f"An error occurred during scanning: {e}")
     finally:
-        scan_in_progress = False
+        with threading.Lock():
+            scan_in_progress = False
+        logger.info("Scan process completed and scan_in_progress flag reset.")
 
 @app.route('/stop_scan', methods=['POST'])
 def stop_scan():
     global scan_in_progress
     if scanner is not None:
         try:
-            scanner.write_sensor_command("SetAcquisitionStop\r")
-            scan_in_progress = False
-            logger.info("Scan stopped successfully.")
+            if scanner.write_sensor_command("SetAcquisitionStop\r"):
+                scan_in_progress = False
+                logger.info("Scan stopped successfully.")
+            else:
+                logger.error("Failed to send stop command to the scanner.")
         except Exception as e:
             logger.error(f"Failed to send stop command to the scanner: {e}")
+    else:
+        logger.warning("Attempted to stop scan, but scanner instance is None.")
     return redirect(url_for('index'))
 
 @app.route('/change_output_directory', methods=['POST'])
@@ -184,10 +209,17 @@ def change_output_directory():
         if not os.path.isabs(new_directory):
             new_directory = os.path.join(base_dir, new_directory)
         # Ensure the new output directory exists
-        os.makedirs(new_directory, exist_ok=True)
-        output_directory = new_directory
-        scanner.output_directory = output_directory  # Update scanner's output_directory
-        logger.info(f"Output directory changed to {output_directory}")
+        try:
+            os.makedirs(new_directory, exist_ok=True)
+            output_directory = new_directory
+            if scanner:
+                scanner.output_directory = output_directory  # Update scanner's output_directory
+            logger.info(f"Output directory changed to {output_directory}")
+        except Exception as e:
+            logger.error(f"Failed to change output directory to {new_directory}: {e}")
+            return "Failed to change output directory.", 400
+    else:
+        logger.warning("No output directory provided in the request.")
     return redirect(url_for('index'))
 
 @app.route('/get_logs')
@@ -206,16 +238,21 @@ def shutdown():
     Shutdown the Flask application.
     """
     disconnect_scanner()
-    logger.info("Application shutdown.")
+    logger.info("Application shutdown initiated.")
     func = request.environ.get('werkzeug.server.shutdown')
     if func:
         func()
-    return 'Server shutting down...'
+        logger.info("Server shutdown successfully.")
+        return 'Server shutting down...'
+    else:
+        logger.error("Shutdown function not found. Unable to shut down the server.")
+        return 'Server shutdown failed.', 500
 
 @app.route('/get_reduced_point_cloud')
 def get_reduced_point_cloud():
     reduced_point_cloud_path = os.path.join(output_directory, 'reduced_point_cloud.ply')
     if not os.path.exists(reduced_point_cloud_path):
+        logger.warning(f"Reduced point cloud not found at {reduced_point_cloud_path}")
         return "No reduced point cloud available.", 404
     return send_from_directory(output_directory, 'reduced_point_cloud.ply')
 
@@ -234,6 +271,7 @@ def get_3d_preview_setting():
         is_enabled = config_manager.configurations.get('3D Preview Enabled', {}).get('value', True)
         # Convert the value to a boolean
         is_enabled_bool = True if is_enabled in ['1', 'True', 'true'] else False
+        logger.debug(f"3DPreviewEnabled fetched: {is_enabled_bool}")
         return jsonify({'3DPreviewEnabled': is_enabled_bool})
     else:
         logger.error("Configurations manager is not available.")
@@ -259,7 +297,7 @@ def set_3d_preview_setting():
         return jsonify({'status': 'failure', 'message': '3DPreviewEnabled parameter is missing.'}), 400
 
     # Validate and convert the input to '1' or '0'
-    if is_enabled in ['1', 'True', 'true', 'yes', 'on']:
+    if is_enabled.lower() in ['1', 'true', 'yes', 'on']:
         value = '1'
     else:
         value = '0'
@@ -283,3 +321,4 @@ if __name__ == '__main__':
     finally:
         # Ensure the scanner is disconnected on application shutdown
         disconnect_scanner()
+        logger.info("Scanner disconnected on application shutdown.")

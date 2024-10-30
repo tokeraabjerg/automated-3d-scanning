@@ -185,22 +185,20 @@ class ScannerInterface:
                 logger.error(f"Exception while writing command {command}: {e}")
                 return False
 
-    def perform_scan(self, nrScans: int):
+    def perform_scan(self, nrScans: int, sensor_mode: str, trigger_source: str, led_pattern: str):
         """
         Perform a scan and save the point cloud data.
 
         :param nrScans: Number of scans to perform.
+        :param sensor_mode: Sensor mode configuration.
+        :param trigger_source: Trigger source configuration.
+        :param led_pattern: LED pattern configuration.
         """
         try:
             # Ensure output directory exists
             os.makedirs(self.output_directory, exist_ok=True)
 
-            # Retrieve necessary configurations
-            sensor_mode = self.configurations.configurations.get('Sensor Mode', {}).get('value', '4')  # Default to '4' if not set
-            trigger_source = self.configurations.configurations.get('Trigger Source', {}).get('value', '0')
-            led_pattern = self.configurations.configurations.get('LED Pattern', {}).get('value', '28')  # Assuming 'LED Pattern' is defined
-
-            # Configure sensor using configurations
+            # Configure sensor using provided configurations
             if not self.write_sensor_command(f"SetSensorMode={sensor_mode}"):
                 logger.error("Failed to set sensor mode.")
                 return
