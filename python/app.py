@@ -4,11 +4,21 @@ import os
 import threading
 import logging
 import io
+import sys
 from scanner_interface import ScannerInterface
 from configurations import Configurations
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
+
+# Determine the base directory where app.py is located
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Set up the output directory relative to base_dir
+output_directory = os.path.join(base_dir, "output")
+
+# Ensure the output directory exists
+os.makedirs(output_directory, exist_ok=True)
 
 # Set up logging
 log_stream = io.StringIO()
@@ -44,14 +54,24 @@ logger.info("Flask application has started.")
 scanner = None
 config_manager = None
 scan_in_progress = False
-output_directory = "/workspace/output"  # Default output directory
 executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
 
 
 def initialize():
     global scanner, config_manager
-    lib_path = "/workspace/Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0/Sensor3D/lib/libSensor3D.so"
+    # Determine the SDK library path based on the operating system
+    if sys.platform.startswith('win'):
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
+    else:
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0", "Sensor3D", "lib", "libSensor3D.so")
+    
+    lib_path = os.path.join(base_dir, lib_relative_path)
+    
     try:
+        if not os.path.exists(lib_path):
+            logger.error(f"SDK library not found at {lib_path}")
+            return
+
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
         config_manager = Configurations(scanner)
         if not scanner.connect():
@@ -68,6 +88,7 @@ def disconnect_scanner():
     """
     if scanner is not None:
         scanner.disconnect()
+
 
 # Initialize scanner and configurations
 initialize()
@@ -142,7 +163,6 @@ def scan_thread(nrScans):
     finally:
         scan_in_progress = False
 
-
 @app.route('/stop_scan', methods=['POST'])
 def stop_scan():
     global scan_in_progress
@@ -160,6 +180,11 @@ def change_output_directory():
     global output_directory
     new_directory = request.form.get('output_directory')
     if new_directory:
+        # Make the new directory path relative to base_dir if it's not absolute
+        if not os.path.isabs(new_directory):
+            new_directory = os.path.join(base_dir, new_directory)
+        # Ensure the new output directory exists
+        os.makedirs(new_directory, exist_ok=True)
         output_directory = new_directory
         scanner.output_directory = output_directory  # Update scanner's output_directory
         logger.info(f"Output directory changed to {output_directory}")
@@ -189,7 +214,8 @@ def shutdown():
 
 @app.route('/get_reduced_point_cloud')
 def get_reduced_point_cloud():
-    if not os.path.exists(os.path.join(output_directory, 'reduced_point_cloud.ply')):
+    reduced_point_cloud_path = os.path.join(output_directory, 'reduced_point_cloud.ply')
+    if not os.path.exists(reduced_point_cloud_path):
         return "No reduced point cloud available.", 404
     return send_from_directory(output_directory, 'reduced_point_cloud.ply')
 
@@ -197,13 +223,57 @@ def get_reduced_point_cloud():
 def is_processing():
     return jsonify({'processing': scan_in_progress})
 
+# Modified Route: Get 3D Preview Setting
 @app.route('/get_3d_preview_setting', methods=['GET'])
 def get_3d_preview_setting():
     """
-    Get the current setting of the 3D preview from the front end.
+    Get the current setting of the 3D preview from the server.
     """
-    is_enabled = request.args.get('enabled', 'true') == 'true'
-    return jsonify({'3DPreviewEnabled': is_enabled})
+    if config_manager:
+        # Retrieve the current value of '3D Preview Enabled'
+        is_enabled = config_manager.configurations.get('3D Preview Enabled', {}).get('value', True)
+        # Convert the value to a boolean
+        is_enabled_bool = True if is_enabled in ['1', 'True', 'true'] else False
+        return jsonify({'3DPreviewEnabled': is_enabled_bool})
+    else:
+        logger.error("Configurations manager is not available.")
+        # Default to True if configurations are unavailable
+        return jsonify({'3DPreviewEnabled': True}), 500
+
+# New Route: Set 3D Preview Setting
+@app.route('/set_3d_preview_setting', methods=['POST'])
+def set_3d_preview_setting():
+    """
+    Set the 3D preview setting based on user input.
+    Expects a form parameter '3DPreviewEnabled' with value '1' or '0'.
+    """
+    global config_manager
+    if config_manager is None:
+        logger.error("Configurations manager is not available.")
+        return jsonify({'status': 'failure', 'message': 'Configurations manager is not available.'}), 400
+
+    # Retrieve the '3DPreviewEnabled' value from the form data
+    is_enabled = request.form.get('3DPreviewEnabled')
+    if is_enabled is None:
+        logger.error("3DPreviewEnabled parameter is missing in the request.")
+        return jsonify({'status': 'failure', 'message': '3DPreviewEnabled parameter is missing.'}), 400
+
+    # Validate and convert the input to '1' or '0'
+    if is_enabled in ['1', 'True', 'true', 'yes', 'on']:
+        value = '1'
+    else:
+        value = '0'
+
+    # Update the configuration using the Configurations class
+    success = config_manager.update_configuration('3D Preview Enabled', value)
+
+    if success:
+        logger.info(f"3D Preview Enabled set to {value}")
+        # Return the updated status
+        return jsonify({'status': 'success', '3DPreviewEnabled': value == '1'}), 200
+    else:
+        logger.error("Failed to update 3D Preview Enabled configuration.")
+        return jsonify({'status': 'failure', 'message': 'Failed to update configuration.'}), 500
 
 
 if __name__ == '__main__':
