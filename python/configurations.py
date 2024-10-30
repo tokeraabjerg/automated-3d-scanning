@@ -5,7 +5,7 @@ import threading
 logger = logging.getLogger(__name__)
 
 class Configurations:
-    def __init__(self, scanner_interface):
+    def __init__(self, scanner_interface=None):
         # Initialize the Configurations class with a scanner interface and configuration information
         self.scanner = scanner_interface
         self.configurations_info = configurations_info
@@ -15,7 +15,7 @@ class Configurations:
     def read_parameter(self, command):
         # Read a parameter value from the sensor using the provided command
         try:
-            if command:
+            if command and self.scanner:
                 return self.scanner.read_sensor_parameter(command)
         except Exception as e:
             logger.error(f"Failed to read parameter {command}: {e}")
@@ -24,7 +24,7 @@ class Configurations:
     def read_default_parameter(self, default_command):
         # Read the default value of a parameter from the sensor using the provided default command
         try:
-            if default_command:
+            if default_command and self.scanner:
                 return self.scanner.read_sensor_parameter(default_command)
         except Exception as e:
             logger.error(f"Failed to read default parameter {default_command}: {e}")
@@ -38,13 +38,13 @@ class Configurations:
                 value = self.read_parameter(info.get('get_command'))
                 if value is None:
                     value = info.get('default')  # Set to default if reading fails
-                
+
                 # Read the minimum value of the configuration (if available)
                 min_value = self.read_parameter(info.get('min_command'))
-                
+
                 # Read the maximum value of the configuration (if available)
                 max_value = self.read_parameter(info.get('max_command'))
-                
+
                 # Read the default value of the configuration (if available)
                 default_value = info.get('default')
                 if default_value is None and 'default_command' in info:
@@ -70,7 +70,7 @@ class Configurations:
                     'max': max_value,
                     'default': default_value,
                 }
-                logger.info(f"Loaded configuration '{key}': {self.configurations[key]}")
+                #logger.info(f"Loaded configuration '{key}': {self.configurations[key]}")
 
     def validate_value(self, info, value):
         # Validate the provided value based on the configuration type and range (if applicable)
@@ -78,7 +78,7 @@ class Configurations:
             if info['type'] == 'int':
                 int_value = int(value)
                 # Check if the value is within the specified min and max range
-                if info['min'] is not None and info['max'] is not None and info['min'] != float('-inf') and info['max'] != float('inf'):
+                if info['min'] != float('-inf') and info['max'] != float('inf'):
                     min_value = int(info['min'])
                     max_value = int(info['max'])
                     if not (min_value <= int_value <= max_value):
@@ -87,7 +87,7 @@ class Configurations:
             elif info['type'] == 'float':
                 float_value = float(value)
                 # Check if the value is within the specified min and max range
-                if info['min'] is not None and info['max'] is not None and info['min'] != float('-inf') and info['max'] != float('inf'):
+                if info['min'] != float('-inf') and info['max'] != float('inf'):
                     min_value = float(info['min'])
                     max_value = float(info['max'])
                     if not (min_value <= float_value <= max_value):

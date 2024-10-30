@@ -3,7 +3,7 @@ import numpy as np
 import os
 import threading
 import logging
-import io
+from logging.handlers import RotatingFileHandler
 import sys
 from scanner_interface import ScannerInterface
 from configurations import Configurations
@@ -20,32 +20,29 @@ output_directory = os.path.join(base_dir, "output")
 # Ensure the output directory exists
 os.makedirs(output_directory, exist_ok=True)
 
-# Set up logging to a StringIO object for logs display
-log_stream = io.StringIO()
-
-# Create a handler that writes to the StringIO object
-stream_handler = logging.StreamHandler(log_stream)
-stream_handler.setLevel(logging.INFO)
-
-# Set a formatter for consistency
+# Set up logging with RotatingFileHandler
+log_file_path = os.path.join(base_dir, 'app.log')
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-stream_handler.setFormatter(formatter)
 
-# Get the root logger and clear any existing handlers
+rotating_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
+rotating_handler.setLevel(logging.INFO)
+rotating_handler.setFormatter(formatter)
+
+# Configure root logger
 root_logger = logging.getLogger()
-root_logger.handlers = []  # Remove any existing handlers
-root_logger.addHandler(stream_handler)
+root_logger.handlers = []  # Remove existing handlers
+root_logger.addHandler(rotating_handler)
 root_logger.setLevel(logging.INFO)
 
-# Configure the Flask app's logger
-app.logger.handlers = []  # Remove any existing handlers
-app.logger.addHandler(stream_handler)
+# Configure Flask app's logger
+app.logger.handlers = []
+app.logger.addHandler(rotating_handler)
 app.logger.setLevel(logging.INFO)
 
 # Disable Werkzeug logging to reduce clutter
-logging.getLogger('werkzeug').setLevel(logging.ERROR)  # Set Werkzeug logging to ERROR
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
-# Now, use the root logger or app.logger in your code
+# Initialize the logger
 logger = logging.getLogger(__name__)
 
 logger.info("Flask application has started.")
@@ -62,7 +59,7 @@ def initialize():
     global scanner, config_manager
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
-        # Corrected DLL filename to 'Sensor3d.dll' (with a small 'd')
+        # Corrected DLL filename to 'Sensor3d.dll' (with a lowercase 'd')
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
     else:
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0", "Sensor3D", "lib", "libSensor3D.so")
@@ -72,20 +69,24 @@ def initialize():
     try:
         if not os.path.exists(lib_path):
             logger.error(f"SDK library not found at {lib_path}")
+            config_manager = Configurations()  # Initialize with default configurations
             return
 
-        logger.info(f"Loading SDK library from {lib_path}")
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
-        config_manager = Configurations(scanner)
-        if not scanner.connect():
-            logger.error("Failed to connect to the sensor.")
-            config_manager = None  # Ensure config_manager is None if connection fails
+        if scanner.connect():
+            config_manager = Configurations(scanner)
+            try:
+                config_manager.read_all_configurations()
+                logger.info("Configuration Manager initialized successfully.")
+            except Exception as e:
+                logger.error(f"Failed to read configurations: {e}")
+                # Proceed with default configurations
         else:
-            config_manager.read_all_configurations()
-            logger.info("Configuration Manager initialized successfully.")
+            logger.warning("Failed to connect to the sensor. Proceeding with default configurations.")
+            config_manager = Configurations()  # Initialize with default configurations
     except Exception as e:
         logger.error(f"Error initializing scanner or configuration manager: {e}")
-        config_manager = None  # Ensure config_manager is None in case of exception
+        config_manager = Configurations()  # Initialize with default configurations
 
 
 def disconnect_scanner():
@@ -113,20 +114,30 @@ def index():
     global config_manager
     if scanner is not None and not scanner.sensorHandle:
         # Attempt to connect if the scanner handle is not available
-        if not scanner.connect():
-            logger.warning("Scanner not connected. Proceeding without sensor data.")
-            config_manager = None  # Reset config_manager if connection fails
+        if scanner.connect():
+            try:
+                config_manager.read_all_configurations()
+                logger.info("Configuration Manager re-initialized after successful connection.")
+            except Exception as e:
+                logger.error(f"Failed to read configurations: {e}")
         else:
-            # Read configurations if the scanner connects successfully
-            config_manager.read_all_configurations()
-            logger.info("Configuration Manager re-initialized after successful connection.")
+            logger.warning("Scanner not connected. Proceeding without sensor data.")
+    
     elif scanner is not None:
-        # Read configurations if the scanner is already connected
-        config_manager.read_all_configurations()
-        logger.info("Configurations read successfully.")
+        # Attempt to read configurations if the scanner is already connected
+        try:
+            config_manager.read_all_configurations()
+            logger.info("Configurations read successfully.")
+        except Exception as e:
+            logger.error(f"Failed to read configurations: {e}")
 
-    # Get the log contents
-    logs = log_stream.getvalue()
+    # Read the logs from the log file
+    try:
+        with open(log_file_path, 'r') as log_file:
+            logs = log_file.read()
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        logs = "Error reading logs."
 
     # Render the index.html template with configurations and logs
     return render_template(
@@ -245,10 +256,17 @@ def get_logs():
     """
     Get the application logs.
     """
-    logs = log_stream.getvalue()
-    response = Response(logs, mimetype='text/plain; charset=utf-8')
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    try:
+        with open(log_file_path, 'r') as log_file:
+            logs = log_file.read()
+        # Optional: Sanitize logs by removing null bytes
+        sanitized_logs = logs.replace('\x00', '')
+        response = Response(sanitized_logs, mimetype='text/plain; charset=utf-8')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        return "Error reading logs.", 500
 
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
@@ -277,59 +295,6 @@ def get_reduced_point_cloud():
 @app.route('/is_processing')
 def is_processing():
     return jsonify({'processing': scan_in_progress})
-
-# Modified Route: Get 3D Preview Setting
-@app.route('/get_3d_preview_setting', methods=['GET'])
-def get_3d_preview_setting():
-    """
-    Get the current setting of the 3D preview from the server.
-    """
-    if config_manager:
-        # Retrieve the current value of '3D Preview Enabled'
-        is_enabled = config_manager.configurations.get('3D Preview Enabled', {}).get('value', True)
-        # Convert the value to a boolean
-        is_enabled_bool = True if is_enabled in ['1', 'True', 'true'] else False
-        logger.debug(f"3DPreviewEnabled fetched: {is_enabled_bool}")
-        return jsonify({'3DPreviewEnabled': is_enabled_bool})
-    else:
-        logger.error("Configurations manager is not available.")
-        # Default to True if configurations are unavailable
-        return jsonify({'3DPreviewEnabled': True}), 500
-
-# New Route: Set 3D Preview Setting
-@app.route('/set_3d_preview_setting', methods=['POST'])
-def set_3d_preview_setting():
-    """
-    Set the 3D preview setting based on user input.
-    Expects a form parameter '3DPreviewEnabled' with value '1' or '0'.
-    """
-    global config_manager
-    if config_manager is None:
-        logger.error("Configurations manager is not available.")
-        return jsonify({'status': 'failure', 'message': 'Configurations manager is not available.'}), 400
-
-    # Retrieve the '3DPreviewEnabled' value from the form data
-    is_enabled = request.form.get('3DPreviewEnabled')
-    if is_enabled is None:
-        logger.error("3DPreviewEnabled parameter is missing in the request.")
-        return jsonify({'status': 'failure', 'message': '3DPreviewEnabled parameter is missing.'}), 400
-
-    # Validate and convert the input to '1' or '0'
-    if is_enabled.lower() in ['1', 'true', 'yes', 'on']:
-        value = '1'
-    else:
-        value = '0'
-
-    # Update the configuration using the Configurations class
-    success = config_manager.update_configuration('3D Preview Enabled', value)
-
-    if success:
-        logger.info(f"3D Preview Enabled set to {value}")
-        # Return the updated status
-        return jsonify({'status': 'success', '3DPreviewEnabled': value == '1'}), 200
-    else:
-        logger.error("Failed to update 3D Preview Enabled configuration.")
-        return jsonify({'status': 'failure', 'message': 'Failed to update configuration.'}), 500
 
 
 if __name__ == '__main__':

@@ -5,7 +5,6 @@ import time
 import numpy as np
 import open3d as o3d
 import os
-import requests
 import sys
 from typing import Optional
 
@@ -291,9 +290,8 @@ class ScannerInterface:
                 o3d.io.write_point_cloud(output_filename, pcd)
                 logger.info(f"Saved point cloud to {output_filename}")
 
-                # Check if 3D preview is enabled before reducing the point cloud
-                if self.is_3d_preview_enabled():
-                    self.reduce_and_save_point_cloud(pcd, scan_number=i+1)
+                # Always reduce and save the point cloud
+                self.reduce_and_save_point_cloud(pcd, scan_number=i+1)
 
             # Stop acquisition
             if not self.write_sensor_command("SetAcquisitionStop"):
@@ -353,26 +351,3 @@ class ScannerInterface:
         except Exception as e:
             logger.error(f"Error calculating voxel size: {e}")
             return 0.1  # Default voxel size
-
-    def is_3d_preview_enabled(self) -> bool:
-        """
-        Check if the 3D preview is enabled by querying the Flask server.
-
-        :return: True if enabled, False otherwise.
-        """
-        try:
-            host = "localhost"
-            port = "5001"  # Ensure this matches the Flask server's port
-            url = f"http://{host}:{port}/get_3d_preview_setting"
-            response = requests.get(url, timeout=5)  # Set a timeout to prevent hanging
-            if response.status_code == 200:
-                data = response.json()
-                is_enabled = data.get('3DPreviewEnabled', True)
-                logger.debug(f"3D Preview Enabled: {is_enabled}")
-                return is_enabled
-            else:
-                logger.error(f"Failed to get 3D preview setting, status code: {response.status_code}")
-                return True  # Default to True if there is an error
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request exception while getting 3D preview setting: {e}")
-            return True  # Default to True in case of exception
