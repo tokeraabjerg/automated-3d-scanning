@@ -62,7 +62,7 @@ def initialize():
         # Corrected DLL filename to 'Sensor3d.dll' (with a lowercase 'd')
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
     else:
-        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0", "Sensor3D", "lib", "libSensor3D.so")
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux", "Sensor3D", "lib", "libSensor3D.so")
     
     lib_path = os.path.join(base_dir, lib_relative_path)
     

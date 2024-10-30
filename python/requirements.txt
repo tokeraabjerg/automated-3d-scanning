@@ -1,4 +1,0 @@
-Flask
-numpy
-open3d
-requests
