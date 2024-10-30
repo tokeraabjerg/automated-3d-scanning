@@ -44,15 +44,13 @@ logger.info("Flask application has started.")
 scanner = None
 config_manager = None
 scan_in_progress = False
-output_directory = "/workspace/output"  # Default output directory 
+output_directory = "/workspace/output"  # Default output directory
 executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
 
 
 def initialize():
     global scanner, config_manager
-#lib_path = "/workspace/Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0/Sensor3D/lib/libSensor3D.so" Gammelt bibliotek der bruger Linux
-
-    lib_path = r"C:\Users\simon\Desktop\MP5\Kode\automated-3d-scanning\Software_ShapeDriveG4_SDK_Windows_x86_64_1.3.0\Sensor3D\Sensor3d.dll"
+    lib_path = "/workspace/Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0/Sensor3D/lib/libSensor3D.so"
     try:
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
         config_manager = Configurations(scanner)
@@ -61,7 +59,6 @@ def initialize():
         else:
             config_manager.read_all_configurations()
     except Exception as e:
-        #print("fail")
         logger.error(f"Error initializing scanner: {e}")
 
 
