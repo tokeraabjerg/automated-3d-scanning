@@ -20,14 +20,14 @@ output_directory = os.path.join(base_dir, "output")
 # Ensure the output directory exists
 os.makedirs(output_directory, exist_ok=True)
 
-# Set up logging
+# Set up logging to a StringIO object for logs display
 log_stream = io.StringIO()
 
 # Create a handler that writes to the StringIO object
 stream_handler = logging.StreamHandler(log_stream)
 stream_handler.setLevel(logging.INFO)
 
-# Set a formatter (optional, but recommended)
+# Set a formatter for consistency
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 stream_handler.setFormatter(formatter)
 
@@ -37,12 +37,12 @@ root_logger.handlers = []  # Remove any existing handlers
 root_logger.addHandler(stream_handler)
 root_logger.setLevel(logging.INFO)
 
-# Optionally, configure the Flask app's logger
+# Configure the Flask app's logger
 app.logger.handlers = []  # Remove any existing handlers
 app.logger.addHandler(stream_handler)
 app.logger.setLevel(logging.INFO)
 
-# Disable Werkzeug logging
+# Disable Werkzeug logging to reduce clutter
 logging.getLogger('werkzeug').setLevel(logging.ERROR)  # Set Werkzeug logging to ERROR
 
 # Now, use the root logger or app.logger in your code
@@ -54,6 +54,7 @@ logger.info("Flask application has started.")
 scanner = None
 config_manager = None
 scan_in_progress = False
+scan_lock = threading.Lock()  # Lock for scan_in_progress
 executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
 
 
@@ -61,8 +62,8 @@ def initialize():
     global scanner, config_manager
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
-        # Corrected DLL filename to 'Sensor3D.dll' (ensure exact casing)
-        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3D.dll")
+        # Corrected DLL filename to 'Sensor3d.dll' (with a small 'd')
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
     else:
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0", "Sensor3D", "lib", "libSensor3D.so")
     
@@ -73,6 +74,7 @@ def initialize():
             logger.error(f"SDK library not found at {lib_path}")
             return
 
+        logger.info(f"Loading SDK library from {lib_path}")
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
         config_manager = Configurations(scanner)
         if not scanner.connect():
@@ -92,6 +94,7 @@ def disconnect_scanner():
     """
     if scanner is not None:
         scanner.disconnect()
+        logger.info("Scanner disconnected.")
     else:
         logger.warning("Attempted to disconnect scanner, but scanner instance is None.")
 
@@ -133,6 +136,18 @@ def index():
         logs=logs
     )
 
+@app.route('/get_configurations', methods=['GET'])
+def get_configurations():
+    """
+    Return the current configurations as JSON.
+    This can be used by the frontend to dynamically update the configurations after initial load.
+    """
+    if config_manager:
+        return jsonify(config_manager.configurations)
+    else:
+        logger.error("Configurations manager is not available.")
+        return jsonify({}), 500
+
 @app.route('/update_configurations', methods=['POST'])
 def update_configurations():
     """
@@ -158,14 +173,16 @@ def start_scan():
     if scanner is None or not scanner.sensorHandle:
         logger.error("Scanner is not connected.")
         return "Scanner is not connected.", 400
-    with threading.Lock():
+    with scan_lock:
         if scan_in_progress:
             logger.warning("Attempted to start a scan while another scan is in progress.")
             return "Scan is already in progress.", 400
         try:
             nrScans = int(request.form.get('nrScans', 1))
-        except ValueError:
-            logger.error("Invalid number of scans provided.")
+            if nrScans < 1:
+                raise ValueError("Number of scans must be at least 1.")
+        except ValueError as ve:
+            logger.error(f"Invalid number of scans provided: {ve}")
             return "Invalid number of scans.", 400
 
         scan_in_progress = True
@@ -180,7 +197,7 @@ def scan_thread(nrScans):
     except Exception as e:
         logger.exception(f"An error occurred during scanning: {e}")
     finally:
-        with threading.Lock():
+        with scan_lock:
             scan_in_progress = False
         logger.info("Scan process completed and scan_in_progress flag reset.")
 
@@ -190,7 +207,8 @@ def stop_scan():
     if scanner is not None:
         try:
             if scanner.write_sensor_command("SetAcquisitionStop\r"):
-                scan_in_progress = False
+                with scan_lock:
+                    scan_in_progress = False
                 logger.info("Scan stopped successfully.")
             else:
                 logger.error("Failed to send stop command to the scanner.")
