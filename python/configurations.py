@@ -51,8 +51,8 @@ class Configurations:
                     default_value = self.read_default_parameter(info.get('default_command'))
 
                 # Ensure min and max values are not None, set sensible defaults if they are
-                min_value = min_value if min_value is not None else float('-inf')
-                max_value = max_value if max_value is not None else float('inf')
+                min_value = float(min_value) if min_value is not None else float('-inf')
+                max_value = float(max_value) if max_value is not None else float('inf')
 
                 # Store the read values in the configurations_info dictionary
                 info['value'] = value if value is not None else default_value
@@ -70,7 +70,7 @@ class Configurations:
                     'max': max_value,
                     'default': default_value,
                 }
-                #logger.info(f"Configuration for {key}: {self.configurations[key]}")
+                logger.info(f"Loaded configuration '{key}': {self.configurations[key]}")
 
     def validate_value(self, info, value):
         # Validate the provided value based on the configuration type and range (if applicable)
@@ -116,7 +116,7 @@ class Configurations:
             # Only update if the value is different from the current value
             current_value = info.get('value')
             if current_value == value:
-                #logger.info(f"No update needed for {key}, value is already set to {value}.")
+                logger.info(f"No update needed for {key}, value is already set to {value}.")
                 return True
 
             set_command = info.get('set_command')
