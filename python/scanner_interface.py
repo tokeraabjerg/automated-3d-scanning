@@ -152,7 +152,7 @@ class ScannerInterface:
             if not self.write_sensor_command("SetAcquisitionStart\r"):
                 logger.error("Failed to start acquisition.")
                 return
-
+ 
             logger.info("Acquisition started successfully.")
 
             number_of_points = c_int()
