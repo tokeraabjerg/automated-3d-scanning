@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>3D Scanner Control Panel</title>
+    <title>MLAS214 - Control Panel (v0.1)</title>
     <style>
         body {
             display: flex;
@@ -269,7 +269,7 @@
 </head>
 <body>
     <div id="left-panel">
-        <h1>3D Scanner Control Panel</h1>
+        <h1>Wenglor MLAS214 - Control Panel (v0.1)</h1>
 
         <h2>Scan Controls</h2>
         <form action="{{ url_for('start_scan') }}" method="post">
@@ -316,12 +316,9 @@
                         {% if config.options %}
                             Options: {{ config.options.values()|join(', ') }}
                         {% else %}
-                            {% if config.min and config.max %}
-                                Min: {{ config.min }}, Max: {{ config.max }}
-                            {% endif %}
-                            {% if config.default %}
-                                Default: {{ config.default }}
-                            {% endif %}
+                            Min: {{ config.min }}, Max: {{ config.max }}
+                            <br>
+                            Default: {{ config.default }}
                         {% endif %}
                     </td>
                 </tr>

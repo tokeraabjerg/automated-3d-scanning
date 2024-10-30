@@ -22,14 +22,17 @@ RUN apt-get update && \
 # Install Python packages without caching
 RUN pip3 install --no-cache-dir numpy open3d flask
 
-# Set LD_LIBRARY_PATH environment variable
-ENV LD_LIBRARY_PATH=/workspace/Software_ShapeDriveG4_SDK_Linux_x86_64_1.3.0/Sensor3D/lib:$LD_LIBRARY_PATH
+# Set LD_LIBRARY_PATH environment variable to point to the SDK library
+ENV LD_LIBRARY_PATH=/workspace/python/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib:$LD_LIBRARY_PATH
 
-# Set the working directory
+# Set the working directory to the root of the repository
 WORKDIR /workspace
+
+# Copy all files from the host to the container
+COPY . /workspace
 
 # Expose port 5001 for the Flask app
 EXPOSE 5001
 
-# Command to run when the container starts
-CMD ["python3", "app.py"]
+# Command to run when the container starts, specifying the full path to the app.py file
+CMD ["python3", "python/app.py"]

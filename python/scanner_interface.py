@@ -138,12 +138,6 @@ class ScannerInterface:
                 logger.warning("Attempted to disconnect, but sensor was not connected.")
 
     def read_sensor_parameter(self, command: str) -> Optional[str]:
-        """
-        Read a parameter value from the sensor using the provided command.
-
-        :param command: Command string to send to the sensor.
-        :return: The parameter value as a string, or None if reading fails.
-        """
         with self.lock:
             try:
                 readBuffer = create_string_buffer(1024)
@@ -152,7 +146,7 @@ class ScannerInterface:
                     command.encode(),
                     readBuffer,
                     1024,
-                    1000  # Timeout in milliseconds
+                    0  # Corrected: Reserved should be 0
                 )
                 if result != SENSOR3D_OK:
                     logger.error(f"Error reading {command}, result code: {result}")
@@ -163,6 +157,7 @@ class ScannerInterface:
             except Exception as e:
                 logger.error(f"Exception while reading parameter {command}: {e}")
                 return None
+
 
     def write_sensor_command(self, command: str) -> bool:
         """
