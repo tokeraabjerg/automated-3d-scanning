@@ -185,20 +185,22 @@ class ScannerInterface:
                 logger.error(f"Exception while writing command {command}: {e}")
                 return False
 
-    def perform_scan(self, nrScans: int, sensor_mode: str, trigger_source: str, led_pattern: str):
+    def perform_scan(self, nrScans: int):
         """
         Perform a scan and save the point cloud data.
 
         :param nrScans: Number of scans to perform.
-        :param sensor_mode: Sensor mode configuration.
-        :param trigger_source: Trigger source configuration.
-        :param led_pattern: LED pattern configuration.
         """
         try:
+            # Hardcoded configurations
+            sensor_mode = "4"        # 4: 3D Point Cloud
+            trigger_source = "0"     # 0: Internal trigger
+            led_pattern = "28"       # 28: Predefined LED pattern
+
             # Ensure output directory exists
             os.makedirs(self.output_directory, exist_ok=True)
 
-            # Configure sensor using provided configurations
+            # Configure sensor using hardcoded configurations
             if not self.write_sensor_command(f"SetSensorMode={sensor_mode}"):
                 logger.error("Failed to set sensor mode.")
                 return
@@ -301,6 +303,7 @@ class ScannerInterface:
 
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")
+
 
     def reduce_and_save_point_cloud(self, pcd: o3d.geometry.PointCloud, scan_number: int):
         """
