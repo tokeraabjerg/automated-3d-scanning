@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MLAS214 - Control Panel (v0.1)</title>
+    <!-- Existing CSS -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='toastr.min.css') }}">
+
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2.min.css') }}">
+    
+    <!-- Include three.js and its dependencies -->
+    <script src="{{ url_for('static', filename='three.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='OrbitControls.js') }}"></script>
+    <script src="{{ url_for('static', filename='PLYLoader.js') }}"></script>
+
+    <!-- Include jQuery (Required for Toastr < 2.1) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Include Toastr JS -->
+    <script src="{{ url_for('static', filename='toastr.min.js') }}"></script>
+    
+    <!-- Include SweetAlert2 JS -->
+    <script src="{{ url_for('static', filename='sweetalert2.min.js') }}"></script>
+    
+    <!-- Include the separate JavaScript files -->
+    <script src="{{ url_for('static', filename='preview.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+    <!-- Optional: Additional meta tags for responsiveness -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <header>
+        <!-- Loading Indicator -->
+        <div id="header-loading-indicator" class="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <span id="header-loading-text">Loading...</span>
+        </div>
+        <h1>Wenglor MLAS214 - Control Panel (v0.1)</h1>
+    </header>
+    <div id="main-content">
+        <div id="left-panel">
+            <h2>Scan Controls</h2>
+
+            <!-- Scan and Projects Container -->
+            <div class="scan-projects-container">
+                <!-- Start Scan Form -->
+                <form id="start-scan-form">
+                    <label for="nrScans">Number of Scans:</label>
+                    <input type="number" id="nrScans" name="nrScans" value="1" min="1" required><br><br>
+                    
+                    <label for="scanInterval">Scan Interval (seconds):</label>
+                    <input type="number" id="scanInterval" name="scanInterval" value="1" min="1" required><br><br>
+                    
+                    <div class="buttons-container">
+                        <!-- Start Scan Button -->
+                        <div class="button-group">
+                            <button type="submit" id="start-scan-button" class="start-button">Start Scan</button>
+                        </div>
+                        <!-- Stop Scan Form -->
+                        <form id="stop-scan-form">
+                            <div class="button-group">
+                                <button type="submit" id="stop-scan-button" class="stop-button">Stop Scan</button>
+                            </div>
+                        </form>
+                    </div>
+                </form>
+
+                <!-- Projects Section -->
+                <div id="projects-section">
+                    <h3>Projects</h3>
+                    <ul id="projects-list">
+                        {% for project in projects %}
+                        <li class="project-item">
+                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}">
+                            <label for="project-{{ loop.index }}">{{ project }}</label>
+                            <button class="rename-button" onclick="renameProject('{{ project }}')">Rename</button>
+                        </li>
+                        {% else %}
+                        <li>No projects available.</li>
+                        {% endfor %}
+                    </ul>
+
+                    <!-- New Project Form -->
+                    <form id="new-project-form">
+                        <label for="newProjectName">New Project Name:</label>
+                        <input type="text" id="newProjectName" name="newProjectName" required>
+                        <button type="submit" class="validate-button">Create Project</button>
+                    </form>
+                </div>
+            </div>
+
+            <h2>Configurations</h2>
+            <form action="{{ url_for('update_configurations') }}" method="post">
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                        <th>Range</th>
+                    </tr>
+                    {% for key, config in configurations.items() %}
+                    <tr>
+                        <td>{{ key }}</td>
+                        <td>
+                            {% if config.type == 'enum' %}
+                            <select name="{{ key }}" required>
+                                {% for option_value, option_label in config.options.items() %}
+                                <option value="{{ option_value }}" {% if config.value == option_value %}selected{% endif %}>
+                                    {{ option_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <input type="text" name="{{ key }}" value="{{ config.value }}" required>
+                            {% endif %}
+                        </td>
+                        <td class="config-description">{{ config.description }}</td>
+                        <td class="config-range">
+                            {% if config.options %}
+                                Options: {{ config.options.values()|join(', ') }}
+                            {% else %}
+                                Min: {{ config.min }}, Max: {{ config.max }}
+                                <br>
+                                Default: {{ config.default }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                <input type="submit" value="Update Configurations" class="validate-button">
+            </form>
+
+            <h2>Output Directory</h2>
+            <form action="{{ url_for('change_output_directory') }}" method="post">
+                <label for="output_directory">Current Output Directory:</label>
+                <input type="text" id="output_directory" name="output_directory" value="{{ output_directory }}" required><br><br>
+                <input type="submit" value="Change Output Directory" class="validate-button">
+            </form>
+
+            <h2>Server Controls</h2>
+            <form action="{{ url_for('shutdown') }}" method="post" onsubmit="return confirmShutdown(event);">
+                <input type="submit" value="Shutdown Flask Server" class="restart-button">
+            </form>
+        </div>
+        <div id="right-panel">
+            <h2>
+                <button type="button" onclick="toggleViewer()">3D Viewer</button>
+                <input type="checkbox" id="3d-preview-checkbox" onchange="save3DPreviewSetting()" checked> Show 3D Previewer
+                <button type="button" onclick="manualRefresh()">Refresh Viewer</button>
+            </h2>
+            <div id="viewer-container">
+                <!-- 3D Viewer Canvas -->
+                <div id="viewer" style="width: 100%; height: 400px"></div>
+            </div>
+            <h2>Logs</h2>
+            <div id="log-output">
+                Loading logs...
+            </div>
+        </div>
+    </div>
+</body>
+</html>
