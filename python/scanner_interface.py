@@ -7,6 +7,7 @@ import open3d as o3d
 import os
 import sys
 from typing import Optional
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -28,18 +29,14 @@ class ScannerInterface:
     def __init__(self, lib_path: str, ip_address: str = "192.168.100.1", timeout: int = 5000, output_directory: Optional[str] = None):
         """
         Initialize the ScannerInterface.
-
-        :param lib_path: Path to the sensor SDK library (.dll or .so).
-        :param ip_address: IP address of the sensor.
-        :param timeout: Connection timeout in milliseconds.
-        :param output_directory: Directory to save output files.
         """
         if output_directory is None:
-            # Determine the base directory where this script is located
             base_dir = os.path.dirname(os.path.abspath(__file__))
             output_directory = os.path.join(base_dir, "output")
-
         self.output_directory = output_directory
+
+        # Initialize scan counter
+        self.scan_counter = 1  # Start counting from 1
 
         try:
             self.lib = cdll.LoadLibrary(lib_path)
@@ -99,9 +96,6 @@ class ScannerInterface:
     def connect(self, max_retries: int = 3) -> bool:
         """
         Attempt to connect to the sensor.
-
-        :param max_retries: Maximum number of connection attempts.
-        :return: True if connected successfully, False otherwise.
         """
         with self.lock:
             logger.info("Attempting to connect to the sensor.")
@@ -146,7 +140,7 @@ class ScannerInterface:
                     command.encode(),
                     readBuffer,
                     1024,
-                    0  # Corrected: Reserved should be 0
+                    0
                 )
                 if result != SENSOR3D_OK:
                     logger.error(f"Error reading {command}, result code: {result}")
@@ -158,13 +152,9 @@ class ScannerInterface:
                 logger.error(f"Exception while reading parameter {command}: {e}")
                 return None
 
-
     def write_sensor_command(self, command: str) -> bool:
         """
         Send a command to the sensor, appending '\r' if not present.
-
-        :param command: Command string to send to the sensor.
-        :return: True if the command was executed successfully, False otherwise.
         """
         with self.lock:
             try:
@@ -182,14 +172,12 @@ class ScannerInterface:
     def perform_scan(self, nrScans: int):
         """
         Perform a scan and save the point cloud data.
-
-        :param nrScans: Number of scans to perform.
         """
         try:
             # Hardcoded configurations
-            sensor_mode = "4"        # 4: 3D Point Cloud
-            trigger_source = "0"     # 0: Internal trigger
-            led_pattern = "28"       # 28: Predefined LED pattern
+            sensor_mode = "4"
+            trigger_source = "0"
+            led_pattern = "28"
 
             # Ensure output directory exists
             os.makedirs(self.output_directory, exist_ok=True)
@@ -233,7 +221,6 @@ class ScannerInterface:
             nrPixels = camera_width * camera_height
             pc_size = (sizeof(POINT3D) + sizeof(c_ushort)) * nrPixels
 
-            # Initialize buffers
             PointArrayType = POINT3D * nrPixels
             IntensityArrayType = c_ushort * nrPixels
 
@@ -268,7 +255,6 @@ class ScannerInterface:
                 # Convert to numpy arrays
                 points_np = np.zeros((number_of_points.value, 3), dtype=np.float64)
                 intensities_np = np.zeros((number_of_points.value,), dtype=np.uint16)
-
                 for idx in range(number_of_points.value):
                     point = scanBuffer.point[idx]
                     points_np[idx, :] = [point.x, point.y, point.z]
@@ -280,12 +266,17 @@ class ScannerInterface:
                 intensities_normalized = (intensities_np / 65535).astype(np.float64)
                 pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
 
+                # Use the scan counter to create a filename that counts up
+                output_filename = os.path.join(self.output_directory, f"point_cloud_{self.scan_counter}.ply")
+
                 # Save the full point cloud as a .ply file
-                output_filename = os.path.join(self.output_directory, f"point_cloud_{i+1}.ply")
                 o3d.io.write_point_cloud(output_filename, pcd)
                 logger.info(f"Saved point cloud to {output_filename}")
 
-                # Always reduce and save the point cloud
+                # Increment scan counter
+                self.scan_counter += 1
+
+                # Save the reduced point cloud
                 self.reduce_and_save_point_cloud(pcd, scan_number=i+1)
 
             # Stop acquisition
@@ -297,52 +288,11 @@ class ScannerInterface:
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")
 
-
-    def reduce_and_save_point_cloud(self, pcd: o3d.geometry.PointCloud, scan_number: int):
+    def reduce_and_save_point_cloud(self, point_cloud: o3d.geometry.PointCloud, scan_number: int):
         """
-        Reduce the point cloud to less than 100,000 points and save it.
-
-        :param pcd: The original point cloud.
-        :param scan_number: The scan number for naming purposes.
+        Reduce the point cloud and save it as a .ply file.
         """
-        try:
-            num_points = len(pcd.points)
-            logger.info(f"Original point cloud has {num_points} points.")
-
-            if num_points > 100000:
-                # Calculate voxel size to reduce to approximately 100,000 points
-                voxel_size = self.calculate_voxel_size(pcd, target_points=100000)
-                pcd_reduced = pcd.voxel_down_sample(voxel_size=voxel_size)
-                logger.info(f"Reduced point cloud to {len(pcd_reduced.points)} points using voxel size {voxel_size}.")
-            else:
-                pcd_reduced = pcd
-                logger.info("Point cloud size is within the desired limit. No reduction needed.")
-
-            # Save the reduced point cloud to a fixed filename, overwriting previous
-            reduced_pcd_filename = os.path.join(self.output_directory, "reduced_point_cloud.ply")
-            o3d.io.write_point_cloud(reduced_pcd_filename, pcd_reduced)
-            logger.info(f"Saved reduced point cloud to {reduced_pcd_filename}")
-        except Exception as e:
-            logger.error(f"Error during point cloud reduction and saving: {e}")
-
-    def calculate_voxel_size(self, pcd: o3d.geometry.PointCloud, target_points: int = 100000) -> float:
-        """
-        Calculate an appropriate voxel size to reduce the point cloud to approximately target_points.
-
-        :param pcd: The original point cloud.
-        :param target_points: The desired number of points after reduction.
-        :return: The calculated voxel size.
-        """
-        try:
-            # Estimate voxel size by scaling based on the ratio of target_points to current points
-            num_points = len(pcd.points)
-            if num_points <= target_points:
-                return 0.0  # No reduction needed
-
-            ratio = (num_points / target_points) ** (1/3)  # Assuming uniform scaling
-            voxel_size = 0.1 * ratio  # Base voxel size is 0.1, adjust as needed
-            voxel_size = max(voxel_size, 0.01)  # Set a minimum voxel size
-            return voxel_size
-        except Exception as e:
-            logger.error(f"Error calculating voxel size: {e}")
-            return 0.1  # Default voxel size
+        reduced_pcd = point_cloud.voxel_down_sample(voxel_size=0.1)
+        reduced_filename = os.path.join(self.output_directory, f"reduced_point_cloud_{scan_number}.ply")
+        o3d.io.write_point_cloud(reduced_filename, reduced_pcd)
+        logger.info(f"Saved reduced point cloud to {reduced_filename}")
