@@ -1,6 +1,8 @@
 # Docker Container Setup Using Docker Desktop UI
 
-This guide will help you set up a Docker image and container using Docker Desktop UI, starting from a Dockerfile. The process includes building the image, configuring binds, mapping ports, and starting the container to run a Flask web application.
+**NOTE! This is only required if you wish to run the repository on MacOS, it is Apple silicon compatitble!**
+
+This guide will help you set up a Docker image and container using Docker Desktop UI, starting from a Dockerfile. The process includes building the image, configuring binds, mapping ports, and starting the container to run a Flask web application. 
 
 ### Prerequisites
 - Docker Desktop is installed and running on your Mac.
