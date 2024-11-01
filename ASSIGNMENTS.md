@@ -23,4 +23,18 @@ Quality Control comparison, OPEN: @Emil
 Scanner communication: @SMarius
 
 Motor control: @tokeraabjerg, @Elbaek01
+IA: Initial Alignment Estimate, OPEN: @SMarius001
+
+Start of iterative loop:
+PA: Point Association, Heuristics, OPEN: @MDP
+
+EM: Error Metric Reduction, Point-to-Plane, OPEN:
+End of iterative loop.
+
+PM: Point cloud merging, OPEN:
+*Merge transformed point clouds*
+
+Quality Control comparison, OPEN:
+*Consists of converting CAD model to point cloud, running PA, and computing average distance*
+
 
