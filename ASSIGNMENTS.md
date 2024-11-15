@@ -11,7 +11,10 @@ User interface, OPEN: @tokeraabjerg
 
 Documentation, GITHUB integration, OPEN: @tokeraabjerg
 
-IA: Initial Alignment Estimate, OPEN: @SMarius001
+PCP: Point Cloud Processing, OPEN:
+Master, which calls slave programs, IA, PA, EM, and PM
+
+IA: Initial Alignment Estimate, OPEN: @SMarius001 ?
 
 Start of iterative loop:
 PA: Point Association, Heuristics, OPEN: @MDP
