@@ -8,6 +8,7 @@
 #                     Reading and writing 3D scan data stored in binary files.
 #                     The data order is column-major, therefore the
 #                     data is transposed when reading and writing.
+#                     !This is an old doc, meant to proces a specific file format no longer in use
 #===========================================================================
 import numpy as np
 
