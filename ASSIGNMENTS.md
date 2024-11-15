@@ -11,6 +11,7 @@ User interface, OPEN: @tokeraabjerg
 
 Documentation, GITHUB integration, OPEN: @tokeraabjerg
 
+<<<<<<< HEAD
 PCP: Point Cloud Processing, OPEN: @MDP
 Master, which calls slave programs, DB DT EE IA ICP
 
@@ -24,6 +25,12 @@ Scanner communication: @SMarius
 
 Motor control: @tokeraabjerg, @Elbaek01
 IA: Initial Alignment Estimate, OPEN: @SMarius001
+=======
+PCP: Point Cloud Processing, OPEN:
+Master, which calls slave programs, IA, PA, EM, and PM
+
+IA: Initial Alignment Estimate, OPEN: @SMarius001 ?
+>>>>>>> 6af6dad (Added structure for PCP.py, created multiple files)
 
 Start of iterative loop:
 PA: Point Association, Heuristics, OPEN: @MDP
