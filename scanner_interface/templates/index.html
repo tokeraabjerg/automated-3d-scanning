@@ -11,6 +11,9 @@
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2.min.css') }}">
     
+    <!-- Font Awesome CSS for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pb+VGBVzCQ4iRHjaC1G8T2bKGgE+SpQhVXznM1HgF0fH4EmZWIdzC8AunB3lns0hgiJhG8S+DxP8KJNRTZr+Ug==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
     <!-- Include three.js and its dependencies -->
     <script src="{{ url_for('static', filename='three.min.js') }}"></script>
     <script src="{{ url_for('static', filename='OrbitControls.js') }}"></script>
@@ -72,12 +75,21 @@
                 <!-- Projects Section -->
                 <div id="projects-section">
                     <h3>Projects</h3>
-                    <ul id="projects-list">
+                    <ul id="projects-list" class="projects-list">
                         {% for project in projects %}
                         <li class="project-item">
-                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}">
-                            <label for="project-{{ loop.index }}">{{ project }}</label>
-                            <button class="rename-button" onclick="renameProject('{{ project }}')">Rename</button>
+                            <div class="project-info">
+                                <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}">
+                                <label for="project-{{ loop.index }}">{{ project }}</label>
+                            </div>
+                            <div class="project-actions">
+                                <button class="rename-button" onclick="renameProject('{{ project }}')">
+                                    <i class="fa-solid fa-pen-to-square"></i> Rename
+                                </button>
+                                <button class="delete-button" onclick="deleteProject('{{ project }}')">
+                                    <i class="fa-solid fa-trash"></i> Delete
+                                </button>
+                            </div>
                         </li>
                         {% else %}
                         <li>No projects available.</li>
@@ -93,6 +105,7 @@
                 </div>
             </div>
 
+            <br><br>
             <h2>Configurations</h2>
             <form action="{{ url_for('update_configurations') }}" method="post">
                 <table>
@@ -131,15 +144,11 @@
                     </tr>
                     {% endfor %}
                 </table>
+                <br>
                 <input type="submit" value="Update Configurations" class="validate-button">
             </form>
 
-            <h2>Output Directory</h2>
-            <form action="{{ url_for('change_output_directory') }}" method="post">
-                <label for="output_directory">Current Output Directory:</label>
-                <input type="text" id="output_directory" name="output_directory" value="{{ output_directory }}" required><br><br>
-                <input type="submit" value="Change Output Directory" class="validate-button">
-            </form>
+            <br>
 
             <h2>Server Controls</h2>
             <form action="{{ url_for('shutdown') }}" method="post" onsubmit="return confirmShutdown(event);">
