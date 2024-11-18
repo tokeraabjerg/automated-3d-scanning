@@ -102,7 +102,6 @@ function checkScannerStatus() {
 
 // Function to fetch and display logs every 2 seconds
 function fetchLogs() {
-    let shouldAutoScroll = true;
     fetch('/get_logs')
         .then(response => {
             if (!response.ok) {
@@ -112,11 +111,11 @@ function fetchLogs() {
         })
         .then(data => {
             const logOutput = document.getElementById('log-output');
-            const isScrolledToBottom = logOutput.scrollHeight - logOutput.clientHeight <= logOutput.scrollTop + 1;
-            logOutput.textContent = data;
-            if (shouldAutoScroll && isScrolledToBottom) {
-                logOutput.scrollTop = logOutput.scrollHeight;
-            }
+            // Split the log data into lines, reverse the order, and join back into a string
+            let reversedLogs = data.split('\n').reverse().join('\n');
+            logOutput.textContent = reversedLogs;
+            // Scroll to the top to show the newest logs
+            logOutput.scrollTop = 0;
         })
         .catch(error => {
             console.error('Error fetching logs:', error);
@@ -437,6 +436,46 @@ function renameProject(projectName) {
             });
         },
         allowOutsideClick: () => !Swal.isLoading()
+    });
+}
+
+// Function to delete a project using SweetAlert2
+function deleteProject(projectName) {
+    Swal.fire({
+        title: 'Delete Project',
+        text: `Are you sure you want to delete the project "${projectName}"? This action cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Proceed with deletion
+            fetch('/delete_project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    projectName: projectName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showSuccess(`Project "${projectName}" has been deleted.`, 'Project Management');
+                    // Reload the page or update the DOM
+                    location.reload();
+                } else {
+                    showError(`Error: ${data.message}`, 'Project Management');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting project:', error);
+                showError('An unexpected error occurred while deleting the project.', 'Project Management');
+            });
+        }
     });
 }
 

@@ -171,7 +171,7 @@ button, input[type="submit"] {
 
 #projects-list {
     list-style-type: none;
-    max-height: 300px;
+    max-height: 200px; /* Adjust based on the average height of a project item */
     overflow-y: auto;
     padding: 0;
     margin-bottom: 15px;
@@ -180,7 +180,7 @@ button, input[type="submit"] {
 .project-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between; /* Distribute space between label and actions */
     padding: 5px 0;
     border-bottom: 1px solid #eee;
 }
@@ -189,8 +189,21 @@ button, input[type="submit"] {
     border-bottom: none;
 }
 
-.rename-button {
-    background-color: #FFA500; /* Orange */
+.project-item label {
+    flex: 1; /* Take up remaining space */
+    margin-left: 10px; /* Space between radio button and label */
+}
+
+.project-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.rename-button, .delete-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #FFA500; /* Orange for rename, will override for delete */
     color: white;
     padding: 5px 10px;
     border: none;
@@ -199,8 +212,20 @@ button, input[type="submit"] {
     font-size: 12px;
 }
 
+.rename-button {
+    background-color: #FFA500; /* Orange */
+}
+
 .rename-button:hover {
     background-color: #FF8C00;
+}
+
+.delete-button {
+    background-color: #FF4C4C; /* Red */
+}
+
+.delete-button:hover {
+    background-color: #FF0000;
 }
 
 /* New Project Form Styling */
@@ -239,4 +264,22 @@ button, input[type="submit"] {
     .scan-projects-container {
         flex-direction: column;
     }
+}
+
+/* Optional: Customize scrollbar for better aesthetics */
+#projects-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#projects-list::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+
+#projects-list::-webkit-scrollbar-thumb {
+    background: #888; 
+    border-radius: 4px;
+}
+
+#projects-list::-webkit-scrollbar-thumb:hover {
+    background: #555; 
 }
