@@ -21422,3 +21422,17 @@ TypeError: initiate_scan() got an unexpected keyword argument 'project'
 2024-11-18 15:20:02,276 - __main__ - WARNING - Failed to reconnect to the scanner.
 2024-11-18 15:20:10,742 - __main__ - INFO - Attempting to reconnect to the scanner...
 2024-11-18 15:20:10,746 - scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-18 15:20:12,279 - __main__ - INFO - Attempting to reconnect to the scanner...
+2024-11-18 15:20:12,281 - scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-18 15:20:15,765 - scanner_interface - WARNING - Connection attempt 1/3 failed.
+2024-11-18 15:20:17,293 - scanner_interface - WARNING - Connection attempt 1/3 failed.
+2024-11-18 15:20:21,791 - scanner_interface - WARNING - Connection attempt 2/3 failed.
+2024-11-18 15:20:23,308 - scanner_interface - WARNING - Connection attempt 2/3 failed.
+2024-11-18 15:20:27,813 - scanner_interface - WARNING - Connection attempt 3/3 failed.
+2024-11-18 15:20:28,820 - scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-18 15:20:28,822 - __main__ - WARNING - Failed to reconnect to the scanner.
+2024-11-18 15:20:29,321 - scanner_interface - WARNING - Connection attempt 3/3 failed.
+2024-11-18 15:20:30,324 - scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-18 15:20:30,325 - __main__ - WARNING - Failed to reconnect to the scanner.
+2024-11-18 15:20:38,835 - __main__ - INFO - Attempting to reconnect to the scanner...
+2024-11-18 15:20:38,838 - scanner_interface - INFO - Attempting to connect to the sensor.
