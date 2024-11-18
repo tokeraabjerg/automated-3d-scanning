@@ -96,6 +96,7 @@ def disconnect_scanner():
     """
     Disconnect the scanner if it is connected.
     """
+    global scanner
     if scanner is not None:
         scanner.disconnect()
         logger.info("Scanner disconnected.")
@@ -303,31 +304,6 @@ def stop_scan():
         logger.warning("Attempted to stop scan, but scanner instance is None.")
         return jsonify({"status": "error", "message": "Scanner is not connected."}), 400
 
-@app.route('/change_output_directory', methods=['POST'])
-def change_output_directory():
-    """
-    Change the directory where scan data is stored.
-    """
-    global output_directory
-    new_directory = request.form.get('output_directory')
-    if new_directory:
-        # Make the new directory path relative to base_dir if it's not absolute
-        if not os.path.isabs(new_directory):
-            new_directory = os.path.join(base_dir, new_directory)
-        # Ensure the new output directory exists
-        try:
-            os.makedirs(new_directory, exist_ok=True)
-            output_directory = new_directory
-            if scanner:
-                scanner.output_directory = output_directory  # Update scanner's output_directory
-            project_manager.output_dir = output_directory  # Update ProjectManager's output_dir
-            logger.info(f"Output directory changed to {output_directory}")
-        except Exception as e:
-            logger.error(f"Failed to change output directory to {new_directory}: {e}")
-            return "Failed to change output directory.", 400
-    else:
-        logger.warning("No output directory provided in the request.")
-    return redirect(url_for('index'))
 
 @app.route('/get_logs')
 def get_logs():
@@ -427,6 +403,29 @@ def create_project():
     except Exception as e:
         logger.error(f"Error creating project: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to create project.'}), 500
+
+@app.route('/delete_project', methods=['POST'])
+def delete_project():
+    """
+    Handle the delete project action.
+    Expects JSON data with 'projectName'.
+    """
+    data = request.get_json()
+    project_name = data.get('projectName')
+
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name not provided.'}), 400
+
+    try:
+        project_manager.delete_project(project_name)
+        logger.info(f"Deleted project: {project_name}")
+        return jsonify({'status': 'success'}), 200
+    except FileNotFoundError as e:
+        logger.error(e)
+        return jsonify({'status': 'error', 'message': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to delete project.'}), 500
 
 if __name__ == '__main__':
     try:
