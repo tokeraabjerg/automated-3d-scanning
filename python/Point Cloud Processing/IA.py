@@ -18,13 +18,13 @@ def RANSAC_initial_alignment(source, target):
 
     # Use RANSAC to find a rough initial alignment
     # RANSAC-konvergenskriterier og estimation method
-    Criteria = o3d.pipelines.registration.RANSACConvergenceCriteria(max_iteration=1000, confidence=0.99)
+    Criteria = o3d.pipelines.registration.RANSACConvergenceCriteria(max_iteration=100, confidence=0.99)
 
     result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
         target, source, target_fpfh, source_fpfh,
         mutual_filter=True, max_correspondence_distance=0.10,
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
-        ransac_n=50,  # Antal punkter for at beregne transformationen
+        ransac_n=4,  # Antal punkter for at beregne transformationen
         criteria=Criteria)  # Brug RANSAC-konvergenskriterier
 
 

@@ -1,94 +1,105 @@
 import open3d as o3d
 import numpy as np
-from IA import RANSAC_initial_alignment
-from ICP import point_association
+from IA import RANSAC_initial_alignment, rotate_point_cloud
+from ICP import Point_to_Plane
 from EE import calculate_error
 
-def process_point_clouds(source_path, target_path, voxel_size=0.001, max_correspondence_distance=0.02):
+def process_point_clouds(ply_files, rotation_vectors, voxel_size=0.001, max_correspondence_distance=0.02):
     """
-    Main function to process point clouds. It performs the following steps:
-    - Loads source and target point clouds.
-    - Runs initial alignment (ICP or feature matching).
-    - Performs point association (ICP).
-    - Visualizes the aligned point clouds.
-    - Calculates registration error.
-
+    Process a list of point clouds by registering and merging them iteratively.
+    
     Parameters:
-    - source_path: Path to the source point cloud file.
-    - target_path: Path to the target point cloud file.
+    - ply_files: List of paths to the point cloud files.
     - voxel_size: Voxel size for downsampling.
     - max_correspondence_distance: Max distance for point correspondence during ICP.
 
     Returns:
-    - transformation: The final transformation matrix after ICP.
-    - aligned_source: The aligned source point cloud.
+    - combined_cloud: The final merged point cloud.
     """
+    if len(ply_files) < 2:
+        raise ValueError("At least two point cloud files are required for registration.")
     
-    # Step 1: Load point clouds
-    source_leg = o3d.io.read_point_cloud(source_path)
-    target_leg = o3d.io.read_point_cloud(target_path)
-    
-    # Save legacy clouds prior to registration
-    source=source_leg
-    target=target_leg
+    # Load the first point cloud as the initial source
+    combined_cloud = o3d.io.read_point_cloud(ply_files[0])
+    combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
 
-    target.paint_uniform_color([1, 0.706, 0])
-    # o3d.visualization.draw_geometries([source, target])
-    
-    # Step 2: Downsample the point clouds
-    source = source.voxel_down_sample(voxel_size)
-    target = target.voxel_down_sample(voxel_size)
-    
-    # Step 3: Initial alignment (can be feature matching or ICP with coarse alignment) 
-    # Currently RANSAC, shall be updated to consider alignment from joints
-    print("Performing initial alignment...")
-    initial_transformation = RANSAC_initial_alignment(source, target)
-    print("Initial alignment transformation applied:")
-    print(initial_transformation)
-    target.transform(initial_transformation)
-    o3d.visualization.draw_geometries([source, target])
-
-    # Step 4: Point-to-Plane
-    print("Performing Point-to-Plane")
-    transformation_ICP, aligned_target = point_association(source, target)
-    o3d.visualization.draw_geometries([source, target])
-    
-    # Step 5: Compare transformed target, if pass inspection, merge into source
-    rmse_rating=calculate_error(source,target)
-    print('rmse rating is:')
-    print(rmse_rating)
-
-    if rmse_rating < 0.005:
+    for i in range(1, len(ply_files)):
+        print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
         
-        combined = source + target
-        # Potentially, downsize:
-        # combined = combined.voxel_down_sample(voxel_size)
-        print('merge succesful')
-        o3d.visualization.draw_geometries([combined])
+        # Load the next point cloud
+        target_cloud = o3d.io.read_point_cloud(ply_files[i])
+        target_cloud = target_cloud.voxel_down_sample(voxel_size)
+        target_cloud.paint_uniform_color([1, 0.706, 0])
 
-    else:
-        print('merge failed')
+        # Step 1: Initial alignment (RANSAC or other coarse alignment)
+        initial_transformation = [None] * len(ply_files)
+        if rotation_vectors[i] == (0, 0, 0):
+            print("Performing RANSAC initial alignment...")
+            initial_transformation[i] = RANSAC_initial_alignment(combined_cloud, target_cloud)
+            print("Initial alignment transformation applied:")
+            print(initial_transformation[i])
+            target_cloud.transform(initial_transformation[i])
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
+        else:
+            target_cloud, initial_transformation[i]=rotate_point_cloud(target_cloud, rotation_vectors, i)
+            print(initial_transformation[i])
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Rotated Point Cloud")
+        # Estimating normals for source and target point clouds
+        radius_normal = 0.1  # Radius til normal estimering
+        combined_cloud.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))  # Øget max_nn for at få tilstrækkelige naboer
+        target_cloud.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
 
-    return combined
+        # Step 2: Point-to-Plane ICP
+        print("Performing ICP registration...")
+        transformation_ICP, aligned_target = Point_to_Plane(combined_cloud, target_cloud)
+
+        # Step 3: Calculate RMSE
+        rmse_rating = calculate_error(combined_cloud, aligned_target)
+        print(f"RMSE rating: {rmse_rating}")
+
+        # Step 4: Merge if RMSE is acceptable !! This needs to be updated in some way. 
+        # I have yet to find an intelligent solution. 
+        # Technically, I guess it should'nt be here, since the ICP script should have rejected it.
+        if rmse_rating < 0.02:
+            combined_cloud += aligned_target
+            print("Merge successful.")
+        else:
+            print("Merge failed. Skipping this cloud.")
+        
+        # Optional: Visualize the current merged cloud
+        o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
+
+    return combined_cloud
 
 
-
-
-    
 # Example of how to call the function
 if __name__ == "__main__":
-    source_file = r"C:\Users\mikke\Desktop\bunny\data\bun000.ply"
-    target_file = r"C:\Users\mikke\Desktop\bunny\data\bun045.ply"
-    
-    # Call the function with appropriate arguments
-    transformation, aligned_source = process_point_clouds(source_file, target_file)
+    # List of .ply files to process
+    ply_files = [
+        r"C:\Users\mikke\Desktop\bunny\data\bun000.ply",
+        r"C:\Users\mikke\Desktop\bunny\data\bun045.ply",
+        r"C:\Users\mikke\Desktop\bunny\data\bun090.ply"
+        #r"C:\Users\mikke\Desktop\bunny\data\bun315.ply"
+        #r"C:\Users\mikke\Desktop\bunny\data\bun270.ply"
+    ]
 
+    #rotation_degrees = [0, 45, 90, 315, 270]   
+    rotation_vectors = [
+    (0, 0, 0),    # Tom første indgang
+    (0, 0, 0),   # Rotation omkring en vilkårlig akse
+    (0, 90, 0)    # 90 grader omkring y-aksen
+    ]
+    # rotation_vectors=()
+    # Process the point clouds
+    print("Starting point cloud processing...")
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=0.001, max_correspondence_distance=0.02)
 
+    # Save the final merged point cloud
+    output_file = "merged_point_cloud.ply"
+    o3d.io.write_point_cloud(output_file, final_cloud)
+    print(f"Final merged point cloud saved to: {output_file}")
 
-
-# Brug funktionen med en liste af .ply-filer
-    ply_files = [r"C:\Users\mikke\Desktop\bunny\data\bun000.ply", r"C:\Users\mikke\Desktop\bunny\data\bun045.ply"]
-ply_files = [r"C:\Users\mikke\Desktop\bunny\data\bun000.ply", r"C:\Users\mikke\Desktop\bunny\data\bun045.ply", r"C:\Users\mikke\Desktop\bunny\data\bun090.ply"]
-output_file = "merged_point_cloud.ply"
-
-# process_point_clouds(r"C:\Users\mikke\Desktop\bunny\data\bun000.ply", r"C:\Users\mikke\Desktop\bunny\data\bun090.ply", voxel_size=0.01, max_correspondence_distance=0.02)
+    # Visualize the final result
+    o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
