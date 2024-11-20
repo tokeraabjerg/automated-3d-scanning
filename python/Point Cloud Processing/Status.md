@@ -1,9 +1,11 @@
-Lige nu er jeg ved at debug, og sætte mig ind i kode generelt.
-Regl nr 1. er, at beskrive koden tilstrækkeligt. 
-Derudover, prøv at test koden trin for trin (brug evt. visualisering af PC under hvert trin)
+Status doc
 
-Initial alignment med RANSAC virker meget inconsistent. Skift til closest point?
+PCP testbed er lovende.
+ønskede forbedringer:
 
-PTP virker ikke specielt godt 
+Forfining af opløsning (dvs. voxel size stiger løbende)
+Oprydning i koden.
+Stærkere værktøj til Initial alignement (Kan vi finde omdrejnignsakse, og komme med bedre bud?)
+Bedre skalering af Max dist. etc, således det afhænger af voxel size.
+Bedre forklaring af normal space sampling
 
-Afprøv noget hvor vi bruger normal info... evt. normal space sampling?
