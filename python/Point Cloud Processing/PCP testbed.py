@@ -1,11 +1,12 @@
 import open3d as o3d
 import numpy as np
-from IA import RANSAC_initial_alignment, rotate_point_cloud
+from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
 from ICP import Point_to_Plane
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
 from BB import compute_bounding_box
+from PP import preprocess_point_cloud
 
 def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     """
@@ -24,8 +25,18 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     
     # Load the first point cloud as the initial source
     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
-    combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
 
+    # Preproces: Downsize, Remove outliers, Find normals, Find features:
+    # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
+    combined_cloud, combined_fpfh=preprocess_point_cloud(combined_cloud, voxel_size)
+
+    # Downsample using normal space sampling (now part of preprocess)
+    # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
+
+    # Visualize the downsampled point cloud
+    o3d.visualization.draw_geometries([combined_cloud], window_name="Preproccesed Point Cloud")
+
+    
     # Beregn bounding box
     min_bound, max_bound = compute_bounding_box(combined_cloud)
 
@@ -33,10 +44,6 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     bbox_size = max_bound - min_bound
     print(f"Størrelse af bounding box: {bbox_size}")
 
-    o3d.visualization.draw_geometries([combined_cloud])
-    print("Statistical oulier removal")
-    combined_cloud, ind = combined_cloud.remove_statistical_outlier(nb_neighbors=100, std_ratio=0.5)
-    o3d.visualization.draw_geometries([combined_cloud], window_name="Statistical outliers removed")
 #    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
 #    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
 
@@ -45,8 +52,10 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
-        target_cloud = target_cloud.voxel_down_sample(voxel_size)
-        target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=100, std_ratio=0.5)
+
+        target_cloud, target_fpfh=preprocess_point_cloud(target_cloud, voxel_size)
+        #target_cloud = target_cloud.voxel_down_sample(voxel_size)
+        #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
         target_cloud.paint_uniform_color([1, 0.706, 0])
 
         # Step 1: Initial alignment (RANSAC or other coarse alignment)
@@ -62,13 +71,26 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
             target_cloud, initial_transformation[i]=rotate_point_cloud(target_cloud, rotation_vectors, i)
             print(initial_transformation[i])
             o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Rotated Point Cloud")
+
+            combined_center = np.mean(np.asarray(combined_cloud.points), axis=0)
+            target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+            translation_vector=combined_center-target_center
+            target_cloud.translate(translation_vector)
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
+            
+            # result=execute_global_registration(combined_cloud, target_cloud, combined_fpfh, target_fpfh, voxel_size)
+            # target_cloud.transform(result.transformation)
+            # o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="New RANSAC")
+            # source_down, target_down, source_fpfh, target_fpfh, voxel_size
+
+
         result=decompose_transformation(initial_transformation[i])
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
         # Estimating normals for source and target point clouds
-        radius_normal = 0.1  # Radius til normal estimering
+        radius_normal = 2*voxel_size  # Radius til normal estimering
         combined_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))  # Øget max_nn for at få tilstrækkelige naboer
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
         target_cloud.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
 
@@ -131,14 +153,14 @@ if __name__ == "__main__":
 
     rotation_vectors = [
     (None),    # Tom første indgang
-    (15, 0, 0)     # Rotation omkring en vilkårlig akse
+    (25, 0, 0)     # Rotation omkring en vilkårlig akse
     #(0, 0, 0)    # 90 grader omkring y-aksen
     ]
 
 
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=10)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
