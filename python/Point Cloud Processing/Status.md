@@ -6,3 +6,4 @@ Initial alignment med RANSAC virker meget inconsistent. Skift til closest point?
 
 PTP virker ikke specielt godt 
 
+Afprøv noget hvor vi bruger normal info... evt. normal space sampling?
