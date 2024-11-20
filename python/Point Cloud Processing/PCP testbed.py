@@ -5,6 +5,7 @@ from ICP import Point_to_Plane
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
+from BB import compute_bounding_box
 
 def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     """
@@ -24,10 +25,20 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Load the first point cloud as the initial source
     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
     combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    print("Statistical oulier removal")
-    combined_cloud, ind = combined_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=2.0)
-    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
+
+    # Beregn bounding box
+    min_bound, max_bound = compute_bounding_box(combined_cloud)
+
+    # Beregn størrelse af bounding box
+    bbox_size = max_bound - min_bound
+    print(f"Størrelse af bounding box: {bbox_size}")
+
     o3d.visualization.draw_geometries([combined_cloud])
+    print("Statistical oulier removal")
+    combined_cloud, ind = combined_cloud.remove_statistical_outlier(nb_neighbors=100, std_ratio=0.5)
+    o3d.visualization.draw_geometries([combined_cloud], window_name="Statistical outliers removed")
+#    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
+#    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
 
     for i in range(1, len(ply_files)):
         print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
@@ -35,12 +46,12 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
         target_cloud = target_cloud.voxel_down_sample(voxel_size)
-        target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=2.0)
+        target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=100, std_ratio=0.5)
         target_cloud.paint_uniform_color([1, 0.706, 0])
 
         # Step 1: Initial alignment (RANSAC or other coarse alignment)
         initial_transformation = [None] * len(ply_files)
-        if rotation_vectors[i] == (0, 0, 0):
+        if rotation_vectors[i] == (None):
             print("Performing RANSAC initial alignment...")
             initial_transformation[i] = RANSAC_initial_alignment(combined_cloud, target_cloud)
             print("Initial alignment transformation applied:")
@@ -63,6 +74,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
         # Step 2: Point-to-Plane ICP
         print("Performing ICP registration...")
+        # Initialize the array containing all ICP transformaitons
         transformation_ICP = [None] * len(ply_files)
         transformation_ICP[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
         
@@ -78,7 +90,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         # Step 4: Merge if RMSE is acceptable !! This needs to be updated in some way. 
         # I have yet to find an intelligent solution. 
         # Technically, I guess it should'nt be here, since the ICP script should have rejected it.
-        if rmse_rating < 0.02:
+        if rmse_rating < 50:
             combined_cloud += aligned_target
 #            combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
 #            combined_cloud.paint_uniform_color([1, 0.706, 0])
@@ -118,7 +130,7 @@ if __name__ == "__main__":
     ]
 
     rotation_vectors = [
-    (0, 0, 0),    # Tom første indgang
+    (None),    # Tom første indgang
     (15, 0, 0)     # Rotation omkring en vilkårlig akse
     #(0, 0, 0)    # 90 grader omkring y-aksen
     ]
@@ -126,7 +138,7 @@ if __name__ == "__main__":
 
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=0.05)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=10)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"

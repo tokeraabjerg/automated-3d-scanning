@@ -12,15 +12,7 @@ User interface, OPEN: @tokeraabjerg
 Documentation, GITHUB integration, OPEN: @tokeraabjerg
 
 PCP: Point Cloud Processing, OPEN: @MDP
-Master, which calls slave programs, IA, PA, EM, and PM
-
-IA: Initial Alignment Estimate
-
-Start of iterative loop:
-PA: Point Association, Heuristics
-
-EM: Error Metric Reduction, Point-to-Plane
-End of iterative loop.
+Master, which calls slave programs, DB DT EE IA ICP
 
 PM: Point cloud mergin
 *Merge transformed point clouds*
