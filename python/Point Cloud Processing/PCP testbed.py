@@ -28,7 +28,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    combined_cloud, combined_fpfh=preprocess_point_cloud(combined_cloud, voxel_size)
+    combined_cloud, combined_fpfh, combined_voxel=preprocess_point_cloud(combined_cloud, voxel_size)
 
     # Downsample using normal space sampling (now part of preprocess)
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
@@ -53,12 +53,13 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
 
-        target_cloud, target_fpfh=preprocess_point_cloud(target_cloud, voxel_size)
+        target_cloud, target_fpfh, target_voxel=preprocess_point_cloud(target_cloud, voxel_size)
         #target_cloud = target_cloud.voxel_down_sample(voxel_size)
         #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
         target_cloud.paint_uniform_color([1, 0.706, 0])
+        target_voxel.paint_uniform_color([1, 0.706, 0])
 
-        # Step 1: Initial alignment (RANSAC or other coarse alignment)
+            # Step 1: Initial alignment (RANSAC or other coarse alignment)
         initial_transformation = [None] * len(ply_files)
         if rotation_vectors[i] == (None):
             print("Performing RANSAC initial alignment...")
@@ -87,14 +88,15 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         result=decompose_transformation(initial_transformation[i])
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-        # Estimating normals for source and target point clouds
+        
+                # Step 2: Point-to-Plane ICP
+        # Estimating normals for source and target point clouds, som brugt i point to plane
         radius_normal = 2*voxel_size  # Radius til normal estimering
         combined_cloud.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
         target_cloud.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
 
-        # Step 2: Point-to-Plane ICP
         print("Performing ICP registration...")
         # Initialize the array containing all ICP transformaitons
         transformation_ICP = [None] * len(ply_files)
@@ -114,14 +116,20 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         # Technically, I guess it should'nt be here, since the ICP script should have rejected it.
         if rmse_rating < 50:
             combined_cloud += aligned_target
+  #          combined_voxel += aligned_voxel
 #            combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
 #            combined_cloud.paint_uniform_color([1, 0.706, 0])
             print("Merge successful.")
         else:
             print("Merge failed. Skipping this cloud.")
         
+        aligned_voxel=target_voxel.transform(initial_transformation[i])
+        aligned_voxel=aligned_voxel.translate(translation_vector)
+        aligned_voxel=aligned_voxel.transform(transformation_ICP[i])
+        combined_voxel += aligned_voxel
         # Optional: Visualize the current merged cloud
         o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
+        o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
 
     return combined_cloud
 
