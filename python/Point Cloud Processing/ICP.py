@@ -2,7 +2,7 @@ import open3d as o3d
 import numpy as np
 
 
-def Point_to_Plane(source, target):
+def Point_to_Plane(source, target, mcd):
     # Point Association using ICP for Open3D v0.18.0
     print("Running ICP...")
 
@@ -15,7 +15,7 @@ def Point_to_Plane(source, target):
 
     # Perform ICP
     icp_result = o3d.pipelines.registration.registration_icp(
-        target, source, max_correspondence_distance=0.02, 
+        target, source, max_correspondence_distance=mcd, 
         init=np.eye(4),  # Initial transformation (identity matrix)
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
         criteria=criteria
