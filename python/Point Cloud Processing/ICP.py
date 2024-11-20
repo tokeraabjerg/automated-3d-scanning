@@ -8,10 +8,11 @@ def Point_to_Plane(source, target, mcd):
 
     # Initializing convergence criteria (using ICPConvergenceCriteria)
     criteria = o3d.pipelines.registration.ICPConvergenceCriteria(
-        relative_fitness=1e-6, 
-        relative_rmse=1e-6, 
-        max_iteration=30
+        relative_fitness=1e-10, 
+        relative_rmse=1e-10, 
+        max_iteration=50
     )
+
 
     # Perform ICP
     icp_result = o3d.pipelines.registration.registration_icp(
@@ -20,7 +21,11 @@ def Point_to_Plane(source, target, mcd):
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
         criteria=criteria
     )
-    
+
+
+    print("Fitness: ", icp_result.fitness)
+    print("Inlier RMSE: ", icp_result.inlier_rmse)
+
     # Apply the transformation to the target point cloud
     target.transform(icp_result.transformation)
 
