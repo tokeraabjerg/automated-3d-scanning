@@ -99,12 +99,12 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
         print("Performing ICP registration...")
         # Initialize the array containing all ICP transformaitons
-        transformation_ICP = [None] * len(ply_files)
+        icp_transformation = [None] * len(ply_files)
         #transformation_ICP[i]=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
         #aligned_target=target_cloud.transform(transformation_ICP[i])
-        transformation_ICP[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
+        icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
         
-        combined_transformation = np.dot(transformation_ICP[i], initial_transformation[i])
+        combined_transformation = np.dot(icp_transformation[i], initial_transformation[i])
         result=decompose_transformation(combined_transformation)
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
@@ -125,7 +125,9 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         else:
             print("Merge failed. Skipping this cloud.")
         
-        aligned_voxel=target_voxel.transform(combined_transformation[i])
+        aligned_voxel=target_voxel.transform(initial_transformation[i])
+        aligned_voxel=aligned_voxel.translate(translation_vector)
+        aligned_voxel=aligned_voxel.transform(icp_transformation[i])
         combined_voxel += aligned_voxel
         # Optional: Visualize the current merged cloud
         o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
