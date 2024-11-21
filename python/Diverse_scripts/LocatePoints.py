@@ -82,9 +82,13 @@ def load_point_cloud(file_path):
     return pcd
 
 # File path to the point cloud
+<<<<<<< HEAD
 # file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
 file_path = r"C:\Users\mikke\Desktop\merged_point_cloud_test.ply"
 
+=======
+file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
 
 # Load the point cloud
 point_cloud = load_point_cloud(file_path)

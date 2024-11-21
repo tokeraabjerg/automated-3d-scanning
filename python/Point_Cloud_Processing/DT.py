@@ -10,7 +10,10 @@ def decompose_transformation(transformation):
     Returns:
         dict: En dictionary med 'translation' (x, y, z) og 'rotation' (roll, pitch, yaw i grader).
     """
+<<<<<<< HEAD
 
+=======
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
     # Kontroller input
     if transformation.shape != (4, 4):
         raise ValueError("Transformationsmatrixen skal være 4x4.")

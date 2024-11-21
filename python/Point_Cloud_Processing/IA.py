@@ -165,6 +165,7 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(1000, 0.99))
     return result
 
+<<<<<<< HEAD
 
 if __name__ == "__main__":
     from Misc_functions import create_arrow
@@ -220,3 +221,5 @@ if __name__ == "__main__":
     target_cloud.translate(translation_vector)
     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Translated Point Cloud")
 
+=======
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
