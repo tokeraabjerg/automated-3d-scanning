@@ -1,6 +1,18 @@
 import open3d as o3d
 import numpy as np
 
+#================================================
+#  *                    INFO
+#    Åbner en visualisering af en punktsky. To
+#    punkter kan vælges med Shift-click for at
+#    definere en boks. Alle punkter udenfor denne
+#    kasse bliver fjernet.
+#    
+#    Filen bliver gemt til output_file på
+#    linje 81.
+#================================================
+
+
 class PointPickerVisualizer:
     def __init__(self, point_cloud):
         """
