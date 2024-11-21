@@ -1,7 +1,7 @@
 import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
-from ICP import Point_to_Plane
+from ICP import Point_to_Plane, t_Point_to_Plane_Lore
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
@@ -37,12 +37,12 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     o3d.visualization.draw_geometries([combined_cloud], window_name="Preproccesed Point Cloud")
 
     
-    # Beregn bounding box
-    min_bound, max_bound = compute_bounding_box(combined_cloud)
+    # Beregn bounding box, størrelse af pooint cloud
+    # min_bound, max_bound = compute_bounding_box(combined_cloud)
 
-    # Beregn størrelse af bounding box
-    bbox_size = max_bound - min_bound
-    print(f"Størrelse af bounding box: {bbox_size}")
+    # # Beregn størrelse af bounding box
+    # bbox_size = max_bound - min_bound
+    # print(f"Størrelse af bounding box: {bbox_size}")
 
 #    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
 #    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
