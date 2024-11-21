@@ -19,8 +19,6 @@ Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår D
 
 MDP AKTIV:
 Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  
-!! Kræver evt. skift til Tensor, som kan være fordelagtigt mht. processortid !!
-For at gøre dette, vil jeg tilføje nye funktioner med .t i navnet, som egner sig til tensor notation.
 
 Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust.
 

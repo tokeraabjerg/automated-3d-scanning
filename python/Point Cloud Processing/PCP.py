@@ -1,7 +1,7 @@
 import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
-from ICP import Point_to_Plane, t_Point_to_Plane_Lore
+from ICP import Point_to_Plane, legacy_icp_with_logging
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
@@ -100,6 +100,8 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         print("Performing ICP registration...")
         # Initialize the array containing all ICP transformaitons
         transformation_ICP = [None] * len(ply_files)
+        #transformation_ICP[i]=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
+        #aligned_target=target_cloud.transform(transformation_ICP[i])
         transformation_ICP[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
         
         combined_transformation = np.dot(transformation_ICP[i], initial_transformation[i])
@@ -123,9 +125,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         else:
             print("Merge failed. Skipping this cloud.")
         
-        aligned_voxel=target_voxel.transform(initial_transformation[i])
-        aligned_voxel=aligned_voxel.translate(translation_vector)
-        aligned_voxel=aligned_voxel.transform(transformation_ICP[i])
+        aligned_voxel=target_voxel.transform(combined_transformation[i])
         combined_voxel += aligned_voxel
         # Optional: Visualize the current merged cloud
         o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
