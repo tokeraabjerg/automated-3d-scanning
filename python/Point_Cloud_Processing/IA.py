@@ -166,6 +166,9 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     return result
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 15465b6 (Added Arrows)
 
 if __name__ == "__main__":
     from Misc_functions import create_arrow
@@ -201,6 +204,7 @@ if __name__ == "__main__":
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
+<<<<<<< HEAD
     combined_cloud_normal, combined_cloud = preprocess_point_cloud(combined_cloud, voxel_size)
 
     target_cloud = o3d.io.read_point_cloud(ply_files[1])
@@ -210,6 +214,17 @@ if __name__ == "__main__":
         #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
     target_cloud.paint_uniform_color([1, 0.706, 0])
     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Point Clouds")
+=======
+    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
+
+    target_cloud = o3d.io.read_point_cloud(ply_files[1])
+
+    target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
+        #target_cloud = target_cloud.voxel_down_sample(voxel_size)
+        #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
+    target_cloud.paint_uniform_color([1, 0.706, 0])
+
+>>>>>>> 15465b6 (Added Arrows)
     target_cloud, initial_transformation=rotate_point_cloud(target_cloud, rotation_vectors, 1)
     print(initial_transformation)
     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Rotated Point Cloud")
@@ -221,5 +236,8 @@ if __name__ == "__main__":
     target_cloud.translate(translation_vector)
     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Translated Point Cloud")
 
+<<<<<<< HEAD
 =======
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+>>>>>>> 15465b6 (Added Arrows)

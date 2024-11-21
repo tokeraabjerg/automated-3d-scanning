@@ -6,11 +6,15 @@ from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
 <<<<<<< HEAD
+<<<<<<< HEAD
 from Misc_functions import compute_bounding_box, create_arrow
 from PP import preprocess_point_cloud
 from Bin import extract_rotation_axis_and_angle
 =======
 from BB import compute_bounding_box
+=======
+from Misc_functions import compute_bounding_box, create_arrow
+>>>>>>> 15465b6 (Added Arrows)
 from PP import preprocess_point_cloud
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
 
@@ -33,11 +37,15 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 15465b6 (Added Arrows)
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
     ]
+<<<<<<< HEAD
     AxisArrow = o3d.geometry.TriangleMesh()
     for arrow in arrows:
         AxisArrow += arrow
@@ -45,6 +53,14 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Visualize
     # o3d.visualization.draw_geometries([AxisArrow])
 
+=======
+    combined_geometry = o3d.geometry.TriangleMesh()
+    for arrow in arrows:
+        combined_geometry += arrow
+
+    # Visualize
+    o3d.visualization.draw_geometries([combined_geometry])
+>>>>>>> 15465b6 (Added Arrows)
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     combined_cloud.translate(x_axis)
@@ -65,8 +81,12 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Visualize the downsampled point cloud
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     
     o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
+=======
+    o3d.visualization.draw_geometries([combined_voxel, combined_geometry], window_name="Preproccesed Point Cloud")
+>>>>>>> 15465b6 (Added Arrows)
     # Beregn bounding box, størrelse af pooint cloud
     
 =======

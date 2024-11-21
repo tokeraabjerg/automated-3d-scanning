@@ -6,11 +6,15 @@ from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
 <<<<<<< HEAD
+<<<<<<< HEAD
 from Misc_functions import compute_bounding_box, create_arrow
 from PP import preprocess_point_cloud
 from Bin import extract_rotation_axis_and_angle
 =======
 from BB import compute_bounding_box
+=======
+from Misc_functions import compute_bounding_box
+>>>>>>> 15465b6 (Added Arrows)
 from PP import preprocess_point_cloud
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
 
