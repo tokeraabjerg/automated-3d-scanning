@@ -5,7 +5,7 @@ from ICP import Point_to_Plane, legacy_icp_with_logging
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
-from BB import compute_bounding_box
+from Misc_functions import compute_bounding_box
 from PP import preprocess_point_cloud
 
 def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):

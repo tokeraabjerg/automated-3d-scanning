@@ -5,7 +5,7 @@ from ICP import Point_to_Plane, legacy_icp_with_logging
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
-from BB import compute_bounding_box
+from Misc_functions import compute_bounding_box, create_arrow
 from PP import preprocess_point_cloud
 
 def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
@@ -26,6 +26,17 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Load the first point cloud as the initial source
     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
 
+    arrows = [
+    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
+    ]
+    combined_geometry = o3d.geometry.TriangleMesh()
+    for arrow in arrows:
+        combined_geometry += arrow
+
+    # Visualize
+    o3d.visualization.draw_geometries([combined_geometry])
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
@@ -34,7 +45,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
 
     # Visualize the downsampled point cloud
-    o3d.visualization.draw_geometries([combined_voxel], window_name="Preproccesed Point Cloud")
+    o3d.visualization.draw_geometries([combined_voxel, combined_geometry], window_name="Preproccesed Point Cloud")
     # Beregn bounding box, størrelse af pooint cloud
     # min_bound, max_bound = compute_bounding_box(combined_cloud)
 
