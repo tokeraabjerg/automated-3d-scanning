@@ -1,7 +1,11 @@
 import open3d as o3d
 import numpy as np
+<<<<<<< HEAD
 #Todo: Include the following metods in the ICP.py file, test them in the PCP.py file
 #https://www.open3d.org/html/python_api/open3d.pipelines.registration.CorrespondenceCheckerBasedOnNormal.html#open3d-pipelines-registration-correspondencecheckerbasedonnormal
+=======
+
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
 
 def Point_to_Plane(source, target, mcd):
     # Point Association using ICP for Open3D v0.18.0
@@ -52,7 +56,11 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
     # Copy source to avoid modifying the original
     init_transformation=np.eye(4)
     max_iterations=(50)
+<<<<<<< HEAD
     transformation_log=np.eye(4)
+=======
+
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
     target_copy = target.transform(init_transformation)
     transformation = init_transformation
 
@@ -80,11 +88,18 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
             break
         
         # Update transformation and apply it
+<<<<<<< HEAD
         transformation_log=np.dot(reg_result.transformation, transformation_log)
         transformation = reg_result.transformation
         target_copy.transform(transformation)
     
     return transformation_log, target_copy
+=======
+        transformation = reg_result.transformation
+        target_copy.transform(transformation)
+    
+    return transformation
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
 
 
 # TENSOR
