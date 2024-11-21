@@ -9,6 +9,7 @@ Oprydning i koden.
 
 Stærkere værktøj til Initial alignement (Kan vi finde omdrejnignsakse, og komme med bedre bud?)
 Lige nu anvendes en kendt vinkel, og en translation baseret på densitet. Lidt primitivt.
+Akserne er ikke
 
 Bedre skalering af Max dist., outlier/noise removal etc, således det afhænger af voxel size.
 
