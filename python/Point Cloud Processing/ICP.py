@@ -51,7 +51,7 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
     # Copy source to avoid modifying the original
     init_transformation=np.eye(4)
     max_iterations=(50)
-
+    transformation_log=np.eye(4)
     target_copy = target.transform(init_transformation)
     transformation = init_transformation
 
@@ -79,10 +79,11 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
             break
         
         # Update transformation and apply it
+        transformation_log=np.dot(reg_result.transformation, transformation_log)
         transformation = reg_result.transformation
         target_copy.transform(transformation)
     
-    return transformation
+    return transformation_log, target_copy
 
 
 # TENSOR
