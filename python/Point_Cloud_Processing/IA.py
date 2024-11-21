@@ -165,3 +165,58 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(1000, 0.99))
     return result
 
+
+if __name__ == "__main__":
+    from Misc_functions import create_arrow
+    from PP import preprocess_point_cloud
+
+    voxel_size=1.5
+    # List of .ply files to process
+    ply_files = [
+        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
+        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
+        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
+    ]
+
+    rotation_vectors = [
+    (None),    # Tom første indgang
+    (25, 0, 0),     # Rotation omkring en vilkårlig akse
+    (45, 0, 0)    # 90 grader omkring y-aksen
+    ]
+    if len(ply_files) < 2:
+        raise ValueError("At least two point cloud files are required for registration.")
+    
+    # Load the first point cloud as the initial source
+    combined_cloud = o3d.io.read_point_cloud(ply_files[0])
+
+    arrows = [
+    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
+    ]
+    combined_geometry = o3d.geometry.TriangleMesh()
+    for arrow in arrows:
+        combined_geometry += arrow
+
+    # Preproces: Downsize, Remove outliers, Find normals, Find features:
+    # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
+    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
+
+    target_cloud = o3d.io.read_point_cloud(ply_files[1])
+
+    target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
+        #target_cloud = target_cloud.voxel_down_sample(voxel_size)
+        #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
+    target_cloud.paint_uniform_color([1, 0.706, 0])
+
+    target_cloud, initial_transformation=rotate_point_cloud(target_cloud, rotation_vectors, 1)
+    print(initial_transformation)
+    o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Rotated Point Cloud")
+
+    combined_center = np.mean(np.asarray(combined_cloud.points), axis=0)
+    target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+    translation_vector=combined_center-target_center
+    print(translation_vector)
+    target_cloud.translate(translation_vector)
+    o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Translated Point Cloud")
+
