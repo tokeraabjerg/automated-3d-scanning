@@ -57,10 +57,14 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
     init_transformation=np.eye(4)
     max_iterations=(50)
 <<<<<<< HEAD
+<<<<<<< HEAD
     transformation_log=np.eye(4)
 =======
 
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+    transformation_log=np.eye(4)
+>>>>>>> a0cafa8 (Added log to ICP, with some difficulty)
     target_copy = target.transform(init_transformation)
     transformation = init_transformation
 
@@ -89,6 +93,7 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
         
         # Update transformation and apply it
 <<<<<<< HEAD
+<<<<<<< HEAD
         transformation_log=np.dot(reg_result.transformation, transformation_log)
         transformation = reg_result.transformation
         target_copy.transform(transformation)
@@ -100,6 +105,13 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
     
     return transformation
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+        transformation_log=np.dot(reg_result.transformation, transformation_log)
+        transformation = reg_result.transformation
+        target_copy.transform(transformation)
+    
+    return transformation_log, target_copy
+>>>>>>> a0cafa8 (Added log to ICP, with some difficulty)
 
 
 # TENSOR

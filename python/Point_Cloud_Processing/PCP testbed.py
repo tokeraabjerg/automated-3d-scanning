@@ -138,18 +138,18 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         target_cloud.paint_uniform_color([1, 0.706, 0])
         target_voxel.paint_uniform_color([1, 0.706, 0])
 
-            # Step 1: Initial alignment (RANSAC or other coarse alignment)
-        initial_transformation = [None] * len(ply_files)
+        # Step 1: Initial alignment (RANSAC or other coarse alignment)
+        #initial_transformation = [None] * len(ply_files)
         if rotation_vectors[i] == (None):
             print("Performing RANSAC initial alignment...")
-            initial_transformation[i] = RANSAC_initial_alignment(combined_cloud, target_cloud)
+            initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
             print("Initial alignment transformation applied:")
-            print(initial_transformation[i])
-            target_cloud.transform(initial_transformation[i])
+            print(initial_transformation)
+            target_cloud.transform(initial_transformation)
             o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
         else:
-            target_cloud, initial_transformation[i]=rotate_point_cloud(target_cloud, rotation_vectors, i)
-            print(initial_transformation[i])
+            target_cloud, initial_transformation=rotate_point_cloud(target_cloud, rotation_vectors, i)
+            print(initial_transformation)
             o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Rotated Point Cloud")
 
             combined_center = np.mean(np.asarray(combined_cloud.points), axis=0)
@@ -164,12 +164,17 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
             # source_down, target_down, source_fpfh, target_fpfh, voxel_size
 
 
-        result=decompose_transformation(initial_transformation[i])
+        result=decompose_transformation(initial_transformation)
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
+<<<<<<< HEAD
         
                 # Step 2: Point-to-Plane ICP
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+    
+        # Step 2: Point-to-Plane ICP
+>>>>>>> a0cafa8 (Added log to ICP, with some difficulty)
         # Estimating normals for source and target point clouds, som brugt i point to plane
         radius_normal = 2*voxel_size  # Radius til normal estimering
         combined_cloud.estimate_normals(
@@ -215,33 +220,46 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
         print("Performing ICP registration...")
         # Initialize the array containing all ICP transformaitons
-        transformation_ICP = [None] * len(ply_files)
-        transformation_ICP[i]=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
-        aligned_target=target_cloud.transform(transformation_ICP[i])
-        #transformation_ICP[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
+        # icp_transformation = [None] * len(ply_files)
+        icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
+        # aligned_target=target_cloud.transform(icp_transformation)
+        # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
         
-        combined_transformation = np.dot(transformation_ICP[i], initial_transformation[i])
-        result=decompose_transformation(combined_transformation)
+        translation_matrix = np.eye(4)
+        translation_matrix[:3, 3] = translation_vector 
+        # Indsæt translationen i den sidste kolonne
+        # Initialize combined_transformation as a list of independent identity matrices
+
+        # Initialize combined_transformation as a list of independent identity matrices
+        combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
+
+        # Combine transformations for the i-th transformation
+        combined_transformation[i] = np.dot(icp_transformation, (np.dot(translation_matrix, initial_transformation)))
+        # Decompose the transformation and print results
+        result = decompose_transformation(combined_transformation[i])
+        print(f"PC nr {i} was transformed by:")
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
 
-        # Step 3: Calculate RMSE
-        rmse_rating = calculate_error(combined_cloud, aligned_target)
-        print(f"RMSE rating: {rmse_rating}")
+
+        # Step 3: Calculate RMSE 
+        # rmse_rating = calculate_error(combined_cloud, aligned_target)
+        # print(f"RMSE rating: {rmse_rating}")
 
         # Step 4: Merge if RMSE is acceptable !! This needs to be updated in some way. 
         # I have yet to find an intelligent solution. 
         # Technically, I guess it should'nt be here, since the ICP script should have rejected it.
-        if rmse_rating < 50:
-            combined_cloud += aligned_target
+        #if rmse_rating < 50:
+        combined_cloud += aligned_target
   #          combined_voxel += aligned_voxel
 #            combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
 #            combined_cloud.paint_uniform_color([1, 0.706, 0])
-            print("Merge successful.")
-        else:
-            print("Merge failed. Skipping this cloud.")
-        
-        aligned_voxel=target_voxel.transform(combined_transformation[i])
+       #print("Merge successful.")
+        #else:
+       #print("Merge failed. Skipping this cloud.")
+            
+        # Anvend den samlede transformation på punkt skyen
+        aligned_voxel = target_voxel.transform(combined_transformation[i])
         combined_voxel += aligned_voxel
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
         # Optional: Visualize the current merged cloud
@@ -307,15 +325,15 @@ if __name__ == "__main__":
 
     rotation_vectors = [
     (None),    # Tom første indgang
-    (25, 0, 0)     # Rotation omkring en vilkårlig akse
-    #(0, 0, 0)    # 90 grader omkring y-aksen
+    (25, 0, 0),     # Rotation omkring en vilkårlig akse
+    (45, 0, 0)    # 90 grader omkring y-aksen
     ]
 
 
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1, mcd=4)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
