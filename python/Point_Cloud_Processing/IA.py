@@ -84,6 +84,68 @@ def rotate_point_cloud(target, rotation_vectors, index):
 
     return target, R_4x4
 
+import open3d as o3d
+import numpy as np
+
+def rotate_point_cloud_euler(target, euler_angles, index):
+    """
+    Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
+    If no Euler angles exist for the index, no rotation is applied.
+
+    Args:
+        target (o3d.geometry.PointCloud): The target point cloud to process.
+        euler_angles (list[tuple]): List of Euler angles (roll, pitch, yaw) in degrees.
+        index (int): Index in the Euler angles list to use for rotation.
+
+    Returns:
+        o3d.geometry.PointCloud: The rotated point cloud.
+        np.ndarray: The 4x4 transformation matrix used for the rotation.
+    """
+    if index < len(euler_angles):
+        # Retrieve the Euler angles at the specified index
+        roll, pitch, yaw = euler_angles[index]
+
+        # Convert angles from degrees to radians
+        roll = np.radians(roll)
+        pitch = np.radians(pitch)
+        yaw = np.radians(yaw)
+
+        # Rotation matrices for each axis
+        R_x = np.array([
+            [1, 0, 0],
+            [0, np.cos(roll), -np.sin(roll)],
+            [0, np.sin(roll), np.cos(roll)]
+        ])
+
+        R_y = np.array([
+            [np.cos(pitch), 0, np.sin(pitch)],
+            [0, 1, 0],
+            [-np.sin(pitch), 0, np.cos(pitch)]
+        ])
+
+        R_z = np.array([
+            [np.cos(yaw), -np.sin(yaw), 0],
+            [np.sin(yaw), np.cos(yaw), 0],
+            [0, 0, 1]
+        ])
+
+        # Combine the rotations (R = Rz * Ry * Rx)
+        R = R_z @ R_y @ R_x
+
+        # Apply the rotation to the point cloud
+        target.rotate(R, center=(0, 0, 0))
+
+        # Create a 4x4 transformation matrix
+        R_4x4 = np.eye(4)
+        R_4x4[:3, :3] = R
+
+        print(f"Point cloud rotated by Euler angles (roll={np.degrees(roll):.2f}°, pitch={np.degrees(pitch):.2f}°, yaw={np.degrees(yaw):.2f}°) at index {index}.")
+    else:
+        print(f"No rotation applied for index {index} (Out of bounds).")
+        R_4x4 = np.eye(4)
+
+    return target, R_4x4
+
 
 def execute_global_registration(source_down, target_down, source_fpfh,
                                 target_fpfh, voxel_size):
