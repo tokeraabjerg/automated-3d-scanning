@@ -3,9 +3,24 @@ Status doc
 PCP testbed er lovende.
 ønskede forbedringer:
 
-Forfining af opløsning (dvs. voxel size stiger løbende)
+Gradvis forfining af opløsning under bearbdejning (dvs. voxel size stiger løbende, optimiserings opgave)
+
 Oprydning i koden.
+
 Stærkere værktøj til Initial alignement (Kan vi finde omdrejnignsakse, og komme med bedre bud?)
-Bedre skalering af Max dist. etc, således det afhænger af voxel size.
-Bedre forklaring af normal space sampling
+Lige nu anvendes en kendt vinkel, og en translation baseret på densitet. Lidt primitivt.
+
+Bedre skalering af Max dist., outlier/noise removal etc, således det afhænger af voxel size.
+
+Bedre forklaring af normal space sampling - er nu lavet i overleaf! 
+
+Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår DBSCAN
+
+
+MDP AKTIV:
+Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  
+!! Kræver evt. skift til Tensor, som kan være fordelagtigt mht. processortid !!
+For at gøre dette, vil jeg tilføje nye funktioner med .t i navnet, som egner sig til tensor notation.
+
+Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust.
 
