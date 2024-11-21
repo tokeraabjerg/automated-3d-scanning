@@ -1,9 +1,13 @@
 import open3d as o3d
 from Normal_space_downsampling import downsample_normal_space
 <<<<<<< HEAD
+<<<<<<< HEAD
 from DB import remove_small_clusters
 =======
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+from DB import remove_small_clusters
+>>>>>>> 0da613f (Minor syntax update)
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
 def preprocess_point_cloud(pcd, voxel_size):
     print(":: Downsample with a voxel size %.3f." % voxel_size)
@@ -11,10 +15,15 @@ def preprocess_point_cloud(pcd, voxel_size):
     pcd_voxel = pcd.voxel_down_sample(voxel_size)
     
 <<<<<<< HEAD
+<<<<<<< HEAD
     # Remove Clusters
     # pcd_voxel=remove_small_clusters(pcd_voxel, int(10//voxel_size), 3*voxel_size)
 =======
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+    # Remove Clusters
+    # pcd_voxel=remove_small_clusters(pcd_voxel, int(10//voxel_size), 3*voxel_size)
+>>>>>>> 0da613f (Minor syntax update)
     # Remove statistical outliers
     pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(150//voxel_size), std_ratio=0.5)
 
@@ -23,6 +32,7 @@ def preprocess_point_cloud(pcd, voxel_size):
     print(":: Estimate normal with search radius %.3f." % radius_normal)
     pcd_voxel.estimate_normals(
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+<<<<<<< HEAD
 <<<<<<< HEAD
     
     # Downsample using normal space sampling
@@ -37,12 +47,18 @@ def preprocess_point_cloud(pcd, voxel_size):
     pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
         pcd_voxel,
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+=======
+>>>>>>> 0da613f (Minor syntax update)
     
     # Downsample using normal space sampling
-    pcd_down = downsample_normal_space(pcd_voxel, num_samples=int(40000/voxel_size), voxel_size=voxel_size)
+    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(40000/voxel_size), voxel_size=voxel_size)
 
+<<<<<<< HEAD
     return pcd_down, pcd_fpfh, pcd_voxel
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+    return pcd_normal, pcd_voxel
+>>>>>>> 0da613f (Minor syntax update)
 
 #TENSOR SWITCH
 
