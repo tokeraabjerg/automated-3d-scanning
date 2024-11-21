@@ -28,15 +28,13 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    combined_cloud, combined_fpfh, combined_voxel=preprocess_point_cloud(combined_cloud, voxel_size)
+    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
 
     # Downsample using normal space sampling (now part of preprocess)
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
 
     # Visualize the downsampled point cloud
-    o3d.visualization.draw_geometries([combined_cloud], window_name="Preproccesed Point Cloud")
-
-    
+    o3d.visualization.draw_geometries([combined_voxel], window_name="Preproccesed Point Cloud")
     # Beregn bounding box, størrelse af pooint cloud
     # min_bound, max_bound = compute_bounding_box(combined_cloud)
 
@@ -53,14 +51,13 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
 
-        target_cloud, target_fpfh, target_voxel=preprocess_point_cloud(target_cloud, voxel_size)
+        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
         #target_cloud = target_cloud.voxel_down_sample(voxel_size)
         #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
         target_cloud.paint_uniform_color([1, 0.706, 0])
-        target_voxel.paint_uniform_color([1, 0.706, 0])
 
         # Step 1: Initial alignment (RANSAC or other coarse alignment)
-        #initial_transformation = [None] * len(ply_files)
+        # initial_transformation = [None] * len(ply_files) For storing initial transformations.
         if rotation_vectors[i] == (None):
             print("Performing RANSAC initial alignment...")
             initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
@@ -140,11 +137,12 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         # Anvend den samlede transformation på punkt skyen
         aligned_voxel = target_voxel.transform(combined_transformation[i])
         combined_voxel += aligned_voxel
+        
         # Optional: Visualize the current merged cloud
         o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
         o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
 
-    return combined_cloud
+    return combined_voxel
 
 
 # Example of how to call the function
@@ -168,8 +166,8 @@ if __name__ == "__main__":
     # List of .ply files to process
     ply_files = [
         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply"
-       # r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
+        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
+        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
     ]
 
     rotation_vectors = [
@@ -181,7 +179,7 @@ if __name__ == "__main__":
 
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1, mcd=4)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
