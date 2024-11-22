@@ -51,7 +51,7 @@ def preprocess_point_cloud(pcd, voxel_size):
 >>>>>>> 0da613f (Minor syntax update)
     
     # Downsample using normal space sampling
-    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(40000/voxel_size), voxel_size=voxel_size)
+    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(50000/voxel_size), voxel_size=voxel_size)
 
 <<<<<<< HEAD
     return pcd_down, pcd_fpfh, pcd_voxel
