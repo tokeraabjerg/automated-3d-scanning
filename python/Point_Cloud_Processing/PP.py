@@ -19,7 +19,7 @@ def preprocess_point_cloud(pcd, voxel_size):
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
     
     # Downsample using normal space sampling
-    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(40000/voxel_size), voxel_size=voxel_size)
+    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(50000/voxel_size), voxel_size=voxel_size)
 
     return pcd_normal, pcd_voxel
 
