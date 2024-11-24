@@ -24,7 +24,7 @@ from PP import preprocess_point_cloud
 from Bin import extract_rotation_axis_and_angle
 >>>>>>> b8e2f57 (Hard coded rotational x-axis)
 
-def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
+def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -94,6 +94,7 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
     for i in range(1, len(ply_files)):
         print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
 <<<<<<< HEAD
+<<<<<<< HEAD
 
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
@@ -141,6 +142,9 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
         # Step 2: Point-to-Plane ICP
 =======
         
+=======
+
+>>>>>>> 79b2976 (Updated rotation vector handling.)
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
         target_cloud.translate(x_axis)
@@ -151,7 +155,7 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
 
         # Step 1: Initial alignment (RANSAC or other coarse alignment)
         # initial_transformation = [None] * len(ply_files) For storing initial transformations.
-        if x_rot[i] == (None):
+        if rotation_vectors[i] == (None):
             print("Performing RANSAC initial alignment...")
             initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
             print("Initial alignment transformation applied:")
@@ -161,13 +165,14 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
         else:
             unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
             o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
-            initial_rotation=o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(x_rot[i]), 0, 0))
+            initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(rotation_vectors[i][0]), np.radians(rotation_vectors[i][1]), np.radians(rotation_vectors[i][2])))
             print(initial_rotation)
             target_cloud.rotate(initial_rotation, center=(0,0,0))
             o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
             target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+            # For now, translation by densitity alignment is not implimented
             # translation_vector=combined_center-target_center
-            translation_vector=unrotated_target_center-target_center
+            # translation_vector=unrotated_target_center-target_center
             translation_vector=(0,0,0)
             target_cloud.translate(translation_vector)
             #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
@@ -177,10 +182,6 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
             translation_matrix = np.eye(4)
             translation_matrix[:3, 3] = translation_vector 
             initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
-            # result=execute_global_registration(combined_cloud, target_cloud, combined_fpfh, target_fpfh, voxel_size)
-            # target_cloud.transform(result.transformation)
-            # o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="New RANSAC")
-            # source_down, target_down, source_fpfh, target_fpfh, voxel_size
 
 
         result=decompose_transformation(initial_transformation)
@@ -200,6 +201,7 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
         target_cloud.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
+<<<<<<< HEAD
 <<<<<<< HEAD
         
         print("Performing ICP registration...")
@@ -237,15 +239,16 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
 
 =======
 
+=======
+        
+>>>>>>> 79b2976 (Updated rotation vector handling.)
         print("Performing ICP registration...")
-        # Initialize the array containing all ICP transformaitons
+        # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
         # icp_transformation = [None] * len(ply_files)
+
         icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
         # aligned_target=target_cloud.transform(icp_transformation)
         # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
-        
-        # Indsæt translationen i den sidste kolonne
-        # Initialize combined_transformation as a list of independent identity matrices
 
         # Initialize combined_transformation as a list of independent identity matrices
         combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
@@ -259,23 +262,9 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
 
 
-        # Step 3: Calculate RMSE 
-        # rmse_rating = calculate_error(combined_cloud, aligned_target)
-        # print(f"RMSE rating: {rmse_rating}")
-
-        # Step 4: Merge if RMSE is acceptable !! This needs to be updated in some way. 
-        # I have yet to find an intelligent solution. 
-        # Technically, I guess it should'nt be here, since the ICP script should have rejected it.
-        #if rmse_rating < 50:
         combined_cloud += aligned_target
-  #          combined_voxel += aligned_voxel
-#            combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-#            combined_cloud.paint_uniform_color([1, 0.706, 0])
-       #print("Merge successful.")
-        #else:
-       #print("Merge failed. Skipping this cloud.")
-            
-        # Anvend den samlede transformation på punkt skyen
+
+        # Anvend den samlede transformation på den højere opløsnings punktsky
         aligned_voxel = target_voxel.transform(combined_transformation[i])
         combined_voxel += aligned_voxel
 <<<<<<< HEAD
@@ -288,7 +277,11 @@ def process_point_clouds(ply_files, x_rot, voxel_size, mcd):
         axis, angle = extract_rotation_axis_and_angle(R)
         print("Rotation Axis:", axis)
         print("Rotation Angle (degrees):", np.degrees(angle))
+<<<<<<< HEAD
 >>>>>>> b8e2f57 (Hard coded rotational x-axis)
+=======
+
+>>>>>>> 79b2976 (Updated rotation vector handling.)
         # Optional: Visualize the current merged cloud
         o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
         o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
@@ -374,22 +367,28 @@ if __name__ == "__main__":
         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
     ]
 
-
-    
-    x_rot = [
-        None,
-        15,
-        45
+    # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
+    rotation_vectors = [
+    (None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
+    (15, 0, 0),     # Rotation omkring en vilkårlig akse
+    (45, 0, 0)    # 90 grader omkring y-aksen
     ]
 
     # Translation vectors to move from global to local coords. Must find a method of locating the motors axis of rotation.
     # Hard coded translation for the first axis of rotation (Not perfect, since data appears inconsistent)
+<<<<<<< HEAD
     # x_axis=(143.31,24.85,-318.16)
     x_axis=(143.31, 15,-340.16)
 >>>>>>> b8e2f57 (Hard coded rotational x-axis)
+=======
+    # Calculated x_axis=(143.31,24.85,-318.16)
+    
+    # Working x_axis=(143.31, 15,-340.16)
+    x_axis=(143.31, 15,-345)
+>>>>>>> 79b2976 (Updated rotation vector handling.)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, x_rot, voxel_size=1.5, mcd=4)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
