@@ -1,11 +1,16 @@
 import open3d as o3d
 import numpy as np
 <<<<<<< HEAD
+<<<<<<< HEAD
 #Todo: Include the following metods in the ICP.py file, test them in the PCP.py file
 #https://www.open3d.org/html/python_api/open3d.pipelines.registration.CorrespondenceCheckerBasedOnNormal.html#open3d-pipelines-registration-correspondencecheckerbasedonnormal
 =======
 
 >>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+#Todo: Include the following metods in the ICP.py file, test them in the PCP.py file
+#https://www.open3d.org/html/python_api/open3d.pipelines.registration.CorrespondenceCheckerBasedOnNormal.html#open3d-pipelines-registration-correspondencecheckerbasedonnormal
+>>>>>>> c36035c (Updated rotation vector notation.)
 
 def Point_to_Plane(source, target, mcd):
     # Point Association using ICP for Open3D v0.18.0
