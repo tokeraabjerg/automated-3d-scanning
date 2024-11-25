@@ -30,10 +30,23 @@ class ROI(Structure):
 class PointCloud:
     """
     A simple PointCloud class to store 3D points.
-    Replace or extend this class based on your actual point cloud data structure.
+    Extended to include a save method if needed in the future.
     """
     def __init__(self, points):
         self.points = points
+
+    def save(self, filepath):
+        """
+        Save the point cloud to a PLY file using Open3D.
+        """
+        try:
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(self.points)
+            o3d.io.write_point_cloud(filepath, pcd)
+            logger.info(f"Point cloud saved to {filepath}.")
+        except Exception as e:
+            logger.error(f"Failed to save point cloud to {filepath}: {e}")
+            raise
 
 class ScannerInterface:
     def __init__(self, lib_path: str, ip_address: str = "192.168.100.1", timeout: int = 5000, output_directory: Optional[str] = None):
@@ -146,17 +159,20 @@ class ScannerInterface:
             else:
                 logger.warning("Attempted to disconnect, but sensor was not connected.")
 
-    def initiate_scan(self) -> bool:
+    def initiate_scan(self, project: str, scan_folder: str) -> bool:
         """
         Start the scanning process.
 
+        :param project: Name of the project.
+        :param scan_folder: Path to the scan folder where data will be stored.
         :return: True if scan started successfully, False otherwise.
         """
         with self.lock:
             try:
+                # Send the command to start acquisition
                 result = self.lib.Sensor3D_WriteData(self.sensorHandle, b"SetAcquisitionStart\r")
                 if result == SENSOR3D_OK:
-                    logger.info("Scan initiated successfully.")
+                    logger.info(f"Scan initiated successfully for project '{project}' in folder '{scan_folder}'.")
                     return True
                 else:
                     logger.error(f"Failed to initiate scan, result code: {result}")
@@ -184,10 +200,11 @@ class ScannerInterface:
                 logger.error(f"Exception while stopping scan: {e}")
                 return False
 
-    def handle_scan(self) -> Optional[o3d.geometry.PointCloud]:
+    def handle_scan(self, reduced: bool) -> Optional[o3d.geometry.PointCloud]:
         """
-        Retrieve the scan data, converting it to an Open3D point cloud.
+        Retrieve the scan data and convert it to an Open3D point cloud.
 
+        :param reduced: Whether to retrieve a reduced point cloud.
         :return: Open3D PointCloud object if successful, None otherwise.
         """
         with self.lock:
@@ -250,7 +267,11 @@ class ScannerInterface:
                 # Create Open3D point cloud
                 pcd = o3d.geometry.PointCloud()
                 pcd.points = o3d.utility.Vector3dVector(points_np)
-                intensities_normalized = (intensities_np / 65535).astype(np.float64)
+                # Normalize intensities for color mapping
+                if intensities_np.max() > 0:
+                    intensities_normalized = (intensities_np / intensities_np.max()).astype(np.float64)
+                else:
+                    intensities_normalized = intensities_np.astype(np.float64)
                 pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
 
                 logger.info("Point cloud converted to Open3D format successfully.")

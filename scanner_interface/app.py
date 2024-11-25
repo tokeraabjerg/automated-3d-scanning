@@ -59,9 +59,10 @@ config_manager = None
 scan_in_progress = False
 scan_lock = threading.Lock()  # Lock for scan_in_progress
 executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
+connecting_attempt = False  # New flag to track connection attempts
 
 def initialize():
-    global scanner, config_manager
+    global scanner, config_manager, connecting_attempt
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
@@ -77,7 +78,9 @@ def initialize():
             return
 
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
+        connecting_attempt = True  # Start connection attempt
         if scanner.connect():
+            connecting_attempt = False  # Connection successful
             config_manager = Configurations(scanner)
             try:
                 config_manager.read_all_configurations()
@@ -86,9 +89,11 @@ def initialize():
                 logger.error(f"Failed to read configurations: {e}")
                 # Proceed with default configurations
         else:
+            connecting_attempt = False  # Connection failed
             logger.warning("Failed to connect to the sensor. Proceeding with default configurations.")
             config_manager = Configurations()  # Initialize with default configurations
     except Exception as e:
+        connecting_attempt = False  # Reset flag on exception
         logger.error(f"Error initializing scanner or configuration manager: {e}")
         config_manager = Configurations()  # Initialize with default configurations
 
@@ -110,15 +115,18 @@ def background_scanner_connection():
     """
     Background thread to attempt scanner connection periodically.
     """
-    global scanner, config_manager
+    global scanner, config_manager, connecting_attempt
     while True:
         if scanner and not scanner.sensorHandle:
             logger.info("Attempting to reconnect to the scanner...")
+            connecting_attempt = True  # Start connection attempt
             if scanner.connect():
+                connecting_attempt = False  # Connection successful
                 logger.info("Scanner reconnected successfully.")
                 config_manager.read_all_configurations()
                 logger.info("Configurations reloaded after reconnection.")
             else:
+                connecting_attempt = False  # Connection failed
                 logger.warning("Failed to reconnect to the scanner.")
         time.sleep(10)  # Attempt to reconnect every 10 seconds
 
@@ -155,10 +163,11 @@ def scanner_status():
     """
     Return the current scanner connection status.
     """
-    if scanner and scanner.sensorHandle:
-        return jsonify({'connected': True})
-    else:
-        return jsonify({'connected': False})
+    status = {
+        'connected': scanner.sensorHandle is not None if scanner else False,
+        'connecting': connecting_attempt
+    }
+    return jsonify(status)
 
 @app.route('/get_configurations', methods=['GET'])
 def get_configurations():
@@ -247,32 +256,44 @@ def scan_thread(nrScans, scan_interval, project_name):
     """
     global scan_in_progress
     try:
-        # Initiate the scan
-        logger.info("Scan thread initiated.")
-        if not scanner.initiate_scan(project=project_name):
-            logger.error("Failed to initiate scan.")
-            return
+        for scan_num in range(1, nrScans + 1):
+            if not scan_in_progress:
+                logger.info("Scan process was interrupted.")
+                break
 
-        # Wait for the user-defined interval
-        logger.info(f"Scanning for {scan_interval} seconds.")
-        time.sleep(scan_interval)
+            logger.info(f"Initiating scan {scan_num} for project '{project_name}'.")
 
-        # Stop the scan
-        logger.info("Stopping scan.")
-        if not scanner.stop_scan():
-            logger.error("Failed to stop scan.")
-            return
+            # Create a new scan folder
+            scan_folder_path = project_manager.create_scan_folder(project_name)
 
-        # Handle the scan data
-        logger.info("Processing scan data.")
-        point_cloud = scanner.handle_scan(reduced=True, project=project_name)  # Retrieve point cloud without saving
+            # Initiate the scan
+            if not scanner.initiate_scan(project=project_name, scan_folder=scan_folder_path):
+                logger.error(f"Failed to initiate scan {scan_num} for project '{project_name}'.")
+                continue
 
-        if point_cloud is not None:
-            # For now, do nothing with the point cloud
-            logger.info(f"Received point cloud with {len(point_cloud.points)} points for project '{project_name}'.")
-            # Future processing can be done here
-        else:
-            logger.error("No point cloud data retrieved.")
+            # Wait for the user-defined interval
+            logger.info(f"Scanning for {scan_interval} seconds (Scan {scan_num}/{nrScans}).")
+            time.sleep(scan_interval)
+
+            # Stop the scan
+            logger.info(f"Stopping scan {scan_num} for project '{project_name}'.")
+            if not scanner.stop_scan():
+                logger.error(f"Failed to stop scan {scan_num} for project '{project_name}'.")
+                continue
+
+            # Handle the scan data
+            logger.info(f"Processing scan {scan_num} data.")
+            point_cloud = scanner.handle_scan(reduced=True)  # Retrieve point cloud without saving
+
+            if point_cloud is not None:
+                try:
+                    # Delegate saving to ProjectManager
+                    saved_file_path = project_manager.save_scan(scan_folder_path, point_cloud)
+                    logger.info(f"Saved point cloud for scan {scan_num} at {saved_file_path}.")
+                except Exception as e:
+                    logger.error(f"Failed to save point cloud for scan {scan_num}: {e}")
+            else:
+                logger.error(f"No point cloud data retrieved for scan {scan_num}.")
 
     except Exception as e:
         logger.exception(f"An error occurred during the scan thread: {e}")
@@ -380,6 +401,9 @@ def rename_project():
     except FileExistsError as e:
         logger.error(e)
         return jsonify({'status': 'error', 'message': str(e)}), 409
+    except ValueError as e:
+        logger.error(e)
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return jsonify({'status': 'error', 'message': 'An unexpected error occurred.'}), 500
@@ -393,15 +417,20 @@ def create_project():
     data = request.get_json()
     project_name = data.get('projectName')
 
+    logger.info(f"Received request to create project: {project_name}")
+
     try:
         created_project = project_manager.create_project(name=project_name)
         logger.info(f"Created new project: {created_project}")
         return jsonify({'status': 'success', 'project': created_project}), 200
     except FileExistsError as e:
-        logger.error(e)
+        logger.error(f"FileExistsError: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 409
+    except ValueError as e:
+        logger.error(f"ValueError: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
-        logger.error(f"Error creating project: {e}")
+        logger.exception(f"Unexpected error while creating project: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to create project.'}), 500
 
 @app.route('/delete_project', methods=['POST'])
@@ -423,6 +452,9 @@ def delete_project():
     except FileNotFoundError as e:
         logger.error(e)
         return jsonify({'status': 'error', 'message': str(e)}), 404
+    except ValueError as e:
+        logger.error(e)
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
         logger.error(f"Error deleting project: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to delete project.'}), 500
