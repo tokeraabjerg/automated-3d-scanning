@@ -11,8 +11,7 @@
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2.min.css') }}">
     
-    <!-- Font Awesome CSS for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pb+VGBVzCQ4iRHjaC1G8T2bKGgE+SpQhVXznM1HgF0fH4EmZWIdzC8AunB3lns0hgiJhG8S+DxP8KJNRTZr+Ug==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Remove Font Awesome CSS as it's no longer needed -->
     
     <!-- Include three.js and its dependencies -->
     <script src="{{ url_for('static', filename='three.min.js') }}"></script>
@@ -36,13 +35,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-    <header>
+    <header style="position: relative;">
         <!-- Loading Indicator -->
         <div id="header-loading-indicator" class="loading-indicator" style="display: none;">
             <div class="spinner"></div>
             <span id="header-loading-text">Loading...</span>
         </div>
         <h1>Wenglor MLAS214 - Control Panel (v0.1)</h1>
+        
+        <!-- Connection Status Indicators -->
+        <div id="connection-status" style="position: absolute; top: 20px; right: 20px;">
+            <!-- Connected Icon -->
+            <div id="connected-icon" class="status-icon connected" title="Connected" style="display: none;"></div>
+            <!-- Connecting Icon -->
+            <div id="connecting-icon" class="status-icon connecting" title="Connecting" style="display: none;"></div>
+            <!-- Disconnected Icon -->
+            <div id="disconnected-icon" class="status-icon disconnected" title="Disconnected" style="display: none;"></div>
+        </div>
     </header>
     <div id="main-content">
         <div id="left-panel">
@@ -58,17 +67,16 @@
                     <label for="scanInterval">Scan Interval (seconds):</label>
                     <input type="number" id="scanInterval" name="scanInterval" value="1" min="1" required><br><br>
                     
-                    <div class="buttons-container">
+                    <div class="button-group">
                         <!-- Start Scan Button -->
-                        <div class="button-group">
-                            <button type="submit" id="start-scan-button" class="start-button">Start Scan</button>
-                        </div>
-                        <!-- Stop Scan Form -->
-                        <form id="stop-scan-form">
-                            <div class="button-group">
-                                <button type="submit" id="stop-scan-button" class="stop-button">Stop Scan</button>
-                            </div>
-                        </form>
+                        <button type="submit" id="start-scan-button" class="start-button">Start Scan</button>
+                    </div>
+                </form>
+
+                <!-- Stop Scan Form -->
+                <form id="stop-scan-form">
+                    <div class="button-group">
+                        <button type="submit" id="stop-scan-button" class="stop-button" disabled>Stop Scan</button>
                     </div>
                 </form>
 
@@ -84,10 +92,10 @@
                             </div>
                             <div class="project-actions">
                                 <button class="rename-button" onclick="renameProject('{{ project }}')">
-                                    <i class="fa-solid fa-pen-to-square"></i> Rename
+                                    Rename
                                 </button>
                                 <button class="delete-button" onclick="deleteProject('{{ project }}')">
-                                    <i class="fa-solid fa-trash"></i> Delete
+                                    Delete
                                 </button>
                             </div>
                         </li>
@@ -101,6 +109,7 @@
                         <label for="newProjectName">New Project Name:</label>
                         <input type="text" id="newProjectName" name="newProjectName" required>
                         <button type="submit" class="validate-button">Create Project</button>
+                        <span id="create-project-spinner" class="spinner" style="display: none;"></span>
                     </form>
                 </div>
             </div>
@@ -164,6 +173,10 @@
             <div id="viewer-container">
                 <!-- 3D Viewer Canvas -->
                 <div id="viewer" style="width: 100%; height: 400px"></div>
+            </div>
+            <h2>Project Scans</h2>
+            <div id="project-scans">
+                <p>Please select a project to view its scans.</p>
             </div>
             <h2>Logs</h2>
             <div id="log-output">
