@@ -46,11 +46,11 @@
         <!-- Connection Status Indicators -->
         <div id="connection-status" style="position: absolute; top: 20px; right: 20px;">
             <!-- Connected Icon -->
-            <div id="connected-icon" class="status-icon connected" title="Connected" style="display: none;"></div>
+            <div id="connected-icon" class="status-icon connected" title="Connected" style="display: none; background-color: green;"></div>
             <!-- Connecting Icon -->
-            <div id="connecting-icon" class="status-icon connecting" title="Connecting" style="display: none;"></div>
+            <div id="connecting-icon" class="status-icon connecting" title="Connecting" style="display: none; background-color: yellow;"></div>
             <!-- Disconnected Icon -->
-            <div id="disconnected-icon" class="status-icon disconnected" title="Disconnected" style="display: none;"></div>
+            <div id="disconnected-icon" class="status-icon disconnected" title="Disconnected" style="display: none; background-color: red;"></div>
         </div>
     </header>
     <div id="main-content">
@@ -74,7 +74,7 @@
                 </form>
 
                 <!-- Stop Scan Form -->
-                <form id="stop-scan-form">
+                <form id="stop-scan-form" action="{{ url_for('stop_scan') }}" method="post">
                     <div class="button-group">
                         <button type="submit" id="stop-scan-button" class="stop-button" disabled>Stop Scan</button>
                     </div>
@@ -182,7 +182,39 @@
             <div id="log-output">
                 Loading logs...
             </div>
+            <div>
+                <button id="pingButton" onclick="pingSensor()">Ping Sensor</button>
+                <button id="reconnectButton" onclick="attemptReconnect()">Reconnect</button>
+            </div>
         </div>
     </div>
+    <script>
+        function pingSensor() {
+            fetch('/ping_status')
+                .then(response => response.json())
+                .then(data => {
+                    alert('Sensor connected: ' + data.connected);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function attemptReconnect() {
+            fetch('/attempt_reconnect', { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => { throw new Error(text) });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+    </script>
 </body>
 </html>

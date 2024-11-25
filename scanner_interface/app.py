@@ -58,11 +58,13 @@ scanner = None
 config_manager = None
 scan_in_progress = False
 scan_lock = threading.Lock()  # Lock for scan_in_progress
+sensor_lock = threading.Lock()  # Lock for sensor handle access
 executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
-connecting_attempt = False  # New flag to track connection attempts
+connecting_attempt = False  # Flag to track if a connection attempt is in progress
 
 def initialize():
     global scanner, config_manager, connecting_attempt
+    time.sleep(2)  # Wait for 2 seconds to ensure network is up
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
@@ -78,9 +80,7 @@ def initialize():
             return
 
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
-        connecting_attempt = True  # Start connection attempt
         if scanner.connect():
-            connecting_attempt = False  # Connection successful
             config_manager = Configurations(scanner)
             try:
                 config_manager.read_all_configurations()
@@ -89,11 +89,9 @@ def initialize():
                 logger.error(f"Failed to read configurations: {e}")
                 # Proceed with default configurations
         else:
-            connecting_attempt = False  # Connection failed
             logger.warning("Failed to connect to the sensor. Proceeding with default configurations.")
             config_manager = Configurations()  # Initialize with default configurations
     except Exception as e:
-        connecting_attempt = False  # Reset flag on exception
         logger.error(f"Error initializing scanner or configuration manager: {e}")
         config_manager = Configurations()  # Initialize with default configurations
 
@@ -102,33 +100,33 @@ def disconnect_scanner():
     Disconnect the scanner if it is connected.
     """
     global scanner
-    if scanner is not None:
-        scanner.disconnect()
-        logger.info("Scanner disconnected.")
-    else:
-        logger.warning("Attempted to disconnect scanner, but scanner instance is None.")
+    with sensor_lock:
+        if scanner is not None:
+            scanner.disconnect()
+            logger.info("Scanner disconnected.")
+        else:
+            logger.warning("Attempted to disconnect scanner, but scanner instance is None.")
 
 # Initialize scanner and configurations
 initialize()
 
-def background_scanner_connection():
+def background_ping():
     """
-    Background thread to attempt scanner connection periodically.
+    Background thread to ping the sensor and update connection status periodically.
     """
-    global scanner, config_manager, connecting_attempt
+    global scanner
     while True:
-        if scanner and not scanner.sensorHandle:
-            logger.info("Attempting to reconnect to the scanner...")
-            connecting_attempt = True  # Start connection attempt
-            if scanner.connect():
-                connecting_attempt = False  # Connection successful
-                logger.info("Scanner reconnected successfully.")
-                config_manager.read_all_configurations()
-                logger.info("Configurations reloaded after reconnection.")
-            else:
-                connecting_attempt = False  # Connection failed
-                logger.warning("Failed to reconnect to the scanner.")
-        time.sleep(10)  # Attempt to reconnect every 10 seconds
+        with sensor_lock:
+            if scanner:
+                connected = scanner.ping_sensor()
+                # Update connection status in a way that can be accessed by the frontend
+                with app.app_context():
+                    app.config['CONNECTED'] = connected
+        time.sleep(10)  # Ping every 10 seconds
+
+# Start the background thread for pinging the sensor
+ping_thread = threading.Thread(target=background_ping, daemon=True)
+ping_thread.start()
 
 # Route for the home page
 @app.route('/')
@@ -265,9 +263,10 @@ def scan_thread(nrScans, scan_interval, project_name):
 
             # Create a new scan folder
             scan_folder_path = project_manager.create_scan_folder(project_name)
+            logger.debug(f"Scan folder path: {scan_folder_path}")
 
             # Initiate the scan
-            if not scanner.initiate_scan(project=project_name, scan_folder=scan_folder_path):
+            if not scanner.perform_scan(nrScans=1):
                 logger.error(f"Failed to initiate scan {scan_num} for project '{project_name}'.")
                 continue
 
@@ -276,24 +275,12 @@ def scan_thread(nrScans, scan_interval, project_name):
             time.sleep(scan_interval)
 
             # Stop the scan
-            logger.info(f"Stopping scan {scan_num} for project '{project_name}'.")
             if not scanner.stop_scan():
                 logger.error(f"Failed to stop scan {scan_num} for project '{project_name}'.")
                 continue
 
-            # Handle the scan data
-            logger.info(f"Processing scan {scan_num} data.")
-            point_cloud = scanner.handle_scan(reduced=True)  # Retrieve point cloud without saving
-
-            if point_cloud is not None:
-                try:
-                    # Delegate saving to ProjectManager
-                    saved_file_path = project_manager.save_scan(scan_folder_path, point_cloud)
-                    logger.info(f"Saved point cloud for scan {scan_num} at {saved_file_path}.")
-                except Exception as e:
-                    logger.error(f"Failed to save point cloud for scan {scan_num}: {e}")
-            else:
-                logger.error(f"No point cloud data retrieved for scan {scan_num}.")
+            # Note: Since perform_scan handles the scanning and saving, additional handling may not be necessary
+            logger.info(f"Completed scan {scan_num} for project '{project_name}'.")
 
     except Exception as e:
         logger.exception(f"An error occurred during the scan thread: {e}")
@@ -364,10 +351,21 @@ def get_reduced_point_cloud():
     """
     Retrieve the latest reduced point cloud file.
     """
-    # Since scanner_interface.py does not save point clouds,
-    # return 404 to prevent the frontend from attempting to load non-existent files.
-    logger.warning("Requested reduced point cloud, but no point cloud is saved.")
-    return "No reduced point cloud available.", 404
+    # Since perform_scan saves the reduced point cloud, serve it if exists
+    reduced_pcd_filename = os.path.join(output_directory, "reduced_point_cloud.ply")
+    if os.path.exists(reduced_pcd_filename):
+        try:
+            with open(reduced_pcd_filename, 'rb') as f:
+                data = f.read()
+            response = Response(data, mimetype='application/octet-stream')
+            response.headers['Content-Disposition'] = f'attachment; filename=reduced_point_cloud.ply'
+            return response
+        except Exception as e:
+            logger.error(f"Error serving reduced point cloud: {e}")
+            return "Error retrieving reduced point cloud.", 500
+    else:
+        logger.warning("Requested reduced point cloud, but no point cloud is saved.")
+        return "No reduced point cloud available.", 404
 
 @app.route('/is_processing')
 def is_processing():
@@ -459,12 +457,77 @@ def delete_project():
         logger.error(f"Error deleting project: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to delete project.'}), 500
 
+@app.route('/get_sensor_status', methods=['GET'])
+def get_sensor_status():
+    """
+    Endpoint to retrieve the scanner's current sensor status.
+    Usage:
+        curl http://localhost:5001/get_sensor_status
+    """
+    if scanner is None:
+        logger.error("Scanner instance is None.")
+        return jsonify({'status': 'error', 'message': 'Scanner not initialized.'}), 500
+
+    status = scanner.get_sensor_status()
+
+    if status['connected']:
+        return jsonify({
+            'status': 'connected',
+            'error_code': status['error_code']
+        }), 200
+    else:
+        return jsonify({
+            'status': 'disconnected',
+            'error_code': status['error_code']
+        }), 200
+
+@app.route('/ping_status')
+def ping_status():
+    """
+    Return the current ping status of the sensor.
+    """
+    connected = app.config.get('CONNECTED', False)
+    return jsonify({'connected': connected})
+
+@app.route('/attempt_reconnect', methods=['POST'])
+def attempt_reconnect():
+    """
+    Attempt to reconnect to the scanner.
+
+    Changes made:
+    - Removed automatic reconnection attempts.
+    - Added a manual reconnection button in the UI.
+    - This function is called when the manual reconnect button is pressed.
+    - It checks if the scanner is not connected and no reconnection attempt is in progress.
+    - If conditions are met, it attempts to reconnect to the scanner.
+    - Updates the connection status and reloads configurations if reconnection is successful.
+    - Returns a JSON response indicating the result of the reconnection attempt.
+    """
+    global scanner, connecting_attempt
+    with sensor_lock:
+        if scanner and not scanner.connected and not connecting_attempt:
+            logger.info("Attempting to reconnect to the scanner...")
+            connecting_attempt = True
+            if scanner.connect():
+                logger.info("Scanner reconnected successfully.")
+                try:
+                    config_manager.read_all_configurations()
+                    logger.info("Configurations reloaded after reconnection.")
+                    connecting_attempt = False
+                    return jsonify({"status": "success", "message": "Reconnected successfully."}), 200
+                except Exception as e:
+                    logger.error(f"Failed to read configurations after reconnection: {e}")
+                    connecting_attempt = False
+                    return jsonify({"status": "error", "message": "Reconnected but failed to read configurations."}), 500
+            else:
+                logger.warning("Failed to reconnect to the scanner.")
+                connecting_attempt = False
+                return jsonify({"status": "error", "message": "Failed to reconnect."}), 500
+        else:
+            return jsonify({"status": "error", "message": "Scanner is already connected or reconnection is in progress."}), 400
+
 if __name__ == '__main__':
     try:
-        # Start the background thread for scanner reconnection
-        reconnection_thread = threading.Thread(target=background_scanner_connection, daemon=True)
-        reconnection_thread.start()
-
         # Run the Flask application
         app.run(host='0.0.0.0', port=5001, debug=True)
     finally:
