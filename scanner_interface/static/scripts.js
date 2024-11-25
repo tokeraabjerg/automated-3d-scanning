@@ -61,12 +61,37 @@ function confirmShutdown(event) {
 let scannerConnected = false;
 let connectingNotificationShown = false;
 
+// Function to show/hide connection status icons
+function updateConnectionStatus(connected, connecting) {
+    const connectedIcon = document.getElementById('connected-icon');
+    const connectingIcon = document.getElementById('connecting-icon');
+    const disconnectedIcon = document.getElementById('disconnected-icon');
+
+    if (connected) {
+        connectedIcon.style.display = 'inline-block';
+        connectingIcon.style.display = 'none';
+        disconnectedIcon.style.display = 'none';
+    } else if (connecting) {
+        connectedIcon.style.display = 'none';
+        connectingIcon.style.display = 'inline-block';
+        disconnectedIcon.style.display = 'none';
+    } else {
+        connectedIcon.style.display = 'none';
+        connectingIcon.style.display = 'none';
+        disconnectedIcon.style.display = 'inline-block';
+    }
+
+    console.log(`Connection Status Updated - Connected: ${connected}, Connecting: ${connecting}`);
+}
+
 // Function to check scanner connection status
 function checkScannerStatus() {
     fetch('/scanner_status')
         .then(response => response.json())
         .then(data => {
+            console.log('Scanner Status:', data);
             if (data.connected) {
+                updateConnectionStatus(true, false);
                 if (!scannerConnected) {
                     scannerConnected = true;
                     if (connectingNotificationShown) {
@@ -76,19 +101,29 @@ function checkScannerStatus() {
                     showSuccess('Scanner connected successfully.', 'Scanner Status');
                 }
             } else {
-                if (scannerConnected) {
-                    scannerConnected = false;
-                    showError('Scanner disconnected.', 'Scanner Status');
-                }
-                if (!connectingNotificationShown) {
-                    showInfo('Attempting to connect to the scanner...', 'Scanner Status');
-                    connectingNotificationShown = true;
+                if (data.connecting) {
+                    updateConnectionStatus(false, true);
+                    if (!connectingNotificationShown) {
+                        showInfo('Attempting to connect to the scanner...', 'Scanner Status');
+                        connectingNotificationShown = true;
+                    }
+                } else {
+                    updateConnectionStatus(false, false);
+                    if (scannerConnected) {
+                        scannerConnected = false;
+                        showError('Scanner disconnected.', 'Scanner Status');
+                    }
+                    if (!connectingNotificationShown) {
+                        showInfo('Scanner is disconnected.', 'Scanner Status');
+                        connectingNotificationShown = true;
+                    }
                 }
             }
         })
         .catch(error => {
             console.error('Error checking scanner status:', error);
             // Optionally, handle the error by showing a notification
+            updateConnectionStatus(false, false);
             if (scannerConnected) {
                 scannerConnected = false;
                 showError('Error checking scanner status.', 'Scanner Status');
@@ -122,43 +157,6 @@ function fetchLogs() {
             showError('Failed to fetch logs.');
         });
 }
-
-// Initial fetch and set interval for logs
-window.onload = function() {
-    fetchLogs();
-    load3DPreviewSetting();
-    loadScanInterval(); // Load scan interval from localStorage
-
-    // Attach event listeners for Start and Stop Scan
-    const startScanForm = document.getElementById('start-scan-form');
-    const stopScanForm = document.getElementById('stop-scan-form');
-    const newProjectForm = document.getElementById('new-project-form');
-
-    startScanForm.addEventListener('submit', function(event) {
-        handleStartScan(event);
-    });
-
-    stopScanForm.addEventListener('submit', function(event) {
-        handleStopScan(event);
-    });
-
-    newProjectForm.addEventListener('submit', function(event) {
-        createNewProject(event);
-    });
-
-    // Initially disable the Stop button since no scan is active
-    const stopButton = document.getElementById('stop-scan-button');
-    stopButton.disabled = true;
-
-    // Start polling for logs every 2 seconds
-    setInterval(fetchLogs, 2000);
-
-    // Check scanner status immediately
-    checkScannerStatus();
-
-    // Start polling for scanner status every 10 seconds
-    setInterval(checkScannerStatus, 10000); // every 10 seconds
-};
 
 // 3D Previewer Settings
 function load3DPreviewSetting() {
@@ -234,7 +232,6 @@ function showLoadingIndicator(message) {
     loadingIndicator.style.display = 'flex';
 }
 
-// Function to hide loading indicator in header
 function hideLoadingIndicator() {
     const loadingIndicator = document.getElementById('header-loading-indicator');
     loadingIndicator.style.display = 'none';
@@ -517,3 +514,39 @@ function createNewProject(event) {
 
     return false; // Prevent form submission
 }
+
+window.onload = function() {
+    fetchLogs();
+    load3DPreviewSetting();
+    loadScanInterval(); // Load scan interval from localStorage
+
+    // Attach event listeners for Start and Stop Scan
+    const startScanForm = document.getElementById('start-scan-form');
+    const stopScanForm = document.getElementById('stop-scan-form');
+    const newProjectForm = document.getElementById('new-project-form');
+
+    startScanForm.addEventListener('submit', function(event) {
+        handleStartScan(event);
+    });
+
+    stopScanForm.addEventListener('submit', function(event) {
+        handleStopScan(event);
+    });
+
+    newProjectForm.addEventListener('submit', function(event) {
+        createNewProject(event);
+    });
+
+    // Initially disable the Stop button since no scan is active
+    const stopButton = document.getElementById('stop-scan-button');
+    stopButton.disabled = true;
+
+    // Start polling for logs every 2 seconds
+    setInterval(fetchLogs, 2000);
+
+    // Check scanner status immediately
+    checkScannerStatus();
+
+    // Start polling for scanner status every 10 seconds
+    setInterval(checkScannerStatus, 10000); // every 10 seconds
+};
