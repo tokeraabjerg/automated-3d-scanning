@@ -1,6 +1,7 @@
 import open3d as o3d
 import numpy as np
-
+#Todo: Include the following metods in the ICP.py file, test them in the PCP.py file
+#https://www.open3d.org/html/python_api/open3d.pipelines.registration.CorrespondenceCheckerBasedOnNormal.html#open3d-pipelines-registration-correspondencecheckerbasedonnormal
 
 def Point_to_Plane(source, target, mcd):
     # Point Association using ICP for Open3D v0.18.0
