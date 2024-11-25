@@ -6,6 +6,7 @@ import shutil  # Import shutil for deleting directories
 import logging
 import re
 import open3d as o3d
+import numpy as np
 
 class ProjectManager:
     def __init__(self, output_dir):
@@ -146,10 +147,11 @@ class ProjectManager:
     def save_scan(self, scan_folder_path: str, point_cloud: o3d.geometry.PointCloud) -> str:
         """
         Save the provided point cloud into the specified scan folder with proper enumeration.
+        Additionally, save a reduced point cloud for previewing.
 
         :param scan_folder_path: Path to the scan folder where the point cloud will be saved.
         :param point_cloud: Open3D PointCloud object to be saved.
-        :return: Path to the saved point cloud file.
+        :return: Path to the saved full point cloud file.
         """
         try:
             # Determine the scan number from the scan folder name
@@ -160,15 +162,53 @@ class ProjectManager:
                 raise ValueError(f"Invalid scan folder name: {scan_folder_name}")
             scan_number = match.group(1)
 
-            # Define the point cloud filename
-            point_cloud_filename = f"scan_{scan_number}.ply"
-            point_cloud_path = os.path.join(scan_folder_path, point_cloud_filename)
+            # Define the full point cloud filename
+            full_pcd_filename = f"scan_{scan_number}.ply"
+            full_pcd_path = os.path.join(scan_folder_path, full_pcd_filename)
 
-            # Save the point cloud using Open3D
-            o3d.io.write_point_cloud(point_cloud_path, point_cloud)
-            self.logger.info(f"Point cloud saved at {point_cloud_path}.")
+            # Save the full point cloud using Open3D
+            o3d.io.write_point_cloud(full_pcd_path, point_cloud)
+            self.logger.info(f"Full point cloud saved at {full_pcd_path}.")
 
-            return point_cloud_path
+            # Create and save the reduced point cloud
+            reduced_pcd = self.reduce_point_cloud(point_cloud)
+            reduced_pcd_filename = f"scan_{scan_number}_reduced.ply"
+            reduced_pcd_path = os.path.join(scan_folder_path, reduced_pcd_filename)
+            o3d.io.write_point_cloud(reduced_pcd_path, reduced_pcd)
+            self.logger.info(f"Reduced point cloud saved at {reduced_pcd_path}.")
+
+            return full_pcd_path
         except Exception as e:
             self.logger.error(f"Failed to save point cloud: {e}")
+            raise e
+
+    def reduce_point_cloud(self, point_cloud: o3d.geometry.PointCloud, target_points: int = 100000) -> o3d.geometry.PointCloud:
+        """
+        Reduce the point cloud to have approximately target_points using voxel downsampling.
+
+        :param point_cloud: The original Open3D PointCloud.
+        :param target_points: The desired number of points after reduction.
+        :return: The reduced Open3D PointCloud.
+        """
+        try:
+            num_points = len(point_cloud.points)
+            self.logger.info(f"Original point cloud has {num_points} points.")
+
+            if num_points <= target_points:
+                self.logger.info("Point cloud is already within the target point limit. No reduction needed.")
+                return point_cloud
+
+            # Estimate voxel size by scaling based on the ratio of target_points to current points
+            ratio = (num_points / target_points) ** (1/3)  # Assuming uniform scaling
+            voxel_size = 0.1 * ratio  # Base voxel size is 0.1, adjust as needed
+            voxel_size = max(voxel_size, 0.01)  # Set a minimum voxel size
+
+            self.logger.info(f"Reducing point cloud using voxel size: {voxel_size}")
+            reduced_pcd = point_cloud.voxel_down_sample(voxel_size=voxel_size)
+            reduced_num_points = len(reduced_pcd.points)
+            self.logger.info(f"Reduced point cloud has {reduced_num_points} points.")
+
+            return reduced_pcd
+        except Exception as e:
+            self.logger.error(f"Error reducing point cloud: {e}")
             raise e

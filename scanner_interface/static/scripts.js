@@ -98,7 +98,7 @@ function checkScannerStatus() {
                         toastr.clear(); // Remove all toasts
                         connectingNotificationShown = false;
                     }
-                    showSuccess('Scanner connected successfully.', 'Scanner Status');
+                    //showSuccess('Scanner connected successfully.', 'Scanner Status');
                 }
             } else {
                 if (data.connecting) {
@@ -514,6 +514,54 @@ function createNewProject(event) {
 
     return false; // Prevent form submission
 }
+
+function stopScan() {
+    fetch('/stop_scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            toastr.success('Scan stopped successfully.');
+        } else {
+            toastr.error('Failed to stop scan: ' + data.message);
+        }
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+        toastr.error('An error occurred while stopping the scan.');
+    });
+}
+
+// Function to update connection status icon
+function updateConnectionStatus() {
+    fetch('/ping_status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.connected) {
+                document.getElementById('connected-icon').style.display = 'inline-block';
+                document.getElementById('connecting-icon').style.display = 'none';
+                document.getElementById('disconnected-icon').style.display = 'none';
+            } else {
+                document.getElementById('connected-icon').style.display = 'none';
+                document.getElementById('connecting-icon').style.display = 'none';
+                document.getElementById('disconnected-icon').style.display = 'inline-block';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching connection status:', error);
+            document.getElementById('connected-icon').style.display = 'none';
+            document.getElementById('connecting-icon').style.display = 'none';
+            document.getElementById('disconnected-icon').style.display = 'inline-block';
+        });
+}
+
+// Update connection status every 10 seconds
+setInterval(updateConnectionStatus, 10000);
 
 window.onload = function() {
     fetchLogs();
