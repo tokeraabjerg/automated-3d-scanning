@@ -1,0 +1,384 @@
+/**------------------------------------------------------------------------
+ * ?                                ABOUT
+ * @author         :  Toke Raabjerg
+ * @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+ * @description    :  This CSS file contains styles for the 3D scanner control panel interface.
+ *------------------------------------------------------------------------**/
+/* static/styles.css */
+
+/* Reset default margins and paddings */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body styling */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+}
+
+/* Header styling */
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 15px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Header title styling */
+header h1 {
+    font-size: 24px;
+}
+
+/* Loading Indicator in Header */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: absolute; /* Ensure it overlays correctly */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 1000; /* High z-index to appear above other elements */
+}
+
+/* Spinner for Loading Indicator */
+.loading-indicator .spinner {
+    border: 4px solid #f3f3f3; /* Light grey */
+    border-top: 4px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 2s linear infinite;
+    margin-right: 10px;
+}
+
+/* Main content styling */
+#main-content {
+    display: flex;
+    height: calc(100vh - 60px); /* Adjust based on header height */
+}
+
+/* Left panel styling */
+#left-panel {
+    width: 45%;
+    background-color: #fff;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid #ccc;
+}
+
+/* Right panel styling */
+#right-panel {
+    width: 55%;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Table styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table, th, td {
+    border: 1px solid #ddd;
+}
+
+th, td {
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+/* Button group styling */
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+/* Buttons Container styling */
+.buttons-container {
+    display: flex;
+    gap: 10px;
+    align-items: center; /* Vertically centers the buttons */
+}
+
+/* Button styling */
+button, input[type="submit"] {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.start-button {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.stop-button {
+    background-color: #f44336;
+    color: white;
+}
+
+.validate-button {
+    background-color: #008CBA;
+    color: white;
+}
+
+.restart-button {
+    background-color: #f39c12; /* Orange color */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.restart-button:hover {
+    background-color: #e67e22; /* Darker orange on hover */
+}
+
+/* Viewer container styling */
+#viewer-container {
+    position: relative;
+    border: 1px solid #ccc;
+    background-color: #fff;
+}
+
+/* Log output styling */
+#log-output {
+    background-color: #eef;
+    padding: 10px;
+    border: 1px solid #ccd;
+    height: 300px;
+    overflow-y: scroll;
+    white-space: pre-wrap;
+    font-family: monospace;
+}
+
+/* Scan and Projects Container */
+.scan-projects-container {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Projects Section Styling */
+#projects-section {
+    flex: 1;
+}
+
+#projects-section h3 {
+    margin-bottom: 10px;
+}
+
+#projects-list {
+    list-style-type: none;
+    max-height: 200px; /* Adjust based on the average height of a project item */
+    overflow-y: auto;
+    padding: 0;
+    margin-bottom: 15px;
+}
+
+.project-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Distribute space between label and actions */
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.project-item:last-child {
+    border-bottom: none;
+}
+
+.project-item label {
+    flex: 1; /* Take up remaining space */
+    margin-left: 10px; /* Space between radio button and label */
+}
+
+.project-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.rename-button, .delete-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #FFA500; /* Orange for rename, will override for delete */
+    color: white;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.rename-button {
+    background-color: #FFA500; /* Orange */
+}
+
+.rename-button:hover {
+    background-color: #FF8C00;
+}
+
+.delete-button {
+    background-color: #FF4C4C; /* Red */
+}
+
+.delete-button:hover {
+    background-color: #FF0000;
+}
+
+/* New Project Form Styling */
+#new-project-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#new-project-form label {
+    flex: 1;
+}
+
+#new-project-form input[type="text"] {
+    flex: 2;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+#new-project-form .validate-button {
+    flex: 1;
+    padding: 5px 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #main-content {
+        flex-direction: column;
+    }
+    
+    #left-panel, #right-panel {
+        width: 100%;
+    }
+    
+    .scan-projects-container {
+        flex-direction: column;
+    }
+}
+
+/* Optional: Customize scrollbar for better aesthetics */
+#projects-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#projects-list::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+
+#projects-list::-webkit-scrollbar-thumb {
+    background: #888; 
+    border-radius: 4px;
+}
+
+#projects-list::-webkit-scrollbar-thumb:hover {
+    background: #555; 
+}
+
+/* Base styles for status icons */
+.status-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 5px;
+    box-sizing: border-box;
+    background-color: #6c757d; /* Grey */
+}
+
+/* Connected: Solid Green Circle */
+.status-icon.connected {
+    background-color: #28a745; /* Green */
+}
+
+/* Disconnected: Solid Red Circle */
+.status-icon.disconnected {
+    background-color: #dc3545; /* Red */
+}
+
+/* Connecting: Yellow Circle with Spinning Border */
+.status-icon.connecting {
+    border: 4px solid #ffc107; /* Yellow border */
+    border-top: 4px solid transparent; /* Transparent top for spinner effect */
+    background-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Ensure connection-status has a higher z-index */
+#connection-status {
+    z-index: 1001; /* Higher than loading-indicator */
+}
+
+#toast-container {
+    top: 80px; /* Adjust this value to match the height of your header */
+}
+#connection-status {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+}
+#reconnectButton {
+    margin-right: 10px; /* Adjust spacing as needed */
+}
+
+/* Add to styles.css */
+.restart-button {
+    background-color: #f39c12;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.restart-button:hover {
+    background-color: #e67e22;
+}
+
+/* Highlighted project item */
+.project-item.highlighted {
+    background-color: #d3f9d8; /* Light green background for highlighted row */
+}
