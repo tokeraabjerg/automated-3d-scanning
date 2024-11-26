@@ -3,6 +3,16 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QPushButton, QWidget
 import threading
 
+#================================================
+#  *                    INFO
+#    Bruges for at manuelt rotere punktskyer.
+#    Hovedsageligt som en lappeløsning indtil
+#    vi evt. kan bruge en automatiseret løsning.
+# 
+#    Der skal bruges PyQt5, installeres med pip:
+#    pip install pyqt5
+#================================================
+
 
 class PointCloudVisualizer(QMainWindow):
     def __init__(self, design_pc_path, scanned_pc_path):
@@ -146,8 +156,8 @@ if __name__ == "__main__":
     import sys
 
     # File paths for point clouds
-    design_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignPC_rotated.ply"
-    scanned_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\ScannedCropped0.ply"
+    design_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignUTPC.ply"
+    scanned_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"
 
     # Create the application and main window
     app = QApplication(sys.argv)
