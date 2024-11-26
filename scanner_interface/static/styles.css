@@ -1,3 +1,9 @@
+/**------------------------------------------------------------------------
+ * ?                                ABOUT
+ * @author         :  Toke Raabjerg
+ * @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+ * @description    :  This CSS file contains styles for the 3D scanner control panel interface.
+ *------------------------------------------------------------------------**/
 /* static/styles.css */
 
 /* Reset default margins and paddings */
@@ -135,8 +141,22 @@ button, input[type="submit"] {
 }
 
 .restart-button {
-    background-color: #555555;
+    background-color: #f39c12; /* Orange color */
     color: white;
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.restart-button:hover {
+    background-color: #e67e22; /* Darker orange on hover */
 }
 
 /* Viewer container styling */
@@ -296,6 +316,7 @@ button, input[type="submit"] {
     display: inline-block;
     margin-left: 5px;
     box-sizing: border-box;
+    background-color: #6c757d; /* Grey */
 }
 
 /* Connected: Solid Green Circle */
@@ -325,4 +346,39 @@ button, input[type="submit"] {
 /* Ensure connection-status has a higher z-index */
 #connection-status {
     z-index: 1001; /* Higher than loading-indicator */
+}
+
+#toast-container {
+    top: 80px; /* Adjust this value to match the height of your header */
+}
+#connection-status {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+}
+#reconnectButton {
+    margin-right: 10px; /* Adjust spacing as needed */
+}
+
+/* Add to styles.css */
+.restart-button {
+    background-color: #f39c12;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.restart-button:hover {
+    background-color: #e67e22;
+}
+
+/* Highlighted project item */
+.project-item.highlighted {
+    background-color: #d3f9d8; /* Light green background for highlighted row */
 }
