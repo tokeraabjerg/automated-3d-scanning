@@ -21,5 +21,8 @@ Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår D
 MDP AKTIV:
 Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  
 
-Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust.
+Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust. Check
 
+Fix Testbed
+
+Add auto cropping

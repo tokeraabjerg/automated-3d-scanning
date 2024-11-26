@@ -1,4 +1,6 @@
+
 import open3d as o3d
+import numpy as np
 
 def RANSAC_initial_alignment(source, target):
     # Simple initial alignment using downsampling and FPFH (Fast Point Feature Histograms)
@@ -30,7 +32,6 @@ def RANSAC_initial_alignment(source, target):
 
     return result.transformation
 
-import numpy as np
 
 def rotate_point_cloud(target, rotation_vectors, index):
     """
@@ -84,8 +85,6 @@ def rotate_point_cloud(target, rotation_vectors, index):
 
     return target, R_4x4
 
-import open3d as o3d
-import numpy as np
 
 def rotate_point_cloud_euler(target, euler_angles, index):
     """
@@ -166,57 +165,108 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     return result
 
 
-if __name__ == "__main__":
-    from Misc_functions import create_arrow
-    from PP import preprocess_point_cloud
+# def select_points(point_cloud):
+#     print("Please select 3 points in the point cloud.")
+#     vis = o3d.visualization.VisualizerWithEditing()
+#     vis.create_window()
+#     vis.add_geometry(point_cloud)
+#     vis.run()  # user picks points
+#     vis.destroy_window()
+#     return vis.get_picked_points()
 
-    voxel_size=1.5
-    # List of .ply files to process
-    ply_files = [
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
-    ]
+# def calculate_transformation_matrix(points):
+#     assert len(points) == 3, "Exactly 3 points must be selected."
 
-    rotation_vectors = [
-    (None),    # Tom første indgang
-    (25, 0, 0),     # Rotation omkring en vilkårlig akse
-    (45, 0, 0)    # 90 grader omkring y-aksen
-    ]
-    if len(ply_files) < 2:
-        raise ValueError("At least two point cloud files are required for registration.")
+#     # Convert points to numpy array
+#     points = np.array(points)
+
+#     # Calculate vectors
+#     v1 = points[1] - points[0]
+#     v2 = points[2] - points[0]
+
+#     # Calculate normal vector
+#     normal = np.cross(v1, v2)
+#     normal /= np.linalg.norm(normal)
+
+#     # Create rotation matrix
+#     R = np.eye(4)
+#     R[:3, :3] = np.vstack([v1 / np.linalg.norm(v1), v2 / np.linalg.norm(v2), normal]).T
+
+#     # Create translation matrix
+#     T = np.eye(4)
+#     T[:3, 3] = -points[0]
+
+#     # Combine rotation and translation
+#     transformation_matrix = np.dot(R, T)
+
+#     return transformation_matrix
+
+# def align_point_cloud_with_axis(point_cloud):
+#     # Select 3 points
+#     picked_points_indices = select_points(point_cloud)
+#     picked_points = np.asarray(point_cloud.points)[picked_points_indices]
+
+#     # Calculate transformation matrix
+#     transformation_matrix = calculate_transformation_matrix(picked_points)
+
+#     # Apply transformation
+#     point_cloud.transform(transformation_matrix)
+
+#     return point_cloud
+
+
+# if __name__ == "__main__":
+#     from Misc_functions import create_arrow
+#     from PP import preprocess_point_cloud
+
+#     voxel_size=1.5
+#     # List of .ply files to process
+#     ply_files = [
+#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
+#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
+#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
+#     ]
+
+#     rotation_vectors = [
+#     (None),    # Tom første indgang
+#     (15, 0, 0),     # Rotation omkring en vilkårlig akse
+#     (45, 0, 0)    # 90 grader omkring y-aksen
+#     ]
+#     if len(ply_files) < 2:
+#         raise ValueError("At least two point cloud files are required for registration.")
     
-    # Load the first point cloud as the initial source
-    combined_cloud = o3d.io.read_point_cloud(ply_files[0])
+#     # Load the first point cloud as the initial source
+#     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
 
-    arrows = [
-    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
-    ]
-    combined_geometry = o3d.geometry.TriangleMesh()
-    for arrow in arrows:
-        combined_geometry += arrow
+#     arrows = [
+#     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
+#     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
+#     create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
+#     ]
+#     combined_geometry = o3d.geometry.TriangleMesh()
+#     for arrow in arrows:
+#         combined_geometry += arrow
 
-    # Preproces: Downsize, Remove outliers, Find normals, Find features:
-    # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    combined_cloud_normal, combined_cloud = preprocess_point_cloud(combined_cloud, voxel_size)
+#     # Preproces: Downsize, Remove outliers, Find normals, Find features:
+#     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
+#     combined_cloud_normal, combined_cloud = preprocess_point_cloud(combined_cloud, voxel_size)
 
-    target_cloud = o3d.io.read_point_cloud(ply_files[1])
+#     select_points(combined_cloud)
 
-    target_cloud_normal, target_cloud = preprocess_point_cloud(target_cloud, voxel_size)
-        #target_cloud = target_cloud.voxel_down_sample(voxel_size)
-        #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
-    target_cloud.paint_uniform_color([1, 0.706, 0])
-    o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Point Clouds")
-    target_cloud, initial_transformation=rotate_point_cloud(target_cloud, rotation_vectors, 1)
-    print(initial_transformation)
-    o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Rotated Point Cloud")
+#     target_cloud = o3d.io.read_point_cloud(ply_files[1])
 
-    combined_center = np.mean(np.asarray(combined_cloud.points), axis=0)
-    target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-    translation_vector=combined_center-target_center
-    print(translation_vector)
-    target_cloud.translate(translation_vector)
-    o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Translated Point Cloud")
+#     target_cloud_normal, target_cloud = preprocess_point_cloud(target_cloud, voxel_size)
+#         #target_cloud = target_cloud.voxel_down_sample(voxel_size)
+#         #target_cloud, ind = target_cloud.remove_statistical_outlier(nb_neighbors=150/voxel_size, std_ratio=0.5)
+#     target_cloud.paint_uniform_color([1, 0.706, 0])
+#     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Point Clouds")
+#     target_cloud, initial_transformation=rotate_point_cloud(target_cloud, rotation_vectors, 1)
+#     print(initial_transformation)
+#     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Rotated Point Cloud")
 
+#     combined_center = np.mean(np.asarray(combined_cloud.points), axis=0)
+#     target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+#     translation_vector=combined_center-target_center
+#     print(translation_vector)
+#     target_cloud.translate(translation_vector)
+#     o3d.visualization.draw_geometries([combined_cloud, target_cloud, combined_geometry], window_name="Translated Point Cloud")
