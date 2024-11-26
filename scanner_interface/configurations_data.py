@@ -168,5 +168,6 @@ configurations_info = {
         },
         'default': '0'
     },
-    # Add additional configurations below as needed, following the same structure.
+    # Remove 'Acquisition Start' and 'Acquisition Stop' from configurations_info
+    # These are commands, not parameters, and should not be read as parameters.
 }

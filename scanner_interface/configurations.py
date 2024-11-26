@@ -1,18 +1,32 @@
-# configuration.py
+#---------------------------------------------------------------------------
+#  ?                                ABOUT
+#  @author         :  Toke Raabjerg
+#  @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+#  @description    :  This module manages the configurations for the 3D scanner.
+#                     It reads, validates, and updates configuration parameters.
+#---------------------------------------------------------------------------
+
+# configurations.py
 
 import logging
-from configurations_data import configurations_info
+from .configurations_data import configurations_info
 import threading
 
 logger = logging.getLogger(__name__)
 
 class Configurations:
     def __init__(self, scanner_interface=None):
-        # Initialize the Configurations class with a scanner interface and configuration information
+        """
+        Initialize the Configurations class with a scanner interface and configuration information.
+        If the scanner is not connected, load default configurations.
+        """
         self.scanner = scanner_interface
         self.configurations_info = configurations_info
         self.configurations = {}
         self.lock = threading.Lock()  # Use a lock to ensure thread safety during operations
+
+        # Load configurations
+        self.read_all_configurations()
 
     def read_parameter(self, command):
         """
@@ -29,6 +43,7 @@ class Configurations:
         """
         Read all configurations from the sensor using get_commands and store them in the configurations dictionary.
         Uses hardcoded min, max, and default values.
+        If the scanner is not connected or reading a parameter fails, use the default value.
         """
         with self.lock:
             for key, info in self.configurations_info.items():
@@ -97,6 +112,7 @@ class Configurations:
     def update_configuration(self, key, value):
         """
         Update the configuration value on the scanner.
+        If the scanner is not connected, update the local configuration only.
         """
         with self.lock:
             # Get the configuration information for the provided key
@@ -119,10 +135,13 @@ class Configurations:
             set_command = f"{info['set_command']}={value}\r"
             logger.info(f"Sending command to set '{key}' to {value}: {set_command.strip()}")
 
-            # Send the set_command to the sensor
-            if not self.scanner.write_sensor_command(set_command):
-                logger.error(f"Failed to set '{key}' to {value}.")
-                return False
+            # Send the set_command to the sensor if connected
+            if self.scanner and self.scanner.sensorHandle:
+                if not self.scanner.write_sensor_command(set_command):
+                    logger.error(f"Failed to set '{key}' to {value}.")
+                    return False
+            else:
+                logger.warning(f"Scanner not connected. Updating '{key}' locally only.")
 
             # Update the local configuration
             try:
