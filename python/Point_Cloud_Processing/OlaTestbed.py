@@ -1,7 +1,7 @@
 import open3d as o3d
 import numpy as np
 import sys
-from Comparison2 import compare_point_clouds
+from Comparison import compare_point_clouds
 from PCP import process_point_clouds
 from STP import STL_to_pointcloud
 
