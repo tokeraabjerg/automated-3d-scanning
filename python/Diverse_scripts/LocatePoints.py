@@ -82,7 +82,9 @@ def load_point_cloud(file_path):
     return pcd
 
 # File path to the point cloud
-file_path = r"C:\Users\ovikd\Downloads\downsampled_cropped_est.ply"
+# file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
+file_path = r"C:\Users\mikke\Desktop\merged_point_cloud_test.ply"
+
 
 # Load the point cloud
 point_cloud = load_point_cloud(file_path)
