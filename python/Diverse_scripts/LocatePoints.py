@@ -82,17 +82,11 @@ def load_point_cloud(file_path):
     return pcd
 
 # File path to the point cloud
-<<<<<<< HEAD
-<<<<<<< HEAD
 # file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
 file_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignPCUT.ply"
 
-=======
 file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
->>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
-=======
 file_path = r"C:\Users\ovikd\Downloads\downsampled_cropped_est.ply"
->>>>>>> f00deda (Flyttet på nogle filer. Mindre ændringer i)
 
 # Load the point cloud
 point_cloud = load_point_cloud(file_path)
