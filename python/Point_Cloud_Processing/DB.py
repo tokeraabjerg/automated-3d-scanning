@@ -14,7 +14,15 @@ def remove_small_clusters(point_cloud, min_cluster_size, eps):
     """
     # Brug DBSCAN til clustering
     labels = np.array(
+<<<<<<< HEAD
+<<<<<<< HEAD
         point_cloud.cluster_dbscan(eps, min_cluster_size, print_progress=True)
+=======
+        point_cloud.cluster_dbscan(eps, min_points=10, print_progress=True)
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+        point_cloud.cluster_dbscan(eps, min_cluster_size, print_progress=True)
+>>>>>>> 0da613f (Minor syntax update)
     )
     
     # Find størrelsen af hver gruppe
