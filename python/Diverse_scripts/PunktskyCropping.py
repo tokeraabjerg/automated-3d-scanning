@@ -77,8 +77,8 @@ def crop_point_cloud(point_cloud, point_indices, output_file):
 
 def main():
     # File path to the input and output point clouds
-    input_file = r"C:\Users\ovikd\Documents\Punktskyer\Scanned15.ply"
-    output_file = r"C:\Users\ovikd\Documents\Punktskyer\ScannedCropped15.ply"
+    input_file = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"
+    output_file = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"
 
     # Load the point cloud
     point_cloud = o3d.io.read_point_cloud(input_file)
