@@ -5,9 +5,9 @@ from ICP import Point_to_Plane, legacy_icp_with_logging
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
-from Misc_functions import compute_bounding_box, create_arrow
+from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle
 from PP import preprocess_point_cloud
-from Bin import extract_rotation_axis_and_angle
+from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
 
 def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     """
@@ -41,32 +41,26 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    combined_cloud.translate(x_axis)
+    # combined_cloud.translate(x_axis)
     combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
+    combined_cloud.transform(zero_transformation)
 
-    # Downsample using normal space sampling (now part of preprocess)
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
 
     # Visualize the downsampled point cloud
     
     o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
     # Beregn bounding box, størrelse af pooint cloud
-    
-    # min_bound, max_bound = compute_bounding_box(combined_cloud)
 
-    # # Beregn størrelse af bounding box
-    # bbox_size = max_bound - min_bound
-    # print(f"Størrelse af bounding box: {bbox_size}")
-
-#    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
-#    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
+    #    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
+    #    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
 
     for i in range(1, len(ply_files)):
         print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
 
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
-        target_cloud.translate(x_axis)
+        target_cloud.transform(zero_transformation)
         target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
         
 
@@ -82,13 +76,13 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
             target_cloud.transform(initial_transformation)
             o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
         else:
-            unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+            # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
             o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
             initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(rotation_vectors[i][0]), np.radians(rotation_vectors[i][1]), np.radians(rotation_vectors[i][2])))
             print(initial_rotation)
             target_cloud.rotate(initial_rotation, center=(0,0,0))
             o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
-            target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+            # target_center = np.mean(np.asarray(target_cloud.points), axis=0)
             # For now, translation by densitity alignment is not implimented
             # translation_vector=combined_center-target_center
             # translation_vector=unrotated_target_center-target_center
@@ -141,18 +135,18 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         aligned_voxel = target_voxel.transform(combined_transformation[i])
         combined_voxel += aligned_voxel
         
-        R=combined_transformation[i][:3, :3]
-        print('LOOK HERE')
-        print(R)
-        axis, angle = extract_rotation_axis_and_angle(R)
-        print("Rotation Axis:", axis)
-        print("Rotation Angle (degrees):", np.degrees(angle))
+        # R=combined_transformation[i][:3, :3]
+        # print('LOOK HERE')
+        # print(R)
+        # axis, angle = extract_rotation_axis_and_angle(R)
+        # print("Rotation Axis:", axis)
+        # print("Rotation Angle (degrees):", np.degrees(angle))
 
         # Optional: Visualize the current merged cloud
         o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
         o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
 
-    return combined_voxel
+    return combined_voxel, combined_transformation
 
 
 
@@ -184,10 +178,14 @@ if __name__ == "__main__":
     # Calculated x_axis=(143.31,24.85,-318.16)
     
     # Working x_axis=(143.31, 15,-340.16)
-    x_axis=(143.31, 15,-345)
+    # x_axis=(143.31, 15,-345)
+
+    # Obtain zeroing transformation
+    # zero_transformation=Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil)
+    zero_transformation = np.eye(4)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, zero_transformation, voxel_size=1.5, mcd=4)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"

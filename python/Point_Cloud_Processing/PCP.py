@@ -5,9 +5,10 @@ from ICP import Point_to_Plane, legacy_icp_with_logging
 from EE import calculate_error
 from DT import decompose_transformation
 from DB import remove_small_clusters
-from Misc_functions import compute_bounding_box, create_arrow
+from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle
 from PP import preprocess_point_cloud
-from Bin import extract_rotation_axis_and_angle
+from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
+
 
 def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     """
@@ -191,8 +192,8 @@ if __name__ == "__main__":
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
-    #o3d.io.write_point_cloud(output_file, final_cloud)
-    #print(f"Final merged point cloud saved to: {output_file}")
+    o3d.io.write_point_cloud(output_file, final_cloud)
+    print(f"Final merged point cloud saved to: {output_file}")
 
     # Visualize the final result
     #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")

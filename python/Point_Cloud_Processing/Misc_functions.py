@@ -23,6 +23,74 @@ def compute_bounding_box(point_cloud):
     
     return min_bound, max_bound
 
+def compute_rotation_axis(pcd1, pcd2, angle):
+    """
+    Finds the axis of rotation given two point clouds and a known rotation angle.
+
+    Args:
+        pcd1 (o3d.geometry.PointCloud): First point cloud.
+        pcd2 (o3d.geometry.PointCloud): Second point cloud (rotated version of pcd1).
+        angle (float): Known rotation angle (in radians).
+
+    Returns:
+        np.ndarray: Unit vector representing the axis of rotation.
+    """
+    # Translate point clouds to center at the origin
+    pcd1_centered = np.asarray(pcd1.points) - np.mean(np.asarray(pcd1.points), axis=0)
+    pcd2_centered = np.asarray(pcd2.points) - np.mean(np.asarray(pcd2.points), axis=0)
+    
+    # Compute the cross-covariance matrix
+    H = np.dot(pcd1_centered.T, pcd2_centered)
+    
+    # Singular Value Decomposition
+    U, _, Vt = np.linalg.svd(H)
+    R = np.dot(Vt.T, U.T)
+    
+    # Ensure R is a valid rotation matrix (det(R) should be 1)
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = np.dot(Vt.T, U.T)
+    
+    # Extract the axis of rotation from the rotation matrix
+    axis = np.array([R[2, 1] - R[1, 2],
+                     R[0, 2] - R[2, 0],
+                     R[1, 0] - R[0, 1]])
+    axis = axis / np.linalg.norm(axis)  # Normalize the axis
+    
+    return axis
+
+def extract_rotation_axis_and_angle(R):
+    """
+    Extracts the rotation axis and angle from a rotation matrix.
+
+    #OBS! FUNCTION NOT TESTED
+    Args:
+        R (np.ndarray): 3x3 rotation matrix.
+
+    Returns:
+        tuple: (axis, angle), where `axis` is the rotation axis (normalized)
+               and `angle` is the rotation angle in radians.
+    """
+    # Ensure the matrix is valid (orthogonal and determinant close to 1)
+    if not np.allclose(np.dot(R.T, R), np.eye(3)) or not np.isclose(np.linalg.det(R), 1):
+        raise ValueError("Input is not a valid rotation matrix.")
+
+    # Compute the rotation angle
+    angle = np.arccos((np.trace(R) - 1) / 2)
+
+    # Handle numerical precision issues for small angles
+    if np.isclose(angle, 0):
+        # No rotation, arbitrary axis
+        return np.array([1, 0, 0]), 0
+
+    # Compute the rotation axis using the antisymmetric part of R
+    axis = np.array([
+        R[2, 1] - R[1, 2],
+        R[0, 2] - R[2, 0],
+        R[1, 0] - R[0, 1]
+    ]) / (2 * np.sin(angle))
+
+    return axis, angle
 
 def create_arrow(origin, direction, color, shaft_radius=1, head_radius=2, head_length=10, length=100):
     """
