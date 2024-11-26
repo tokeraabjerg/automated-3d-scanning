@@ -36,8 +36,8 @@ def stl_to_point_cloud(stl_file, output_file, num_points=1000000):
     print(f"Point cloud successfully saved to {output_file}")
 
 # File paths
-stl_file = r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fixture i 100W lasercelle.STL"  # Replace with your STL file path
-output_ply_file = r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"  # Output PLY file
+stl_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUT.STL"  # Replace with your STL file path
+output_ply_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUTPC.ply"  # Output PLY file
 
 # Convert and save the point cloud
 stl_to_point_cloud(stl_file, output_ply_file, num_points=100000)

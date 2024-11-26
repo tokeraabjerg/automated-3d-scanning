@@ -85,7 +85,7 @@ def load_point_cloud(file_path):
 <<<<<<< HEAD
 <<<<<<< HEAD
 # file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
-file_path = r"C:\Users\mikke\Desktop\merged_point_cloud_test.ply"
+file_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignPCUT.ply"
 
 =======
 file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
