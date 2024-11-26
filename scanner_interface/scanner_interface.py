@@ -1,4 +1,11 @@
-# scanner_interface.py
+#---------------------------------------------------------------------------
+#  ?                                ABOUT
+#  @author         :  Toke Raabjerg
+#  @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+#  @description    :  This module provides an interface to interact with a 3D scanner using its SDK library. 
+#                     It includes functionality to connect to the scanner, configure it, perform scans, 
+#                     and handle point cloud data.
+#---------------------------------------------------------------------------
 
 from ctypes import *
 import logging
@@ -15,6 +22,35 @@ logger = logging.getLogger(__name__)
 # Define constants
 SENSOR3D_OK = 0
 SENSOR_CONNECTED = 0x00000001
+
+# Define additional error code constants
+SENSOR3D_INVALIDSENSORHANDLE = -1
+SENSOR3D_SENSORNOTCONNECTED = -2
+SENSOR3D_TIMEOUT = -3
+SENSOR3D_CONFIGURATIONERROR = -4
+SENSOR3D_ARGUMENTNULLPOINTER = -101
+SENSOR3D_ARGUMENTOUTOFRANGE = -102
+SENSOR3D_RETURNBUFFERTOOSMALL = -103
+SENSOR3D_COMMANDNOTFOUND = -104
+SENSOR3D_SOCKETCOMMUNICATIONERROR = -106
+SENSOR3D_BUSY = -201
+SENSOR3D_DATASTREAMERROR = -301
+
+# Create a dictionary to map error codes to descriptions
+ERROR_CODES = {
+    SENSOR3D_OK: "No error.",
+    SENSOR3D_INVALIDSENSORHANDLE: "Sensor handle doesn’t exist in the list of opened 3D sensors.",
+    SENSOR3D_SENSORNOTCONNECTED: "Sensor is disconnected.",
+    SENSOR3D_TIMEOUT: "Operation timeout.",
+    SENSOR3D_CONFIGURATIONERROR: "Failed to read the configurations from the 3D sensor.",
+    SENSOR3D_ARGUMENTNULLPOINTER: "Argument used in SDK function is null.",
+    SENSOR3D_ARGUMENTOUTOFRANGE: "Argument used in SDK function is out of the possible range.",
+    SENSOR3D_RETURNBUFFERTOOSMALL: "The size of the SDK result is bigger than the size of the buffer used as an argument.",
+    SENSOR3D_COMMANDNOTFOUND: "The ASCII command could not be found.",
+    SENSOR3D_SOCKETCOMMUNICATIONERROR: "Error in socket communication.",
+    SENSOR3D_BUSY: "The command cannot be processed. The device is in the Acquisition state.",
+    SENSOR3D_DATASTREAMERROR: "Failed to read data stream format from the sensor."
+}
 
 # Define structures
 class POINT3D(Structure):
@@ -97,6 +133,15 @@ class ScannerInterface:
             logger.error(f"Failed to configure library functions: {e}")
             raise
 
+    def interpret_error(self, error_code: int) -> str:
+        """
+        Interpret the error code and return its description.
+
+        :param error_code: The error code returned by an SDK function.
+        :return: Description of the error.
+        """
+        return ERROR_CODES.get(error_code, f"Unknown error code: {error_code}")
+
     def connect(self, max_retries: int = 3) -> bool:
         """
         Attempt to connect to the sensor.
@@ -118,7 +163,8 @@ class ScannerInterface:
                             self.connected = True  # Update connection status
                             return True
                         else:
-                            logger.warning(f"Connection attempt {attempt}/{max_retries} failed: Sensor status result code {result}, status value {status.value}.")
+                            error_message = self.interpret_error(result)
+                            logger.warning(f"Connection attempt {attempt}/{max_retries} failed: {error_message}, status value {status.value}.")
                             self.sensorHandle = None  # Reset sensorHandle if connection is not verified
                     else:
                         logger.warning(f"Connection attempt {attempt}/{max_retries} failed: Sensor handle is None.")
@@ -165,9 +211,10 @@ class ScannerInterface:
             result = self.lib.Sensor3D_GetSensorStatus(self.sensorHandle, byref(status))
 
             if result != SENSOR3D_OK:
-                logger.error(f"Sensor3D_GetSensorStatus failed with error code {result}.")
+                error_message = self.interpret_error(result)
+                logger.error(f"Sensor3D_GetSensorStatus failed with error code {result} - {error_message}.")
                 self.connected = False  # Update connection status
-                return {'connected': False, 'error_code': result}
+                return {'connected': False, 'error_code': result, 'error_message': error_message}
 
             # Interpret the status value based on SDK documentation
             is_connected = bool(status.value & SENSOR_CONNECTED)  # Adjust based on actual bitmask
@@ -181,11 +228,13 @@ class ScannerInterface:
                 'error_code': error_code
             }
 
-    def perform_scan(self, nrScans: int):
+    def perform_scan(self, scan_interval: int = 1, stop_event: Optional[threading.Event] = None):
         """
-        Perform a scan and save the point cloud data.
+        Perform a single scan and return the point cloud data.
 
-        :param nrScans: Number of scans to perform.
+        :param scan_interval: Interval between starting and stopping scan in seconds.
+        :param stop_event: Event to signal scan stop.
+        :return: Single Open3D point cloud.
         """
         try:
             # Hardcoded configurations
@@ -199,16 +248,16 @@ class ScannerInterface:
             # Configure sensor using hardcoded configurations
             if not self.write_sensor_command(f"SetSensorMode={sensor_mode}"):
                 logger.error("Failed to set sensor mode.")
-                return
+                return []
             if not self.write_sensor_command(f"SetTriggerSource={trigger_source}"):
                 logger.error("Failed to set trigger source.")
-                return
+                return []
             if not self.write_sensor_command(f"SetLEDPattern={led_pattern}"):
                 logger.error("Failed to set LED pattern.")
-                return
+                return []
             if not self.write_sensor_command("SetAcquisitionStart"):
                 logger.error("Failed to start acquisition.")
-                return
+                return []
 
             logger.info("Acquisition started successfully.")
 
@@ -222,7 +271,7 @@ class ScannerInterface:
 
             if camera_width_str is None or camera_height_str is None:
                 logger.error("Failed to obtain camera dimensions. Aborting scan.")
-                return
+                return []
 
             try:
                 camera_width = int(camera_width_str)
@@ -230,7 +279,7 @@ class ScannerInterface:
                 logger.info(f"Camera dimensions: width={camera_width}, height={camera_height}")
             except ValueError as ve:
                 logger.error(f"Invalid camera dimensions received: width='{camera_width_str}', height='{camera_height_str}'")
-                return
+                return []
 
             nrPixels = camera_width * camera_height
             pc_size = (sizeof(POINT3D) + sizeof(c_ushort)) * nrPixels
@@ -247,59 +296,65 @@ class ScannerInterface:
             roi = ROI()
             timeout = 30000  # Timeout for point cloud acquisition in milliseconds
 
-            for i in range(nrScans):
-                logger.info(f"Attempting to acquire scan {i + 1}/{nrScans}.")
-                result = self.lib.Sensor3D_GetPointCloud(
-                    self.sensorHandle,
-                    byref(scanBuffer),
-                    pc_size,
-                    byref(number_of_points),
-                    byref(roi),
-                    timeout
-                )
+            if stop_event and stop_event.is_set():
+                logger.info("Scan stopped by user before starting scan.")
+                return []
 
-                if result != SENSOR3D_OK:
-                    logger.error(f"Error acquiring point cloud, result: {result}")
-                    continue
+            # Start a timer to stop acquisition after scan_interval seconds
+            stop_timer = threading.Timer(scan_interval, self.stop_scan)
+            stop_timer.start()
 
-                logger.info(f"Scan {i + 1}/{nrScans}: Number of points: {number_of_points.value}")
-                if number_of_points.value == 0:
-                    logger.error("No points acquired. Skipping this scan.")
-                    continue
+            scan_start_time = time.time()
+            logger.info("Attempting to acquire scan.")
 
-                # Convert to numpy arrays
-                points_np = np.zeros((number_of_points.value, 3), dtype=np.float64)
-                intensities_np = np.zeros((number_of_points.value,), dtype=np.uint16)
+            result = self.lib.Sensor3D_GetPointCloud(
+                self.sensorHandle,
+                byref(scanBuffer),
+                pc_size,
+                byref(number_of_points),
+                byref(roi),
+                timeout
+            )
 
-                for idx in range(number_of_points.value):
-                    point = scanBuffer.point[idx]
-                    points_np[idx, :] = [point.x, point.y, point.z]
-                    intensities_np[idx] = scanBuffer.intensity[idx]
+            # Ensure the timer is canceled if acquisition completes before interval
+            stop_timer.cancel()
 
-                # Create Open3D point cloud
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(points_np)
-                intensities_normalized = (intensities_np / 65535).astype(np.float64)
-                pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
+            if stop_event and stop_event.is_set():
+                logger.info("Scan stopped by user during acquisition.")
+                return []
 
-                # Save the full point cloud as a .ply file
-                output_filename = os.path.join(self.output_directory, f"point_cloud_{i+1}.ply")
-                o3d.io.write_point_cloud(output_filename, pcd)
-                logger.info(f"Saved point cloud to {output_filename}")
+            if result != SENSOR3D_OK:
+                logger.error(f"Error acquiring point cloud, result: {result}")
+                return []
 
-                # Always reduce and save the point cloud
-                self.reduce_and_save_point_cloud(pcd, scan_number=i+1)
+            logger.info(f"Scan: Number of points: {number_of_points.value}")
+            if number_of_points.value == 0:
+                logger.error("No points acquired. Skipping this scan.")
+                return []
 
-            # Stop acquisition
-            if not self.write_sensor_command("SetAcquisitionStop"):
-                logger.error("Failed to stop acquisition.")
-            else:
-                logger.info("Acquisition stopped successfully.")
+            # Convert to numpy arrays
+            points_np = np.zeros((number_of_points.value, 3), dtype=np.float64)
+            intensities_np = np.zeros((number_of_points.value,), dtype=np.uint16)
 
+            for idx in range(number_of_points.value):
+                point = scanBuffer.point[idx]
+                points_np[idx, :] = [point.x, point.y, point.z]
+                intensities_np[idx] = scanBuffer.intensity[idx]
+
+            # Create Open3D point cloud
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points_np)
+            intensities_normalized = (intensities_np / 65535).astype(np.float64)
+            pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
+
+            #  pcd is the Open3D point cloud
+            return [pcd]
+    
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")
+            return []
 
-    def reduce_and_save_point_cloud(self, pcd: o3d.geometry.PointCloud, scan_number: int):
+    def reduce_and_save_point_cloud(self, pcd: o3d.geometry.PointCloud, sca: int):
         """
         Reduce the point cloud to less than 100,000 points and save it.
 
@@ -360,7 +415,8 @@ class ScannerInterface:
                 full_command = command if command.endswith('\r') else command + '\r'
                 result = self.lib.Sensor3D_WriteData(self.sensorHandle, full_command.encode())
                 if result != SENSOR3D_OK:
-                    logger.error(f"Error writing {full_command.strip()}, result code: {result}")
+                    error_message = self.interpret_error(result)
+                    logger.error(f"Error writing {full_command.strip()}, result code: {result} - {error_message}")
                     return False
                 logger.debug(f"Executed command: {full_command.strip()}")
                 return True
@@ -386,7 +442,8 @@ class ScannerInterface:
                     0  # Corrected: Reserved should be 0
                 )
                 if result != SENSOR3D_OK:
-                    logger.error(f"Error reading {command}, result code: {result}")
+                    error_message = self.interpret_error(result)
+                    logger.error(f"Error reading {command}, result code: {result} - {error_message}")
                     return None
                 value = readBuffer.value.decode().strip()
                 logger.debug(f"Read parameter {command}: {value}")
@@ -395,13 +452,14 @@ class ScannerInterface:
                 logger.error(f"Exception while reading parameter {command}: {e}")
                 return None
 
-    def stop_scan(self) -> bool:
+    def stop_scan(self):
         """
-        Stop the ongoing scan process.
-
-        :return: True if the scan was stopped successfully, False otherwise.
+        Send the SetAcquisitionStop command to the sensor.
         """
-        return self.write_sensor_command("SetAcquisitionStop")
+        if self.write_sensor_command("SetAcquisitionStop"):
+            logger.info("Acquisition stopped successfully by timer.")
+        else:
+            logger.error("Failed to stop acquisition via timer.")
 
     def ping_sensor(self) -> bool:
         """

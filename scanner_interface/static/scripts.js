@@ -1,3 +1,11 @@
+/**------------------------------------------------------------------------
+ * ?                                ABOUT
+ * @author         :  Toke Raabjerg
+ * @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+ * @description    :  This JavaScript file contains functions for handling the 3D scanner 
+ *                    control panel interface.
+ *------------------------------------------------------------------------**/
+
 // static/scripts.js
 
 // Configure Toastr options
@@ -58,6 +66,28 @@ function confirmShutdown(event) {
     return false; // Prevent form submission until confirmed
 }
 
+// Function to replace native confirm with SweetAlert2 for restart confirmation
+function confirmRestart(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "Are you sure you want to restart the server?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, restart!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Proceed with form submission
+            event.target.submit();
+        }
+    });
+
+    return false; // Prevent form submission until confirmed
+}
+
 let scannerConnected = false;
 let connectingNotificationShown = false;
 
@@ -84,6 +114,18 @@ function updateConnectionStatus(connected, connecting) {
     console.log(`Connection Status Updated - Connected: ${connected}, Connecting: ${connecting}`);
 }
 
+function updateConnectionStatus(isConnected) {
+    if (isConnected) {
+        document.getElementById('connected-icon').style.display = 'block';
+        document.getElementById('connecting-icon').style.display = 'none';
+        document.getElementById('disconnected-icon').style.display = 'none';
+    } else {
+        document.getElementById('connected-icon').style.display = 'none';
+        document.getElementById('connecting-icon').style.display = 'none';
+        document.getElementById('disconnected-icon').style.display = 'block';
+    }
+}
+
 // Function to check scanner connection status
 function checkScannerStatus() {
     fetch('/scanner_status')
@@ -98,7 +140,7 @@ function checkScannerStatus() {
                         toastr.clear(); // Remove all toasts
                         connectingNotificationShown = false;
                     }
-                    //showSuccess('Scanner connected successfully.', 'Scanner Status');
+                    showSuccess('Scanner connected successfully.', 'Scanner Status');
                 }
             } else {
                 if (data.connecting) {
@@ -136,6 +178,7 @@ function checkScannerStatus() {
 }
 
 // Function to fetch and display logs every 2 seconds
+let errorDisplayed = false;
 function fetchLogs() {
     fetch('/get_logs')
         .then(response => {
@@ -151,53 +194,23 @@ function fetchLogs() {
             logOutput.textContent = reversedLogs;
             // Scroll to the top to show the newest logs
             logOutput.scrollTop = 0;
+            errorDisplayed = false; // Reset error display flag on successful fetch
         })
         .catch(error => {
             console.error('Error fetching logs:', error);
-            showError('Failed to fetch logs.');
+            if (!errorDisplayed) {
+                showError('Failed to fetch logs.');
+                errorDisplayed = true;
+                setTimeout(() => {
+                    errorDisplayed = false;
+                }, 30000); // Reset error display flag after 30 seconds
+            }
         });
 }
 
 // 3D Previewer Settings
-function load3DPreviewSetting() {
-    const checkbox = document.getElementById('3d-preview-checkbox');
-    // Check if the setting exists in localStorage
-    const storedSetting = localStorage.getItem('show3DPreviewer');
-    if (storedSetting !== null) {
-        checkbox.checked = (storedSetting === 'true');
-    } else {
-        // Default to enabled if not set
-        checkbox.checked = true;
-        localStorage.setItem('show3DPreviewer', 'true');
-    }
-    updateViewerVisibility();
-}
 
-function save3DPreviewSetting() {
-    const checkbox = document.getElementById('3d-preview-checkbox');
-    const isEnabled = checkbox.checked;
-    localStorage.setItem('show3DPreviewer', isEnabled.toString());
-    updateViewerVisibility();
-}
-
-function updateViewerVisibility() {
-    const checkbox = document.getElementById('3d-preview-checkbox');
-    const container = document.getElementById('viewer-container');
-    if (checkbox.checked) {
-        container.style.display = 'block';
-        // Trigger preview.js to load the point cloud
-        loadPointCloud();
-    } else {
-        container.style.display = 'none';
-    }
-}
-
-function toggleViewer() {
-    const checkbox = document.getElementById('3d-preview-checkbox');
-    checkbox.checked = !checkbox.checked;
-    save3DPreviewSetting();
-}
-
+// Keep the manual refresh function
 function manualRefresh() {
     // Trigger preview.js to reload the point cloud
     loadPointCloud();
@@ -241,8 +254,7 @@ function hideLoadingIndicator() {
 function handleStartScan(event) {
     event.preventDefault(); // Prevent default form submission
 
-    const nrScans = document.getElementById('nrScans').value;
-    const scanInterval = document.getElementById('scanInterval').value;
+    const scanInterval = parseInt(document.getElementById('scanInterval').value);
     const selectedProject = document.querySelector('input[name="selected-project"]:checked');
 
     let project = null;
@@ -251,8 +263,8 @@ function handleStartScan(event) {
     }
 
     // Input Validation
-    if (nrScans < 1 || scanInterval < 1) {
-        showWarning('Number of scans and scan interval must be at least 1.', 'Scan Validation');
+    if (scanInterval < 1) {
+        showWarning('Scan interval must be at least 1.', 'Scan Validation');
         return;
     }
 
@@ -265,13 +277,12 @@ function handleStartScan(event) {
     startButton.disabled = true;
     stopButton.disabled = true;
 
-    fetch('/start_scan', {
+    fetch('/scan/start_scan', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            nrScans: nrScans,
             scanInterval: scanInterval,
             selectedProject: project
         })
@@ -306,6 +317,8 @@ function handleStartScan(event) {
 function handleStopScan(event) {
     event.preventDefault(); // Prevent default form submission
 
+    console.log('Stop scan button clicked'); // Debugging log
+
     // Show loading indicator with "Stopping scan..."
     showLoadingIndicator('Stopping scan...');
 
@@ -315,15 +328,19 @@ function handleStopScan(event) {
     stopButton.disabled = true;
     startButton.disabled = true;
 
-    fetch('/stop_scan', {
+    fetch('/scan/stop_scan', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response received from stop_scan:', response); // Debugging log
+        return response.json();
+    })
     .then(data => {
+        console.log('Data received from stop_scan:', data); // Debugging log
         if (data.status === 'success') {
             showInfo('Scan stopping...', 'Scan Status');
             // Update loading indicator to "Stopping scan..."
@@ -349,7 +366,7 @@ function handleStopScan(event) {
 // Function to poll scan status
 function pollScanStatus() {
     const intervalId = setInterval(() => {
-        fetch('/is_processing')
+        fetch('/scan/is_processing')
             .then(response => response.json())
             .then(data => {
                 if (!data.processing) {
@@ -403,7 +420,7 @@ function renameProject(projectName) {
                 return false;
             }
             // Implement AJAX request to rename the project
-            return fetch('/rename_project', {
+            return fetch('/project/rename_project', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -421,7 +438,7 @@ function renameProject(projectName) {
             })
             .then(data => {
                 if (data.status === 'success') {
-                    showSuccess('Project renamed successfully.', 'Project Management');
+                    showSuccess('Project renamed successfully.', 'scanner is not  Management');
                     // Reload the page or update the DOM
                     location.reload();
                 } else {
@@ -449,7 +466,7 @@ function deleteProject(projectName) {
     }).then((result) => {
         if (result.isConfirmed) {
             // Proceed with deletion
-            fetch('/delete_project', {
+            fetch('/project/delete_project', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -488,7 +505,7 @@ function createNewProject(event) {
     }
 
     // Implement AJAX request to create a new project
-    fetch('/create_project', {
+    fetch('/project/create_project', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -515,79 +532,72 @@ function createNewProject(event) {
     return false; // Prevent form submission
 }
 
-function stopScan() {
-    fetch('/stop_scan', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            toastr.success('Scan stopped successfully.');
-        } else {
-            toastr.error('Failed to stop scan: ' + data.message);
-        }
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-        toastr.error('An error occurred while stopping the scan.');
+function highlightSelectedProject(radio) {
+    // Remove highlight from all project items
+    const projectItems = document.querySelectorAll('.project-item');
+    projectItems.forEach(item => {
+        item.classList.remove('highlighted');
     });
+
+    // Add highlight to the selected project item
+    const selectedProjectItem = radio.closest('.project-item');
+    if (selectedProjectItem) {
+        selectedProjectItem.classList.add('highlighted');
+    }
 }
 
-// Function to update connection status icon
-function updateConnectionStatus() {
-    fetch('/ping_status')
+function pingSensor() {
+    fetch('/scanner_status')
         .then(response => response.json())
         .then(data => {
-            if (data.connected) {
-                document.getElementById('connected-icon').style.display = 'inline-block';
-                document.getElementById('connecting-icon').style.display = 'none';
-                document.getElementById('disconnected-icon').style.display = 'none';
-            } else {
-                document.getElementById('connected-icon').style.display = 'none';
-                document.getElementById('connecting-icon').style.display = 'none';
-                document.getElementById('disconnected-icon').style.display = 'inline-block';
-            }
+            alert('Sensor connected: ' + data.connected);
         })
         .catch(error => {
-            console.error('Error fetching connection status:', error);
-            document.getElementById('connected-icon').style.display = 'none';
-            document.getElementById('connecting-icon').style.display = 'none';
-            document.getElementById('disconnected-icon').style.display = 'inline-block';
+            console.error('Error:', error);
         });
 }
 
-// Update connection status every 10 seconds
-setInterval(updateConnectionStatus, 10000);
+function attemptReconnect() {
+    fetch('/attempt_reconnect', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                toastr.success(data.message);
+                updateConnectionStatus(true);
+            } else {
+                toastr.error(data.message);
+                updateConnectionStatus(false);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toastr.error('Reconnection attempt failed.');
+            updateConnectionStatus(false);
+        });
+}
+
+// Optionally, periodically check scanner status and update UI
+setInterval(function() {
+    fetch('/scanner_status')
+        .then(response => response.json())
+        .then(data => {
+            updateConnectionStatus(data.connected);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            updateConnectionStatus(false);
+        });
+}, 5000); // Every 5 seconds
 
 window.onload = function() {
     fetchLogs();
-    load3DPreviewSetting();
     loadScanInterval(); // Load scan interval from localStorage
-
-    // Attach event listeners for Start and Stop Scan
-    const startScanForm = document.getElementById('start-scan-form');
-    const stopScanForm = document.getElementById('stop-scan-form');
-    const newProjectForm = document.getElementById('new-project-form');
-
-    startScanForm.addEventListener('submit', function(event) {
-        handleStartScan(event);
-    });
-
-    stopScanForm.addEventListener('submit', function(event) {
-        handleStopScan(event);
-    });
-
-    newProjectForm.addEventListener('submit', function(event) {
-        createNewProject(event);
-    });
 
     // Initially disable the Stop button since no scan is active
     const stopButton = document.getElementById('stop-scan-button');
-    stopButton.disabled = true;
+    if (stopButton) {
+        stopButton.disabled = true;
+    }
 
     // Start polling for logs every 2 seconds
     setInterval(fetchLogs, 2000);
