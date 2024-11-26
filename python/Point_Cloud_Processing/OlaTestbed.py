@@ -13,6 +13,9 @@ voxel_size = 0.5 # Set the desired voxel size
 # Load and downsample the PLY file
 print("Loading and downsampling PLY file...")
 ply_pcd = o3d.io.read_point_cloud(ply_file)
+if ply_pcd.is_empty():
+    print("Failed to load the PLY file.")
+    sys.exit()
 
 print(f"Original PLY point cloud has {len(ply_pcd.points)} points.")
 ply_pcd_downsampled = ply_pcd.voxel_down_sample(voxel_size=voxel_size)
