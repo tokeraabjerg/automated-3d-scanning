@@ -27,11 +27,17 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Load the first point cloud as the initial source
     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 15465b6 (Added Arrows)
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
     ]
+<<<<<<< HEAD
+<<<<<<< HEAD
     AxisArrow = o3d.geometry.TriangleMesh()
     for arrow in arrows:
         AxisArrow += arrow
@@ -39,6 +45,22 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Visualize
     # o3d.visualization.draw_geometries([AxisArrow])
 
+=======
+    combined_geometry = o3d.geometry.TriangleMesh()
+=======
+    AxisArrow = o3d.geometry.TriangleMesh()
+>>>>>>> b8e2f57 (Hard coded rotational x-axis)
+    for arrow in arrows:
+        AxisArrow += arrow
+
+    # Visualize
+<<<<<<< HEAD
+    o3d.visualization.draw_geometries([combined_geometry])
+>>>>>>> 15465b6 (Added Arrows)
+=======
+    # o3d.visualization.draw_geometries([AxisArrow])
+
+>>>>>>> b8e2f57 (Hard coded rotational x-axis)
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     # combined_cloud.translate(x_axis)
@@ -48,6 +70,27 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
 
     # Visualize the downsampled point cloud
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+    
+    o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
+=======
+    o3d.visualization.draw_geometries([combined_voxel, combined_geometry], window_name="Preproccesed Point Cloud")
+>>>>>>> 15465b6 (Added Arrows)
+    # Beregn bounding box, størrelse af pooint cloud
+    
+=======
+    o3d.visualization.draw_geometries([combined_cloud], window_name="Preproccesed Point Cloud")
+
+    
+=======
+    o3d.visualization.draw_geometries([combined_voxel], window_name="Preproccesed Point Cloud")
+>>>>>>> 0da613f (Minor syntax update)
+    # Beregn bounding box, størrelse af pooint cloud
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
     
     o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
     # Beregn bounding box, størrelse af pooint cloud
@@ -100,7 +143,16 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         result=decompose_transformation(initial_transformation)
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
+<<<<<<< HEAD
+<<<<<<< HEAD
+        
+                # Step 2: Point-to-Plane ICP
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+    
+=======
 
+>>>>>>> b8e2f57 (Hard coded rotational x-axis)
         # Step 2: Point-to-Plane ICP
         # Estimating normals for source and target point clouds, som brugt i point to plane
         radius_normal = 2*voxel_size  # Radius til normal estimering
@@ -108,6 +160,8 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
         target_cloud.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
+<<<<<<< HEAD
+<<<<<<< HEAD
         
         print("Performing ICP registration...")
         # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
@@ -150,6 +204,20 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
 
 
+<<<<<<< HEAD
+=======
+    return combined_cloud
+=======
+    return combined_voxel
+>>>>>>> 0da613f (Minor syntax update)
+
+
+# Example of how to call the function
+# if __name__ == "__main__":
+#     # List of .ply files to process
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+>>>>>>> b8e2f57 (Hard coded rotational x-axis)
 #     ply_files = [
 #         r"C:\Users\mikke\Desktop\bunny\data\bun000.ply",
 #         r"C:\Users\mikke\Desktop\bunny\data\bun045.ply",
@@ -158,15 +226,30 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 #         #r"C:\Users\mikke\Desktop\bunny\data\bun270.ply"
 #     ]
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+#     #rotation_degrees = [0, 45, 90, 315, 270]   
+#     rotation_vectors = [
+#     (0, 0, 0),    # Tom første indgang
+#     (0, 0, 0),   # Rotation omkring en vilkårlig akse
+#     (0, 90, 0)    # 90 grader omkring y-aksen
+#     ]
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+>>>>>>> b8e2f57 (Hard coded rotational x-axis)
 if __name__ == "__main__":
     # List of .ply files to process
     ply_files = [
         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
+<<<<<<< HEAD
+<<<<<<< HEAD
         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
     ]
 
     # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
+<<<<<<< HEAD
     rotation_vectors = [
     (None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
     (15, 0, 0),     # Rotation omkring en vilkårlig akse
@@ -189,8 +272,24 @@ if __name__ == "__main__":
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
+<<<<<<< HEAD
+<<<<<<< HEAD
     #o3d.io.write_point_cloud(output_file, final_cloud)
     #print(f"Final merged point cloud saved to: {output_file}")
 
     # Visualize the final result
     #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
+=======
+    o3d.io.write_point_cloud(output_file, final_cloud)
+    print(f"Final merged point cloud saved to: {output_file}")
+
+    # Visualize the final result
+    o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
+>>>>>>> bd86d10 (Ændret navn på Point Cloud Processing til)
+=======
+    #o3d.io.write_point_cloud(output_file, final_cloud)
+    #print(f"Final merged point cloud saved to: {output_file}")
+
+    # Visualize the final result
+    #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
+>>>>>>> b8e2f57 (Hard coded rotational x-axis)

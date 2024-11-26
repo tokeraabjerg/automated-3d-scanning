@@ -1,0 +1,192 @@
+<!--
+#---------------------------------------------------------------------------
+#  ?                                ABOUT
+#  @author         :  Toke Raabjerg
+#  @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+#  @description    :  This HTML file serves as the main interface for controlling the 3D scanner.
+#                     It includes sections for scan controls, project management, configurations, and logs.
+#---------------------------------------------------------------------------
+-->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MLAS214 - Control Panel (v0.5)</title>
+    <!-- Existing CSS -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    
+    <!-- Toastr CSS -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='dependencies/toastr.min.css') }}">
+
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='dependencies/sweetalert2.min.css') }}">
+        
+    <!-- Include three.js and its dependencies -->
+    <script src="{{ url_for('static', filename='dependencies/three.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='dependencies/OrbitControls.js') }}"></script>
+    <script src="{{ url_for('static', filename='dependencies/PLYLoader.js') }}"></script>
+
+    <!-- Include jQuery (Required for Toastr < 2.1) -->
+    <script src="{{ url_for('static', filename='dependencies/jquery-3.6.0.min.js') }}"></script>
+    
+    <!-- Include Toastr JS -->
+    <script src="{{ url_for('static', filename='dependencies/toastr.min.js') }}"></script>
+    
+    <!-- Include SweetAlert2 JS -->
+    <script src="{{ url_for('static', filename='dependencies/sweetalert2.min.js') }}"></script>
+    
+    <!-- Include the separate JavaScript files -->
+    <script src="{{ url_for('static', filename='preview.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+    <!-- Optional: Additional meta tags for responsiveness -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <header style="position: relative;">
+        <!-- Loading Indicator -->
+        <div id="header-loading-indicator" class="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <span id="header-loading-text">Loading...</span>
+        </div>
+        <h1>Wenglor MLAS214 - Control Panel (v0.5)</h1>
+        
+        <!-- Connection Status Indicators -->
+        <div id="connection-status">
+            <!-- Reconnect Button -->
+            <button id="reconnectButton" onclick="attemptReconnect()">Reconnect</button>
+            <!-- Connected Icon -->
+            <div id="connected-icon" class="status-icon connected" title="Connected" style="display: none;"></div>
+            <!-- Connecting Icon -->
+            <div id="connecting-icon" class="status-icon connecting" title="Connecting" style="display: none;"></div>
+            <!-- Disconnected Icon -->
+            <div id="disconnected-icon" class="status-icon disconnected" title="Disconnected" style="display: inline-block;"></div>
+        </div>
+    </header>
+    <div id="main-content">
+        <div id="left-panel">
+            <h3>Scan Controls</h3>
+
+            <!-- Scan and Projects Container -->
+            <div class="scan-projects-container">
+                <!-- Example Scan Interval Input -->
+                <label for="scanInterval">Scan Interval (seconds):</label>
+                <input type="number" id="scanInterval" name="scanInterval" min="1" value="1">
+                </select>
+
+            </div>
+            <br>
+            <!-- Start and Stop Scan Buttons -->
+            <div class="button-group">
+                <form id="start-scan-form" onsubmit="handleStartScan(event);">
+                    <button type="submit" id="start-scan-button" class="start-button">Start Scan</button>
+                </form>
+                <form id="stop-scan-form" onsubmit="handleStopScan(event);">
+                    <button type="submit" id="stop-scan-button" class="stop-button" disabled>Stop Scan</button>
+                </form>
+            </div>
+
+            <br>
+
+            <!-- Projects Section -->
+            <div id="projects-section">
+                <h3>Projects</h3>
+                <ul id="projects-list" class="projects-list">
+                    {% for project in projects %}
+                    <li class="project-item">
+                        <div class="project-info">
+                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}" onclick="highlightSelectedProject(this);">
+                            <label for="project-{{ loop.index }}">{{ project }}</label>
+                        </div>
+                        <div class="project-actions">
+                            <button class="rename-button" onclick="renameProject('{{ project }}')">
+                                Rename
+                            </button>
+                            <button class="delete-button" onclick="deleteProject('{{ project }}')">
+                                Delete
+                            </button>
+                        </div>
+                    </li>
+                    {% else %}
+                    <li>No projects available.</li>
+                    {% endfor %}
+                </ul>
+
+                <!-- New Project Form -->
+                <form id="new-project-form" onsubmit="createNewProject(event);">
+                    <label for="newProjectName">New Project Name:</label>
+                    <input type="text" id="newProjectName" name="newProjectName" required>
+                    <button type="submit" class="validate-button">Create Project</button>
+                    <span id="create-project-spinner" class="spinner" style="display: none;"></span>
+                </form>
+            </div>
+            <br><br>
+            <h2>Configurations</h2>
+            <form action="{{ url_for('config_bp.update_configurations') }}" method="post">
+                <table>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                        <th>Range</th>
+                    </tr>
+                    {% for key, config in configurations.items() %}
+                    <tr>
+                        <td>{{ key }}</td>
+                        <td>
+                            {% if config.type == 'enum' %}
+                            <select name="{{ key }}" required>
+                                {% for option_value, option_label in config.options.items() %}
+                                <option value="{{ option_value }}" {% if config.value == option_value %}selected{% endif %}>
+                                    {{ option_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <input type="text" name="{{ key }}" value="{{ config.value }}" required>
+                            {% endif %}
+                        </td>
+                        <td class="config-description">{{ config.description }}</td>
+                        <td class="config-range">
+                            {% if config.options %}
+                                Options: {{ config.options.values()|join(', ') }}
+                            {% else %}
+                                Min: {{ config.min }}, Max: {{ config.max }}
+                                <br>
+                                Default: {{ config.default }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                <br>
+                <input type="submit" value="Update Configurations" class="validate-button">
+            </form>
+
+            <br>
+
+            <h2>Server Controls</h2>
+            <form action="{{ url_for('restart') }}" method="post" onsubmit="return confirmRestart(event);">
+                <input type="submit" value="Restart Flask Server" class="restart-button">
+            </form>
+        </div>
+        <div id="right-panel">
+            <h2>3D Preview</h2>
+            <h2>
+                <button type="button" onclick="manualRefresh()">Refresh Viewer</button>
+            </h2>
+            <div id="viewer-container">
+                <!-- 3D Viewer Canvas -->
+                <div id="viewer" style="width: 100%; height: 400px"></div>
+            </div>
+            <h2>Project Scans</h2>
+            <div id="project-scans">
+                <p>Please select a project to view its scans.</p>
+            </div>
+            <h2>Logs</h2>
+            <div id="log-output">
+                Loading logs...
+            </div>
+        </div>
+    </div>
+</body>
+</html>

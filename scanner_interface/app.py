@@ -1,0 +1,239 @@
+#---------------------------------------------------------------------------
+#  ?                                ABOUT
+#  @author         :  Toke Raabjerg
+#  @repo           :  https://github.com/Tokeraabjerg/automated-3d-scanning
+#  @description    :  This is the main Flask application file for the 3D scanner control panel.
+#                     It initializes the application, sets up logging, and registers routes.
+#---------------------------------------------------------------------------
+
+from flask import Flask, render_template, request, redirect, url_for, Response, jsonify
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+import sys
+import threading
+from scanner_interface import ScannerInterface
+from .configurations import Configurations
+from concurrent.futures import ThreadPoolExecutor
+import time
+from .project_manager import ProjectManager  # Import ProjectManager
+import open3d as o3d
+
+from .routes import project_bp, scan_bp, config_bp  # Import new Blueprints
+
+app = Flask(__name__)
+
+# Determine the base directory where app.py is located
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Set up the output directory relative to base_dir
+output_directory = os.path.join(base_dir, "output")
+
+# Ensure the output directory exists
+os.makedirs(output_directory, exist_ok=True)
+
+# Initialize ProjectManager and store it in app config
+project_manager = ProjectManager(output_directory)
+app.config['project_manager'] = project_manager  
+app.config['output_directory'] = output_directory 
+
+# Set up logging with RotatingFileHandler
+log_file_path = os.path.join(base_dir, 'app.log')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+rotating_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
+rotating_handler.setLevel(logging.INFO)
+rotating_handler.setFormatter(formatter)
+
+# Configure root logger
+root_logger = logging.getLogger()
+root_logger.handlers = []  # Remove existing handlers
+root_logger.addHandler(rotating_handler)
+root_logger.setLevel(logging.INFO)
+
+# Configure Flask app's logger
+app.logger.handlers = []
+app.logger.addHandler(rotating_handler)
+app.logger.setLevel(logging.INFO)
+
+# Disable Werkzeug logging to reduce clutter
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+# Initialize the logger
+logger = logging.getLogger(__name__)
+
+logger.info("Flask application has started.")
+
+# Global variables
+scanner = None
+config_manager = None
+scan_in_progress = False
+scan_lock = threading.Lock()  # Lock for scan_in_progress
+sensor_lock = threading.Lock()  # Lock for sensor handle access
+executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
+connecting_attempt = False  # New flag to track connection attempts
+stop_event = threading.Event()  # New event to signal scan stop
+
+# Add these variables to app.config
+app.config['scan_in_progress'] = scan_in_progress
+app.config['scan_lock'] = scan_lock
+app.config['stop_event'] = stop_event
+app.config['executor'] = executor
+
+def initialize():
+    global scanner, config_manager, connecting_attempt
+    # Determine the SDK library path based on the operating system
+    if sys.platform.startswith('win'):
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
+    else:
+        lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Linux", "Sensor3D", "lib", "libSensor3D.so")
+    
+    lib_path = os.path.join(base_dir, lib_relative_path)
+    
+    try:
+        if not os.path.exists(lib_path):
+            logger.error(f"SDK library not found at {lib_path}")
+            config_manager = Configurations()  # Initialize with default configurations
+            app.config['config_manager'] = config_manager  # Add this line
+            return
+
+        scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
+        app.config['scanner'] = scanner  # Add this line
+        connecting_attempt = True  # Start connection attempt
+        if scanner.connect():
+            connecting_attempt = False  # Connection successful
+            config_manager = Configurations(scanner)
+            app.config['config_manager'] = config_manager  # Add this line
+            try:
+                config_manager.read_all_configurations()
+                logger.info("Configuration Manager initialized successfully.")
+            except Exception as e:
+                logger.error(f"Failed to read configurations: {e}")
+                # Proceed with default configurations
+        else:
+            connecting_attempt = False  # Connection failed
+            logger.warning("Failed to connect to the sensor. Proceeding with default configurations.")
+            config_manager = Configurations()  # Initialize with default configurations
+            app.config['config_manager'] = config_manager  # Add this line
+    except Exception as e:
+        connecting_attempt = False  # Reset flag on exception
+        logger.error(f"Error initializing scanner or configuration manager: {e}")
+        config_manager = Configurations()  # Initialize with default configurations
+        app.config['config_manager'] = config_manager  # Add this line
+
+def disconnect_scanner():
+    """
+    Disconnect the scanner if it is connected.
+    """
+    global scanner
+    if scanner is not None:
+        scanner.disconnect()
+        logger.info("Scanner disconnected.")
+    else:
+        logger.warning("Attempted to disconnect scanner, but scanner instance is None.")
+
+# Initialize scanner and configurations
+initialize()
+
+# Register Blueprints
+app.register_blueprint(project_bp)
+app.register_blueprint(scan_bp)
+app.register_blueprint(config_bp)
+
+# Route for the home page
+@app.route('/')
+def index():
+    """
+    Render the index page without attempting to reconnect.
+    """
+    logger.info("Rendering the index page.")
+    
+    # Read the logs from the log file
+    try:
+        with open(log_file_path, 'r') as log_file:
+            logs = log_file.read()
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        logs = "Error reading logs."
+
+    # Load projects
+    projects = project_manager.load_projects()
+
+    # Render the index.html template with configurations, projects, and logs
+    return render_template(
+        'index.html',
+        configurations=config_manager.configurations if config_manager else {},
+        output_directory=output_directory,
+        logs=logs,
+        projects=projects
+    )
+
+@app.route('/scanner_status')
+def scanner_status():
+    """
+    Return the current scanner connection status.
+    """
+    status = {
+        'connected': scanner.sensorHandle is not None if scanner else False,
+        'connecting': connecting_attempt
+    }
+    return jsonify(status)
+
+@app.route('/get_logs')
+def get_logs():
+    """
+    Get the application logs.
+    """
+    try:
+        with open(log_file_path, 'r') as log_file:
+            logs = log_file.read()
+        # Optional: Sanitize logs by removing null bytes
+        sanitized_logs = logs.replace('\x00', '')
+        response = Response(sanitized_logs, mimetype='text/plain; charset=utf-8')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error reading log file: {e}")
+        return "Error reading logs.", 500
+
+@app.route('/restart', methods=['POST'])
+def restart():
+    """
+    Restart the Flask application.
+    """
+    logger.info("Application restart initiated.")
+    try:
+        disconnect_scanner()
+        logger.info("Scanner disconnected for restart.")
+        # Restart the current process
+        python = sys.executable
+        os.execl(python, python, * sys.argv)
+    except Exception as e:
+        logger.error(f"Failed to restart the application: {e}")
+        return 'Application restart failed.', 500
+
+@app.route('/get_reduced_point_cloud')
+def get_reduced_point_cloud():
+    """
+    Retrieve the latest reduced point cloud file.
+    """
+    # Since scanner_interface.py does not save point clouds,
+    # return 404 to prevent the frontend from attempting to load non-existent files.
+    logger.warning("Requested reduced point cloud, but no point cloud is saved.")
+    return "No reduced point cloud available.", 404
+
+@app.route('/is_processing')
+def is_processing():
+    """
+    Check if a scan is currently in progress.
+    """
+    return jsonify({'processing': scan_in_progress})
+
+if __name__ == '__main__':
+    try:
+        # Run the Flask application
+        app.run(host='0.0.0.0', port=5001, debug=True)
+    finally:
+        # Ensure the scanner is disconnected on application shutdown
+        disconnect_scanner()
+        logger.info("Scanner disconnected on application shutdown.")
