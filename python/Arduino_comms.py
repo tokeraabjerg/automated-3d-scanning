@@ -24,6 +24,29 @@ def send_command(command):
                     response += part + "\n"
                 except socket.timeout:
                     break
+
+            # Parse the response
+            try:
+                state, message = response.split(',', 1)
+                state = state.strip().strip('"')
+                message = message.strip().strip('"')
+                
+                if state.lower() == "success":
+                    if "Motor A Position" in message and "Motor B Position" in message:
+                        # Extract positions
+                        parts = message.split(',')
+                        pos_a = parts[0].split(':')[1].strip()
+                        pos_b = parts[1].split(':')[1].strip()
+                        print(f"Success: Motor A Position: {pos_a}, Motor B Position: {pos_b}")
+                    else:
+                        print(f"Success: {message}")
+                elif state.lower() == "error":
+                    print(f"Error: {message}")
+                else:
+                    print(f"Unknown state '{state}': {message}")
+            except ValueError:
+                print(f"Invalid response format: {response}")
+
             return response.strip()
         except socket.error as e:
             return f"Socket error: {e}"
