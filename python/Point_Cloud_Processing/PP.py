@@ -1,6 +1,6 @@
 import open3d as o3d
 from Normal_space_downsampling import downsample_normal_space
-from DB import remove_small_clusters
+
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
 def preprocess_point_cloud(pcd, voxel_size):
     print(":: Downsample with a voxel size %.3f." % voxel_size)
