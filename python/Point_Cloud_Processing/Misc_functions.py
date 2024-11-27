@@ -59,6 +59,36 @@ def compute_rotation_axis(pcd1, pcd2, angle):
     
     return axis
 
+
+def remove_small_clusters(point_cloud, min_cluster_size, eps):
+    """
+    Fjerner små grupper af punkter fra en point cloud.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): Point cloud der skal renses.
+        min_cluster_size (int): Minimum antal punkter i en gruppe for at blive bevaret.
+
+    Returns:
+        o3d.geometry.PointCloud: Filtreret point cloud uden små grupper.
+    """
+    # Brug DBSCAN til clustering
+    labels = np.array(point_cloud.cluster_dbscan(eps, min_cluster_size, print_progress=True)
+    )
+    
+    # Find størrelsen af hver gruppe
+    unique_labels, counts = np.unique(labels, return_counts=True)
+    print(f"Antal grupper fundet: {len(unique_labels)}")
+
+    # Find den største gruppe
+    largest_cluster = unique_labels[np.argmax(counts)]
+    print(f"Største gruppe størrelse: {counts.max()}")
+
+    # Bevar kun punkter fra grupper, der opfylder minimumsstørrelsen
+    filtered_indices = [i for i, label in enumerate(labels) if counts[label] >= min_cluster_size]
+    filtered_point_cloud = point_cloud.select_by_index(filtered_indices)
+
+    return filtered_point_cloud
+
 def extract_rotation_axis_and_angle(R):
     """
     Extracts the rotation axis and angle from a rotation matrix.
@@ -137,6 +167,7 @@ def create_arrow(origin, direction, color, shaft_radius=1, head_radius=2, head_l
     arrow.translate(origin)
     return arrow
 
+# example usage
 # Define arrows
 arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
@@ -151,3 +182,87 @@ for arrow in arrows:
 
 # Visualize
 #o3d.visualization.draw_geometries([combined_geometry])
+
+def decompose_transformation(transformation):
+    """
+    Udtrækker translation og rotation fra en 4x4 transformationsmatrix.
+
+    Args:
+        transformation (np.ndarray): 4x4 transformationsmatrix.
+
+    Returns:
+        dict: En dictionary med 'translation' (x, y, z) og 'rotation' (roll, pitch, yaw i grader).
+    """
+
+    # Kontroller input
+    if transformation.shape != (4, 4):
+        raise ValueError("Transformationsmatrixen skal være 4x4.")
+
+    # Udtræk translation (de sidste tre elementer i den fjerde kolonne)
+    translation = transformation[:3, 3]
+
+    # Udtræk rotationsdelen (de første tre rækker og kolonner)
+    rotation_matrix = transformation[:3, :3]
+
+    # Beregn Euler-vinkler fra rotationsmatrixen (roll, pitch, yaw)
+    sy = np.sqrt(rotation_matrix[0, 0]**2 + rotation_matrix[1, 0]**2)
+
+    singular = sy < 1e-6  # Tjek for singularitet
+
+    if not singular:
+        roll = np.arctan2(rotation_matrix[2, 1], rotation_matrix[2, 2])
+        pitch = np.arctan2(-rotation_matrix[2, 0], sy)
+        yaw = np.arctan2(rotation_matrix[1, 0], rotation_matrix[0, 0])
+    else:
+        roll = np.arctan2(-rotation_matrix[1, 2], rotation_matrix[1, 1])
+        pitch = np.arctan2(-rotation_matrix[2, 0], sy)
+        yaw = 0
+
+    # Konverter rotation fra radianer til grader
+    roll = np.degrees(roll)
+    pitch = np.degrees(pitch)
+    yaw = np.degrees(yaw)
+
+    return {
+        "translation": tuple(translation),
+        "rotation": (roll, pitch, yaw),
+    }
+
+def calculate_error(source, target):
+    # Compute the point-to-point distance (RMSE)
+    distances = source.compute_point_cloud_distance(target)
+    rmse = np.sqrt(np.mean(np.array(distances) ** 2))
+
+    return rmse
+
+def remove_points_within_distance_of_pointcloud(source_pcd, target_pcd, distance_threshold):
+    """
+    Input: Source_pcd, Target_pcd, distance_threshold
+    Output: Target_pcd - [every point within distance_threshold of Source_pcd]
+    """
+    
+    # Convert point clouds to numpy arrays
+    source_points = np.asarray(source_pcd.points)
+    target_points = np.asarray(target_pcd.points)
+
+    # Create a KDTree for the target point cloud
+    target_kdtree = o3d.geometry.KDTreeFlann(target_pcd)
+
+    # Initialize a mask to keep track of points to keep
+    mask = np.ones(len(source_points), dtype=bool)
+
+    # Iterate over each point in the source point cloud
+    for i, point in enumerate(source_points):
+        # Find the nearest neighbors within the distance threshold
+        [k, idx, _] = target_kdtree.search_radius_vector_3d(point, distance_threshold)
+        if k > 0:
+            mask[i] = False
+
+    # Filter the points
+    filtered_points = source_points[mask]
+
+    # Create a new point cloud with the filtered points
+    filtered_pcd = o3d.geometry.PointCloud()
+    filtered_pcd.points = o3d.utility.Vector3dVector(filtered_points)
+
+    return filtered_pcd

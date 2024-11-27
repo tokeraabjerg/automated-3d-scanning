@@ -2,14 +2,11 @@ import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
 from ICP import Point_to_Plane, legacy_icp_with_logging
-from EE import calculate_error
-from DT import decompose_transformation
-from DB import remove_small_clusters
-from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle
+from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, remove_small_clusters
 from PP import preprocess_point_cloud
 from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
 
-def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
+def process_point_clouds(ply_files, rotation_vectors, zero_transform, voxel_size, mcd):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -121,6 +118,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
 
         # Combine transformations for the i-th transformation
+        # TODO: Add zero transformation to the combined transformation
         combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
         # Decompose the transformation and print results
         result = decompose_transformation(combined_transformation[i])

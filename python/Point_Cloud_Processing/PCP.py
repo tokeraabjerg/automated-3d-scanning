@@ -2,10 +2,7 @@ import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
 from ICP import Point_to_Plane, legacy_icp_with_logging
-from EE import calculate_error
-from DT import decompose_transformation
-from DB import remove_small_clusters
-from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle
+from Misc_functions import remove_points_within_distance_of_pointcloud, compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, remove_small_clusters
 from PP import preprocess_point_cloud
 from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
 
@@ -41,9 +38,9 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    # combined_cloud.translate(x_axis)
+    combined_cloud.translate(x_axis)
     combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
-    combined_cloud.transform(zero_transformation)
+    # combined_cloud.transform(zero_transformation)
 
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
 
@@ -60,7 +57,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
-        target_cloud.transform(zero_transformation)
+        target_cloud.translate(x_axis)
         target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
         
 
@@ -178,14 +175,14 @@ if __name__ == "__main__":
     # Calculated x_axis=(143.31,24.85,-318.16)
     
     # Working x_axis=(143.31, 15,-340.16)
-    # x_axis=(143.31, 15,-345)
+    x_axis=(143.31, 15,-345)
 
     # Obtain zeroing transformation
     # zero_transformation=Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil)
-    zero_transformation = np.eye(4)
+    # zero_transformation = np.eye(4)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, zero_transformation, voxel_size=1.5, mcd=4)
+    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
 
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
