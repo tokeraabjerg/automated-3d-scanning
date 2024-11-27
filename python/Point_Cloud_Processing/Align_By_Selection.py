@@ -175,12 +175,42 @@ def remove_points_in_box(point_cloud, min_bound, max_bound):
 
     return filtered_point_cloud
 
+def remove_points_within_distance_of_pointcloud(source_pcd, target_pcd, distance_threshold):
+    """
+    Input: Source_pcd, Target_pcd, distance_threshold
+    Output: Target_pcd - [every point within distance_threshold of Source_pcd]
+    """
+    
+    # Convert point clouds to numpy arrays
+    source_points = np.asarray(source_pcd.points)
+    target_points = np.asarray(target_pcd.points)
+
+    # Create a KDTree for the target point cloud
+    target_kdtree = o3d.geometry.KDTreeFlann(target_pcd)
+
+    # Initialize a mask to keep track of points to keep
+    mask = np.ones(len(source_points), dtype=bool)
+
+    # Iterate over each point in the source point cloud
+    for i, point in enumerate(source_points):
+        # Find the nearest neighbors within the distance threshold
+        [k, idx, _] = target_kdtree.search_radius_vector_3d(point, distance_threshold)
+        if k > 0:
+            mask[i] = False
+
+    # Filter the points
+    filtered_points = source_points[mask]
+
+    # Create a new point cloud with the filtered points
+    filtered_pcd = o3d.geometry.PointCloud()
+    filtered_pcd.points = o3d.utility.Vector3dVector(filtered_points)
+
+    return filtered_pcd
+
 # Unrelated example code
 if __name__ == "__main__":
     from Misc_functions import create_arrow
-    from PP import preprocess_point_cloud
 
-    voxel_size=1.5
     # List of .ply files to process
     ply_files = [
         r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply"
@@ -204,9 +234,22 @@ if __name__ == "__main__":
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     Fikstur.translate((32.77,0,0))
-    Fikstur.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(45), np.radians(20), np.radians(0))), center=(0,0,0))
-    o3d.visualization.draw_geometries([Fikstur, combined_geometry])    
+    Fikstur.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(45), np.radians(20), np.radians(0))), center=(0,0,0))  
     
+    voxel_size=1.5
+    num_points = len(Fikstur.points)
+    print(f"Number of points in the Fikstur point cloud: {num_points}")
+
+    Fikstur_scan=Fikstur.voxel_down_sample(voxel_size)
+    # Extract and print the number of points in the point cloud
+    num_points = len(Fikstur_scan.points)
+    print(f"Number of points in the point cloud: {num_points}")
+    # Visualize
+    Fikstur_scan.translate((50,0,0))
+    o3d.visualization.draw_geometries([Fikstur, Fikstur_scan, combined_geometry])  
+
+    Fikstur_1=remove_points_within_distance_of_pointcloud(Fikstur_scan, Fikstur, 10)
+    o3d.visualization.draw_geometries([Fikstur, Fikstur_1, combined_geometry])
 #    FiksturReduced.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(-3), np.radians(2), np.radians(0))), center=(0,0,0))
 #    FiksturReduced.translate((50,30,300))
 
