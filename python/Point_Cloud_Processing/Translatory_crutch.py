@@ -60,7 +60,7 @@ def visualize_aligned_point_clouds(file_path1, file_path2):
 
 if __name__ == "__main__":
     # File paths for the two point clouds
-    pc1_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignUTPC_rotated.ply"
+    pc1_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC_rotated.ply"
     pc2_path = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"
 
     # Visualize the aligned point clouds
