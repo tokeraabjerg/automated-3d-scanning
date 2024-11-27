@@ -1,4 +1,5 @@
 import open3d as o3d
+import numpy as np
 import os
 
 #================================================
@@ -11,8 +12,10 @@ import os
 #    blive kørt en gang per STL-fil.
 #================================================ 
 
+import open3d as o3d
+import numpy as np
 
-def stl_to_point_cloud(stl_file, output_file, num_points=1000000):
+def stl_to_point_cloud(stl_file, output_file, num_points=100000):
     """
     Convert an STL file to a point cloud and save it as a PLY file.
     :param stl_file: Path to the STL file.
@@ -26,9 +29,9 @@ def stl_to_point_cloud(stl_file, output_file, num_points=1000000):
         print("Failed to load the STL file. Please check the path.")
         return
 
-    # Sample points on the mesh to create a point cloud
-    print(f"Sampling {num_points} points from the mesh...")
-    point_cloud = mesh.sample_points_uniformly(number_of_points=num_points)
+    # Sample points on the mesh using Poisson disk sampling
+    print(f"Sampling approximately {num_points} points from the mesh using Poisson disk sampling...")
+    point_cloud = mesh.sample_points_poisson_disk(number_of_points=num_points, init_factor=5)
 
     # Save the point cloud as a PLY file
     print(f"Saving point cloud to {output_file}...")
@@ -36,8 +39,8 @@ def stl_to_point_cloud(stl_file, output_file, num_points=1000000):
     print(f"Point cloud successfully saved to {output_file}")
 
 # File paths
-stl_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUT.STL"  # Replace with your STL file path
-output_ply_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUTPC.ply"  # Output PLY file
+stl_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTap.STL"  # Replace with your STL file path
+output_ply_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC.ply"  # Output PLY file
 
 # Convert and save the point cloud
 stl_to_point_cloud(stl_file, output_ply_file, num_points=100000)
