@@ -156,7 +156,7 @@ if __name__ == "__main__":
     import sys
 
     # File paths for point clouds
-    design_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignUTPC.ply"
+    design_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC.ply"
     scanned_pc_path = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"
 
     # Create the application and main window
