@@ -228,14 +228,18 @@ class ScannerInterface:
                 'error_code': error_code
             }
 
-    def perform_scan(self, scan_interval: int = 1, stop_event: Optional[threading.Event] = None):
-        """
-        Perform a single scan and return the point cloud data.
+    def perform_scan(self, scan_interval: int = 1, stop_event: Optional[threading.Event] = None) -> Optional[o3d.geometry.PointCloud]:
+        logger.info("Starting perform_scan method.")
 
-        :param scan_interval: Interval between starting and stopping scan in seconds.
-        :param stop_event: Event to signal scan stop.
-        :return: Single Open3D point cloud.
-        """
+        # Cancel existing timer if it exists
+        if hasattr(self, 'stop_timer') and self.stop_timer.is_alive():
+            self.stop_timer.cancel()
+            logger.info("Existing stop timer canceled before starting a new scan.")
+
+        # Clear the stop_event before starting the scan
+        if stop_event:
+            stop_event.clear()
+
         try:
             # Hardcoded configurations
             sensor_mode = "4"        # 4: 3D Point Cloud
@@ -248,18 +252,19 @@ class ScannerInterface:
             # Configure sensor using hardcoded configurations
             if not self.write_sensor_command(f"SetSensorMode={sensor_mode}"):
                 logger.error("Failed to set sensor mode.")
-                return []
+                return None
+
             if not self.write_sensor_command(f"SetTriggerSource={trigger_source}"):
                 logger.error("Failed to set trigger source.")
-                return []
+                return None
+
             if not self.write_sensor_command(f"SetLEDPattern={led_pattern}"):
                 logger.error("Failed to set LED pattern.")
-                return []
+                return None
+
             if not self.write_sensor_command("SetAcquisitionStart"):
                 logger.error("Failed to start acquisition.")
-                return []
-
-            logger.info("Acquisition started successfully.")
+                return None
 
             # Try to read camera dimensions
             camera_width_str = self.read_sensor_parameter("GetPixelXMax")
@@ -271,7 +276,7 @@ class ScannerInterface:
 
             if camera_width_str is None or camera_height_str is None:
                 logger.error("Failed to obtain camera dimensions. Aborting scan.")
-                return []
+                return None
 
             try:
                 camera_width = int(camera_width_str)
@@ -279,7 +284,7 @@ class ScannerInterface:
                 logger.info(f"Camera dimensions: width={camera_width}, height={camera_height}")
             except ValueError as ve:
                 logger.error(f"Invalid camera dimensions received: width='{camera_width_str}', height='{camera_height_str}'")
-                return []
+                return None
 
             nrPixels = camera_width * camera_height
             pc_size = (sizeof(POINT3D) + sizeof(c_ushort)) * nrPixels
@@ -298,15 +303,15 @@ class ScannerInterface:
 
             if stop_event and stop_event.is_set():
                 logger.info("Scan stopped by user before starting scan.")
-                return []
+                return None
 
             # Start a timer to stop acquisition after scan_interval seconds
-            stop_timer = threading.Timer(scan_interval, self.stop_scan)
-            stop_timer.start()
+            self.stop_timer = threading.Timer(scan_interval, self.stop_scan)
+            self.stop_timer.start()
 
-            scan_start_time = time.time()
             logger.info("Attempting to acquire scan.")
 
+            # Perform the scan
             result = self.lib.Sensor3D_GetPointCloud(
                 self.sensorHandle,
                 byref(scanBuffer),
@@ -317,20 +322,21 @@ class ScannerInterface:
             )
 
             # Ensure the timer is canceled if acquisition completes before interval
-            stop_timer.cancel()
+            self.stop_timer.cancel()
+            self.stop_scan()
 
             if stop_event and stop_event.is_set():
                 logger.info("Scan stopped by user during acquisition.")
-                return []
+                return None
 
             if result != SENSOR3D_OK:
                 logger.error(f"Error acquiring point cloud, result: {result}")
-                return []
+                return None
 
             logger.info(f"Scan: Number of points: {number_of_points.value}")
             if number_of_points.value == 0:
                 logger.error("No points acquired. Skipping this scan.")
-                return []
+                return None
 
             # Convert to numpy arrays
             points_np = np.zeros((number_of_points.value, 3), dtype=np.float64)
@@ -347,12 +353,19 @@ class ScannerInterface:
             intensities_normalized = (intensities_np / 65535).astype(np.float64)
             pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
 
-            #  pcd is the Open3D point cloud
-            return [pcd]
-    
+            # pcd is the Open3D point cloud
+            logger.info("Scan completed successfully.")
+            return pcd
+
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")
-            return []
+            return None
+
+        finally:
+            # Ensure the timer is canceled if still running
+            if hasattr(self, 'stop_timer') and self.stop_timer.is_alive():
+                self.stop_timer.cancel()
+                logger.info("Stop timer canceled in finally block.")
 
     def reduce_and_save_point_cloud(self, pcd: o3d.geometry.PointCloud, sca: int):
         """
@@ -457,9 +470,12 @@ class ScannerInterface:
         Send the SetAcquisitionStop command to the sensor.
         """
         if self.write_sensor_command("SetAcquisitionStop"):
-            logger.info("Acquisition stopped successfully by timer.")
+            logger.debug("Acquisition stopped successfully.")
+            # Optionally, set the stop_event here if it's being used
+            # if stop_event:
+            #     stop_event.set()
         else:
-            logger.error("Failed to stop acquisition via timer.")
+            logger.error("Failed to stop acquisition.")
 
     def ping_sensor(self) -> bool:
         """
@@ -477,7 +493,7 @@ class ScannerInterface:
             result = self.lib.Sensor3D_GetSensorStatus(self.sensorHandle, byref(status))
 
             if result == SENSOR3D_OK:
-                logger.info("Ping successful: Sensor is connected.")
+                logger.debug("Ping successful: Sensor is connected.")
                 self.connected = True  # Update connection status
                 return True
             else:

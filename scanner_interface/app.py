@@ -16,10 +16,10 @@ from scanner_interface import ScannerInterface
 from .configurations import Configurations
 from concurrent.futures import ThreadPoolExecutor
 import time
-from .project_manager import ProjectManager  # Import ProjectManager
+from .project_manager import ProjectManager  # Ensure ProjectManager is imported
 import open3d as o3d
 
-from .routes import project_bp, scan_bp, config_bp  # Import new Blueprints
+from .routes import project_bp, scan_bp, config_bp, interface_bp  # Import new Blueprint
 
 app = Flask(__name__)
 
@@ -70,15 +70,14 @@ config_manager = None
 scan_in_progress = False
 scan_lock = threading.Lock()  # Lock for scan_in_progress
 sensor_lock = threading.Lock()  # Lock for sensor handle access
-executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
 connecting_attempt = False  # New flag to track connection attempts
 stop_event = threading.Event()  # New event to signal scan stop
 
 # Add these variables to app.config
 app.config['scan_in_progress'] = scan_in_progress
 app.config['scan_lock'] = scan_lock
+app.config['sensor_lock'] = sensor_lock 
 app.config['stop_event'] = stop_event
-app.config['executor'] = executor
 
 def initialize():
     global scanner, config_manager, connecting_attempt
@@ -121,6 +120,22 @@ def initialize():
         config_manager = Configurations()  # Initialize with default configurations
         app.config['config_manager'] = config_manager  # Add this line
 
+    # Initialize ProjectManager and store it in app config
+    project_manager = ProjectManager(output_directory)
+    app.config['project_manager'] = project_manager
+
+    # Initialize scan-related configurations
+    scan_lock = threading.Lock()
+    app.config['scan_lock'] = scan_lock
+    scan_in_progress = False
+    app.config['scan_in_progress'] = scan_in_progress
+    stop_event = threading.Event()
+    app.config['stop_event'] = stop_event
+
+    # Initialize ThreadPoolExecutor and store it in app config
+    executor = ThreadPoolExecutor(max_workers=5)
+    app.config['executor'] = executor
+
 def disconnect_scanner():
     """
     Disconnect the scanner if it is connected.
@@ -139,6 +154,7 @@ initialize()
 app.register_blueprint(project_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(config_bp)
+app.register_blueprint(interface_bp)  # Register the new interface blueprint
 
 # Route for the home page
 @app.route('/')
@@ -167,17 +183,6 @@ def index():
         logs=logs,
         projects=projects
     )
-
-@app.route('/scanner_status')
-def scanner_status():
-    """
-    Return the current scanner connection status.
-    """
-    status = {
-        'connected': scanner.sensorHandle is not None if scanner else False,
-        'connecting': connecting_attempt
-    }
-    return jsonify(status)
 
 @app.route('/get_logs')
 def get_logs():

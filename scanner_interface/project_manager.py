@@ -192,10 +192,8 @@ class ProjectManager:
         """
         try:
             num_points = len(point_cloud.points)
-            self.logger.info(f"Original point cloud has {num_points} points.")
 
             if num_points <= target_points:
-                self.logger.info("Point cloud is already within the target point limit. No reduction needed.")
                 return point_cloud
 
             # Estimate voxel size by scaling based on the ratio of target_points to current points
@@ -203,12 +201,72 @@ class ProjectManager:
             voxel_size = 0.1 * ratio  # Base voxel size is 0.1, adjust as needed
             voxel_size = max(voxel_size, 0.01)  # Set a minimum voxel size
 
-            self.logger.info(f"Reducing point cloud using voxel size: {voxel_size}")
             reduced_pcd = point_cloud.voxel_down_sample(voxel_size=voxel_size)
-            reduced_num_points = len(reduced_pcd.points)
-            self.logger.info(f"Reduced point cloud has {reduced_num_points} points.")
-
             return reduced_pcd
         except Exception as e:
             self.logger.error(f"Error reducing point cloud: {e}")
+            raise e
+
+    def save_point_cloud(self, pcd: o3d.geometry.PointCloud, project_name: str):
+        """
+        Save the point cloud to the specified project's folder with an incremental filename.
+        
+        :param pcd: The Open3D point cloud to save.
+        :param project_name: The name of the current project.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        os.makedirs(project_path, exist_ok=True)
+
+        existing_files = [f for f in os.listdir(project_path) if f.startswith("scan_") and f.endswith(".ply")]
+        scan_numbers = [int(f.split('_')[1].split('.ply')[0]) for f in existing_files if f.split('_')[1].split('.ply')[0].isdigit()]
+        next_scan_number = max(scan_numbers, default=0) + 1
+
+        output_filename = os.path.join(project_path, f"scan_{next_scan_number}.ply")
+        try:
+            o3d.io.write_point_cloud(output_filename, pcd)
+            self.logger.info(f"Saved point cloud to {output_filename}")
+        except Exception as e:
+            self.logger.error(f"Failed to save point cloud to {output_filename}: {e}")
+
+    def get_scan_count(self, project_name):
+        """
+        Get the number of scans in the specified project.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        if not os.path.exists(project_path):
+            self.logger.error(f"Project '{project_name}' does not exist.")
+            raise FileNotFoundError(f"Project '{project_name}' does not exist.")
+        
+        scan_files = [
+            f for f in os.listdir(project_path)
+            if os.path.isfile(os.path.join(project_path, f)) and f.startswith('scan_') and f.endswith('.ply')
+        ]
+        return len(scan_files)
+
+    def get_scan_preview(self, project_name, scan_index):
+        """
+        Get a downsampled preview of the specified scan in the project.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        if not os.path.exists(project_path):
+            self.logger.error(f"Project '{project_name}' does not exist.")
+            raise FileNotFoundError(f"Project '{project_name}' does not exist.")
+
+        scan_filename = f"scan_{scan_index}.ply"
+        scan_filepath = os.path.join(project_path, scan_filename)
+        if not os.path.exists(scan_filepath):
+            self.logger.error(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
+            raise FileNotFoundError(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
+
+        try:
+            # Load the point cloud
+            point_cloud = o3d.io.read_point_cloud(scan_filepath)
+            # Downsample the point cloud significantly for preview
+            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=1000)
+            # Convert the downsampled point cloud to a format suitable for JSON response
+            downsampled_points = np.asarray(downsampled_pcd.points).tolist()
+            self.logger.info(f"Returning reduced point cloud for scan '{scan_filename}' with {len(downsampled_points)} points.")
+            return downsampled_points
+        except Exception as e:
+            self.logger.error(f"Error getting scan preview for '{scan_filename}': {e}")
             raise e

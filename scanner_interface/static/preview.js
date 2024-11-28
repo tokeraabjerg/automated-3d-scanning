@@ -27,8 +27,32 @@ function loadPointCloud() {
         });
 }
 
+// Function to load the point cloud from data
+function loadPointCloudFromData(data) {
+    const viewer = document.getElementById('viewer');
+
+    // Clear any existing content
+    while (viewer.firstChild) {
+        viewer.removeChild(viewer.firstChild);
+    }
+
+    // Convert data to Float32Array
+    const points = new Float32Array(data.flat());
+
+    // Create a buffer geometry and set the attributes
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
+
+    // Create a material and points object
+    const material = new THREE.PointsMaterial({ size: 0.5, color: 0x00ff00 });
+    const pointCloud = new THREE.Points(geometry, material);
+
+    // Initialize three.js scene and render the point cloud
+    initThreeJS(pointCloud);
+}
+
 // Initialize three.js scene
-function initThreeJS(buffer) {
+function initThreeJS(pointCloud) {
     const container = document.getElementById('viewer');
 
     // Create scene, camera, renderer
@@ -47,19 +71,11 @@ function initThreeJS(buffer) {
     // Add controls
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-    // Load point cloud using PLYLoader
-    const loader = new THREE.PLYLoader();
-    const geometry = loader.parse(buffer);
-    
-    // Assume that the PLY file contains color information
-    geometry.computeVertexNormals(); // Compute normals if not present
-
-    const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
+    // Add the point cloud to the scene
+    scene.add(pointCloud);
 
     // Fit camera to point cloud
-    const boundingBox = new THREE.Box3().setFromObject(points);
+    const boundingBox = new THREE.Box3().setFromObject(pointCloud);
     const center = boundingBox.getCenter(new THREE.Vector3());
     const size = boundingBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
@@ -86,3 +102,6 @@ function initThreeJS(buffer) {
 
 // Export the loadPointCloud function to be accessible from scripts.js
 window.loadPointCloud = loadPointCloud;
+
+// Export the loadPointCloudFromData function to be accessible from scripts.js
+window.loadPointCloudFromData = loadPointCloudFromData;
