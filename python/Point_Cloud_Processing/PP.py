@@ -19,7 +19,7 @@ def preprocess_point_cloud(pcd, resolution):
     # Remove statistical outliers
     print(":: Statistically remove outliers.")
     pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100*resolution), std_ratio=0.5, print_progress=True)
-    o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
+    #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
     
     #pcd_voxel.estimate_normals(
     #    o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
@@ -27,6 +27,6 @@ def preprocess_point_cloud(pcd, resolution):
     # Downsample using normal space sampling
     pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(40000), resolution=resolution)
     # print(pcd_normal.has_normals()) True
-    o3d.visualization.draw_geometries([pcd_normal], window_name="Normal Cloud")
+    #o3d.visualization.draw_geometries([pcd_normal], window_name="Normal Cloud")
     return pcd_normal, pcd_voxel
 
