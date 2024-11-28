@@ -73,8 +73,8 @@ def downsample_with_spherical_voxels(input_file, output_file, radius):
     o3d.visualization.draw_geometries([downsampled_pcd], window_name="Downsampled Point Cloud")
 
 # File paths
-input_pcd_file = r"C:\Users\ovikd\Documents\Punktskyer\Scanned45.ply"  # Input file path
+input_pcd_file = r"C:\Users\ovikd\Documents\Punktskyer\Scanned0.ply"  # Input file path
 output_pcd_file = r"C:\Users\ovikd\Documents\Punktskyer\downsampletest.ply"  # Output file path
-spherical_radius = 1.5  # Adjust the radius as needed
+spherical_radius = 1  # Adjust the radius as needed
 
 downsample_with_spherical_voxels(input_pcd_file, output_pcd_file, spherical_radius)
