@@ -43,12 +43,6 @@ class PointPickerVisualizer:
         return picked_points
 
 def crop_point_cloud(point_cloud, point_indices, output_file):
-    """
-    Crops the point cloud using a bounding box defined by two points.
-    :param point_cloud: The original Open3D point cloud object.
-    :param point_indices: Indices of the two selected points.
-    :param output_file: Path to save the cropped point cloud.
-    """
     if len(point_indices) != 2:
         print("Error: You must pick exactly 2 points for cropping.")
         return None
@@ -58,13 +52,25 @@ def crop_point_cloud(point_cloud, point_indices, output_file):
     point1 = points[point_indices[0]]
     point2 = points[point_indices[1]]
 
+    # Add a small tolerance to avoid zero-size bounding box
+    tolerance = 1e-5
+    min_bound = np.minimum(point1, point2) - tolerance
+    max_bound = np.maximum(point1, point2) + tolerance
+
     # Define the bounding box
-    min_bound = np.minimum(point1, point2)
-    max_bound = np.maximum(point1, point2)
     bounding_box = o3d.geometry.AxisAlignedBoundingBox(min_bound=min_bound, max_bound=max_bound)
-    
+
+    # Visualize the bounding box before cropping
+    point_cloud.paint_uniform_color([0.5, 0.5, 0.5])  # Set point cloud to a neutral color
+    bounding_box.color = (1, 0, 0)  # Make the bounding box red for better visibility
+    o3d.visualization.draw_geometries([point_cloud, bounding_box], window_name="Bounding Box Verification")
+
     # Crop the point cloud
     cropped_pcd = point_cloud.crop(bounding_box)
+    if cropped_pcd.is_empty():
+        print("Error: Cropped point cloud is empty. Please check the selected points.")
+        return None
+
     print(f"Cropped point cloud has {len(cropped_pcd.points)} points.")
     
     # Save the cropped point cloud
@@ -77,8 +83,8 @@ def crop_point_cloud(point_cloud, point_indices, output_file):
 
 def main():
     # File path to the input and output point clouds
-    input_file = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"
-    output_file = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"
+    input_file = r"C:\Users\ovikd\Documents\Punktskyer\Scanned0.ply"
+    output_file = r"C:\Users\ovikd\Documents\Punktskyer\Croptest.ply"
 
     # Load the point cloud
     point_cloud = o3d.io.read_point_cloud(input_file)
