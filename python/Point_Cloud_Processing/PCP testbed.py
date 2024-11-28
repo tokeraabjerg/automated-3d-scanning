@@ -1,7 +1,7 @@
 import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
-from ICP import Point_to_Plane, legacy_icp_with_logging
+from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
 from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, remove_small_clusters, remove_points_within_distance_of_pointcloud
 from PP import preprocess_point_cloud
 from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture

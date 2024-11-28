@@ -266,3 +266,30 @@ def remove_points_within_distance_of_pointcloud(source_pcd, target_pcd, distance
     filtered_pcd.points = o3d.utility.Vector3dVector(filtered_points)
 
     return filtered_pcd
+
+def sample_adjacent_point_pairs(pcd, n, max_distance):
+    points = np.asarray(pcd.points)
+    num_points = points.shape[0]
+
+    if num_points < 2:
+        raise ValueError("Point cloud must contain at least 2 points.")
+
+    if n >= num_points - 1:
+        raise ValueError("Number of samples must be less than the number of adjacent point pairs.")
+
+    # Randomly sample n indices from the range [0, num_points - 2]
+    sampled_indices = np.random.choice(num_points - 1, n, replace=False)
+
+    # Calculate distances between adjacent point pairs
+    distances = np.linalg.norm(points[sampled_indices + 1] - points[sampled_indices], axis=1)
+
+    # Filter out distances greater than max_distance
+    valid_distances = distances[distances <= max_distance]
+
+    if len(valid_distances) == 0:
+        raise ValueError("No valid distances found within the specified max_distance.")
+
+    # Calculate the average distance
+    average_distance = np.mean(valid_distances)
+
+    return average_distance

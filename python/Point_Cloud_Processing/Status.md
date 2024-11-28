@@ -32,3 +32,5 @@ Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår D
 Skalering - Pending
 
 Combined transformation som json - Pending
+
+Test Poisson vs almen Voxel

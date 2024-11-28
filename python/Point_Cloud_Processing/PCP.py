@@ -1,7 +1,7 @@
 import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
-from ICP import Point_to_Plane, legacy_icp_with_logging
+from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
 from Misc_functions import remove_points_within_distance_of_pointcloud, compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, remove_small_clusters
 from PP import preprocess_point_cloud
 from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
@@ -39,7 +39,7 @@ def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     combined_cloud.translate(x_axis)
-    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, resolution)
+    combined_cloud, combined_voxel, vox_meandist = preprocess_point_cloud(combined_cloud, resolution)
     # combined_cloud.transform(zero_transformation)
 
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
@@ -59,7 +59,7 @@ def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
         target_cloud.translate(x_axis)
-        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, resolution)
+        target_cloud, target_voxel, vox_meandist = preprocess_point_cloud(target_cloud, resolution)
         
 
         target_cloud.paint_uniform_color([1, 0.706, 0])
@@ -98,14 +98,14 @@ def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
         result=decompose_transformation(initial_transformation)
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-
+        
         # Step 2: Point-to-Plane ICP
         # Estimating normals for source and target point clouds, som brugt i point to plane
-        radius_normal = 2*resolution  # Radius til normal estimering
-        combined_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
-        target_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
+        #radius_normal = 2*resolution  # Radius til normal estimering
+        #combined_cloud.estimate_normals(
+        #search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
+        #target_cloud.estimate_normals(
+        #search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
         
         print("Performing ICP registration...")
         # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     # zero_transformation = np.eye(4)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, resolution=2, mcd=4)
+    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, resolution=1, mcd=4)
     extract_transformation_matrices(combined_transformation)    
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"

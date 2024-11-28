@@ -17,6 +17,22 @@ def Zero_point_cloud_by_fixture(alignment_point_cloud, Fikstur_fil):
     
     Returns:
     - Zeroing transformation: The aligning transformation.
+
+    To ensure that known rotations within the initial alignment scheme are applied correctly, 
+    the two rotational axis' of the PTU must be located within the the scanners global coordinate axis.
+    To achieve this, a point cloud model the fixture is generated and oriented parallel with the axis of the global coordinate system. 
+    The position is chosen such that the distance to the axis of tilt is in correspondences with that of the true geometry of the PTU.
+    The fixture point cloud is than reduced to a single surface, and its centre of mass is translated to 0,0,0.
+
+    Subsequently, a scan taken at 0 degrees tilt and pan may be preprocessed by sub-sampling and outlier removal. 
+    The scan may than be centred, and have every point within 60 [mm] of the centre axis removed, 
+    such that only the fixture remains. 
+    
+    Now, a Point-to-Plane algorithm is run to find the transformation which correctly rotates and translate the scan into place.
+
+    Thus, 2 translations and 1 transformation may be extracted as a single zeroing transformation. 
+    All scans can now be translated to the centre, rotated, and translated to the original position of the fixture.
+
     """    
     # Load the and prepare the fixture
     Fikstur = o3d.io.read_point_cloud(Fikstur_fil)
