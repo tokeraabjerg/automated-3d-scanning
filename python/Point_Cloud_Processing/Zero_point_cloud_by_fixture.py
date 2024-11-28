@@ -7,19 +7,17 @@ import open3d as o3d
 import numpy as np
 from ICP import Point_to_Plane
 
-def Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil):
+def Zero_point_cloud_by_fixture(alignment_point_cloud, Fikstur_fil):
     """
     Align a point cloud with a fixture using  ICP.
     
     Parameters:
-    - ply_file: Path to the point cloud file.
+    - alignment_point_cloud: The alignment point cloud file.
     - fixture_reference: Path to the ply file of the fixture.
     
     Returns:
     - Zeroing transformation: The aligning transformation.
-    """
-    
-
+    """    
     # Load the and prepare the fixture
     Fikstur = o3d.io.read_point_cloud(Fikstur_fil)
     Fikstur.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(90), np.radians(90), np.radians(0))), center=(0,0,0))
@@ -45,7 +43,7 @@ def Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil):
 
     # o3d.visualization.draw_geometries([Fikstur_Reduced, combined_geometry])
     Fikstur_Reduced, density_vector_fiks = center_and_filter_point_cloud(Fikstur_Reduced, radius=60)
-    point_cloud, density_vector_pc = center_and_filter_point_cloud(Fikstur_forskudt, radius=60)
+    alignment_point_cloud, density_vector_pc = center_and_filter_point_cloud(Fikstur_forskudt, radius=60)
         # TODO: When testing with the real scans, uncomment the following line and test the alignment. 
         # Will need to be added to zero trans.
     # centroid = np.mean(np.asarray(point_cloud.points), axis=0)
@@ -53,12 +51,12 @@ def Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil):
     # o3d.visualization.draw_geometries([Fikstur_Reduced, point_cloud, combined_geometry], window_name="reduced and centered") 
     
     radius_normal = 2*1.5  # Radius til normal estimering
-    point_cloud.estimate_normals(
+    alignment_point_cloud.estimate_normals(
     search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
     Fikstur_Reduced.estimate_normals(
     search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
     Fikstur_Reduced.paint_uniform_color([1, 0.706, 0])
-    Transformation, point_cloud=Point_to_Plane(Fikstur_Reduced, point_cloud, 5)
+    Transformation, alignment_point_cloud=Point_to_Plane(Fikstur_Reduced, alignment_point_cloud, 5)
     # o3d.visualization.draw_geometries([Fikstur_Reduced, point_cloud, combined_geometry], window_name="applied ICP") 
 
     translation_matrix = np.eye(4)
@@ -129,7 +127,6 @@ if __name__ == "__main__":
 
     Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    
     Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
     Zero_transformation, Fikstur=Zero_point_cloud_by_fixture(Fikstur_forskudt, Fikstur_fil)
     
