@@ -2,7 +2,7 @@
 import open3d as o3d
 import numpy as np
 
-def downsample_normal_space(point_cloud, num_samples, voxel_size):
+def downsample_normal_space(point_cloud, num_samples, resolution):
     """
     Downsamples a point cloud using normal space sampling.
     
@@ -14,7 +14,7 @@ def downsample_normal_space(point_cloud, num_samples, voxel_size):
         o3d.geometry.PointCloud: The downsampled point cloud.
     """
     # Compute normals for the point cloud
-    point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=2*voxel_size, max_nn=30))
+    point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=(2/resolution), max_nn=30))
     normals = np.asarray(point_cloud.normals)
 
     # Convert normals to spherical coordinates (theta, phi)
