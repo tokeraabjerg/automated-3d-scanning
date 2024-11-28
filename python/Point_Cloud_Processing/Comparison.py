@@ -118,7 +118,7 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
 
     # File paths
-    design_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\DesignUTPC_rotated.ply"  # Replace with your design point cloud path
+    design_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC_rotated.ply"  # Replace with your design point cloud path
     scanned_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"  # Replace with your scanned point cloud path
 
     # Voxel size for downsampling
