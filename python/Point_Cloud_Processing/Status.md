@@ -23,6 +23,8 @@ Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer
 
 MDP AKTIV:
 
+Fix forsøgs opstilling - pending
+
 Fix Testbed/update to zero transform scheme - Pending
 
 Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår DBSCAN
