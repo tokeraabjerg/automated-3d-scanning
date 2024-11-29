@@ -13900,3 +13900,113 @@ Invoked with: '/workspace/scanner_interface/output/20241127_114738_point_cloud_1
 2024-11-29 08:50:00,005 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
 2024-11-29 08:50:00,005 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
 2024-11-29 08:50:05,051 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 08:55:48,942 - __main__ - INFO - Flask application has started.
+2024-11-29 08:55:48,971 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
+2024-11-29 08:55:48,972 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
+2024-11-29 08:55:48,972 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-29 08:55:54,012 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 08:56:00,032 - scanner_interface.scanner_interface - WARNING - Connection attempt 2/3 failed: Sensor handle is None.
+2024-11-29 08:56:06,053 - scanner_interface.scanner_interface - WARNING - Connection attempt 3/3 failed: Sensor handle is None.
+2024-11-29 08:56:07,058 - scanner_interface.scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-29 08:56:07,059 - __main__ - WARNING - Failed to connect to the sensor. Proceeding with default configurations.
+2024-11-29 08:56:07,060 - scanner_interface.configurations - WARNING - Failed to read 'Current Acquisition Time (µs)'. Using default value: 220000.
+2024-11-29 08:56:07,063 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time Limit (µs)'. Using default value: 30000.
+2024-11-29 08:56:07,064 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time (µs)'. Using default value: 30000.
+2024-11-29 08:56:07,065 - scanner_interface.configurations - WARNING - Failed to read 'Z Start (mm)'. Using default value: 270.0.
+2024-11-29 08:56:07,066 - scanner_interface.configurations - WARNING - Failed to read 'Z End (mm)'. Using default value: 470.0.
+2024-11-29 08:56:07,066 - scanner_interface.configurations - WARNING - Failed to read 'Contrast Comparison Filter'. Using default value: 0.1.
+2024-11-29 08:56:07,066 - scanner_interface.configurations - WARNING - Failed to read 'SDK Queue Size'. Using default value: 5.
+2024-11-29 08:56:07,067 - scanner_interface.configurations - WARNING - Failed to read 'Trigger Source'. Using default value: 0.
+2024-11-29 08:56:07,067 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Enable'. Using default value: 0.
+2024-11-29 08:56:07,067 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Mode'. Using default value: 4.
+2024-11-29 08:56:07,068 - scanner_interface.configurations - WARNING - Failed to read 'Gain'. Using default value: 0.
+2024-11-29 08:56:07,069 - scanner_interface.configurations - WARNING - Failed to read 'Subsampling'. Using default value: 0.
+2024-11-29 08:56:07,070 - scanner_interface.configurations - WARNING - Failed to read 'LED Power (%)'. Using default value: 10.
+2024-11-29 08:56:07,071 - scanner_interface.configurations - WARNING - Failed to read 'User LED'. Using default value: 0.
+2024-11-29 08:56:07,072 - scanner_interface.configurations - WARNING - Failed to read 'LED Activate'. Using default value: 1.
+2024-11-29 08:56:07,072 - scanner_interface.configurations - WARNING - Failed to read 'Extended Measuring Range'. Using default value: 0.
+2024-11-29 08:56:07,073 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
+2024-11-29 08:56:09,727 - __main__ - INFO - Flask application has started.
+2024-11-29 08:56:09,747 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
+2024-11-29 08:56:09,748 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
+2024-11-29 08:56:09,748 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-29 08:56:14,791 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 08:56:20,816 - scanner_interface.scanner_interface - WARNING - Connection attempt 2/3 failed: Sensor handle is None.
+2024-11-29 08:56:26,832 - scanner_interface.scanner_interface - WARNING - Connection attempt 3/3 failed: Sensor handle is None.
+2024-11-29 08:56:27,837 - scanner_interface.scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-29 08:56:27,838 - __main__ - WARNING - Failed to connect to the sensor. Proceeding with default configurations.
+2024-11-29 08:56:27,839 - scanner_interface.configurations - WARNING - Failed to read 'Current Acquisition Time (µs)'. Using default value: 220000.
+2024-11-29 08:56:27,841 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time Limit (µs)'. Using default value: 30000.
+2024-11-29 08:56:27,841 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time (µs)'. Using default value: 30000.
+2024-11-29 08:56:27,842 - scanner_interface.configurations - WARNING - Failed to read 'Z Start (mm)'. Using default value: 270.0.
+2024-11-29 08:56:27,842 - scanner_interface.configurations - WARNING - Failed to read 'Z End (mm)'. Using default value: 470.0.
+2024-11-29 08:56:27,843 - scanner_interface.configurations - WARNING - Failed to read 'Contrast Comparison Filter'. Using default value: 0.1.
+2024-11-29 08:56:27,844 - scanner_interface.configurations - WARNING - Failed to read 'SDK Queue Size'. Using default value: 5.
+2024-11-29 08:56:27,844 - scanner_interface.configurations - WARNING - Failed to read 'Trigger Source'. Using default value: 0.
+2024-11-29 08:56:27,845 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Enable'. Using default value: 0.
+2024-11-29 08:56:27,845 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Mode'. Using default value: 4.
+2024-11-29 08:56:27,845 - scanner_interface.configurations - WARNING - Failed to read 'Gain'. Using default value: 0.
+2024-11-29 08:56:27,846 - scanner_interface.configurations - WARNING - Failed to read 'Subsampling'. Using default value: 0.
+2024-11-29 08:56:27,846 - scanner_interface.configurations - WARNING - Failed to read 'LED Power (%)'. Using default value: 10.
+2024-11-29 08:56:27,847 - scanner_interface.configurations - WARNING - Failed to read 'User LED'. Using default value: 0.
+2024-11-29 08:56:27,847 - scanner_interface.configurations - WARNING - Failed to read 'LED Activate'. Using default value: 1.
+2024-11-29 08:56:27,847 - scanner_interface.configurations - WARNING - Failed to read 'Extended Measuring Range'. Using default value: 0.
+2024-11-29 08:56:27,848 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
+2024-11-29 08:56:27,967 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 08:57:31,459 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 08:58:31,571 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 08:59:36,453 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:00:36,453 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:01:36,453 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:02:36,454 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:03:36,570 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:05:23,575 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:06:23,635 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:07:26,565 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:09:23,628 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:10:26,566 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:12:23,722 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:14:23,587 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:15:23,613 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:16:49,092 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:17:51,446 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:18:51,563 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:19:56,445 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:21:01,444 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:22:01,560 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:23:01,561 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:24:06,439 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:25:11,441 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:26:11,557 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:27:16,440 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:29:31,757 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:30:31,887 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:31:43,909 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:33:43,890 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:34:43,893 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:35:43,904 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:39:59,909 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:40:59,940 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:42:02,746 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:43:02,747 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:44:07,745 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:45:07,745 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:46:07,863 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:47:12,864 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:48:59,866 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:50:59,878 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 09:53:00,103 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 10:02:54,750 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 10:03:54,850 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 10:04:59,725 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 10:05:39,854 - scanner_interface.project_manager - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:39,855 - scanner_interface.routes.project_routes - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:44,851 - scanner_interface.project_manager - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:44,851 - scanner_interface.routes.project_routes - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:49,859 - scanner_interface.project_manager - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:49,859 - scanner_interface.routes.project_routes - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:54,843 - scanner_interface.project_manager - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:54,846 - scanner_interface.routes.project_routes - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:59,846 - scanner_interface.project_manager - ERROR - Project 'test' does not exist.
+2024-11-29 10:05:59,847 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 10:05:59,848 - scanner_interface.routes.project_routes - ERROR - Project 'test' does not exist.
