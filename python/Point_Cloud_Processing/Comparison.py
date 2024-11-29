@@ -31,12 +31,14 @@ def load_point_cloud(file_path):
 
 # TODO: Fjern denne funktion og opdater variabelnavn i compare_point_clouds
 # TODO: når det ikke længere er relevant at downsample.
+"""
 def downsample_point_cloud(pcd, voxel_size):
     print(f"Downsampling point cloud with voxel size {voxel_size}...")
     downsampled_pcd = pcd.voxel_down_sample(voxel_size)
     print(f"Downsampled point cloud has {len(downsampled_pcd.points)} points.")
     return downsampled_pcd
-
+"""
+    
 def compute_cloud_to_cloud_distance(pcd1, pcd2):
     print("Computing Cloud-to-Cloud distance...")
     pcd_tree = o3d.geometry.KDTreeFlann(pcd1)
@@ -76,14 +78,14 @@ def plot_legend(distances):
     plt.show()
 
 def compare_point_clouds(design_pc, scanned_pc, voxel_size):
-    print("Downsampling scanned point cloud...")
-    scanned_pc_downsampled = downsample_point_cloud(scanned_pc, voxel_size)
+    #print("Downsampling scanned point cloud...")
+    #scanned_pc_downsampled = downsample_point_cloud(scanned_pc, voxel_size)
 
     print("Computing distances between the point clouds...")
-    distances = compute_cloud_to_cloud_distance(design_pc, scanned_pc_downsampled)
+    distances = compute_cloud_to_cloud_distance(design_pc, scanned_pc)
 
     print("Painting scanned point cloud based on distances as a heatmap...")
-    paint_point_cloud_by_distance(scanned_pc_downsampled, distances)
+    paint_point_cloud_by_distance(scanned_pc, distances)
 
     # Start multiprocessing for both Open3D visualization and the legend plot
     p1 = multiprocessing.Process(target=plot_legend, args=(distances,))
@@ -93,7 +95,8 @@ def compare_point_clouds(design_pc, scanned_pc, voxel_size):
     vis = o3d.visualization.VisualizerWithEditing()
     vis.create_window(window_name="Point Cloud Comparison with Distance Heatmap")
     #vis.add_geometry(design_pc)
-    vis.add_geometry(scanned_pc_downsampled)
+    vis.add_geometry(scanned_pc)
+
 
     # Run the visualizer to allow point picking
     vis.run()
@@ -104,8 +107,8 @@ def compare_point_clouds(design_pc, scanned_pc, voxel_size):
     if picked_points:
         print("Picked Points (Scanned Point Cloud):")
         for idx in picked_points:
-            if idx < len(scanned_pc_downsampled.points):
-                coord = np.asarray(scanned_pc_downsampled.points)[idx]
+            if idx < len(scanned_pc.points):
+                coord = np.asarray(scanned_pc.points)[idx]
                 distance = distances[idx]
                 print(f"Point Index: {idx}, Coordinates: {coord}, Distance to Design: {distance:.6f}")
     else:
@@ -128,4 +131,4 @@ if __name__ == "__main__":
     pcd1, pcd2_translated = align_centroids(design_pc_path1, scanned_pc_path1)
 
     # Compare the point clouds and paint scanned PC based on distances
-    compare_point_clouds(pcd1, pcd2_translated, voxel_size)
+    compare_point_clouds(pcd1, pcd2_translated)
