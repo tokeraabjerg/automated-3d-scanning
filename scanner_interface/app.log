@@ -429,4 +429,34 @@ with app.app_context(). See the documentation for more information.
 2024-11-29 14:02:27,480 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
 2024-11-29 14:02:27,481 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
 2024-11-29 14:02:27,481 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+<<<<<<< HEAD
 >>>>>>> 8b41b88 (Added log and cache files to gitignore)
+=======
+2024-11-29 14:04:08,122 - __main__ - INFO - Flask application has started.
+2024-11-29 14:04:08,142 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
+2024-11-29 14:04:08,142 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
+2024-11-29 14:04:08,142 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-29 14:04:13,187 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 14:04:19,225 - scanner_interface.scanner_interface - WARNING - Connection attempt 2/3 failed: Sensor handle is None.
+2024-11-29 14:04:25,250 - scanner_interface.scanner_interface - WARNING - Connection attempt 3/3 failed: Sensor handle is None.
+2024-11-29 14:04:26,254 - scanner_interface.scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-29 14:04:26,256 - __main__ - WARNING - Failed to connect to the sensor. Proceeding with default configurations.
+2024-11-29 14:04:26,257 - scanner_interface.configurations - WARNING - Failed to read 'Current Acquisition Time (µs)'. Using default value: 220000.
+2024-11-29 14:04:26,260 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time Limit (µs)'. Using default value: 30000.
+2024-11-29 14:04:26,261 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time (µs)'. Using default value: 30000.
+2024-11-29 14:04:26,262 - scanner_interface.configurations - WARNING - Failed to read 'Z Start (mm)'. Using default value: 270.0.
+2024-11-29 14:04:26,263 - scanner_interface.configurations - WARNING - Failed to read 'Z End (mm)'. Using default value: 470.0.
+2024-11-29 14:04:26,263 - scanner_interface.configurations - WARNING - Failed to read 'Contrast Comparison Filter'. Using default value: 0.1.
+2024-11-29 14:04:26,263 - scanner_interface.configurations - WARNING - Failed to read 'SDK Queue Size'. Using default value: 5.
+2024-11-29 14:04:26,264 - scanner_interface.configurations - WARNING - Failed to read 'Trigger Source'. Using default value: 0.
+2024-11-29 14:04:26,264 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Enable'. Using default value: 0.
+2024-11-29 14:04:26,264 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Mode'. Using default value: 4.
+2024-11-29 14:04:26,265 - scanner_interface.configurations - WARNING - Failed to read 'Gain'. Using default value: 0.
+2024-11-29 14:04:26,265 - scanner_interface.configurations - WARNING - Failed to read 'Subsampling'. Using default value: 0.
+2024-11-29 14:04:26,265 - scanner_interface.configurations - WARNING - Failed to read 'LED Power (%)'. Using default value: 10.
+2024-11-29 14:04:26,266 - scanner_interface.configurations - WARNING - Failed to read 'User LED'. Using default value: 0.
+2024-11-29 14:04:26,266 - scanner_interface.configurations - WARNING - Failed to read 'LED Activate'. Using default value: 1.
+2024-11-29 14:04:26,267 - scanner_interface.configurations - WARNING - Failed to read 'Extended Measuring Range'. Using default value: 0.
+2024-11-29 14:04:26,268 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
+2024-11-29 14:04:41,615 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+>>>>>>> 1d4c566 (Trying to rebase)

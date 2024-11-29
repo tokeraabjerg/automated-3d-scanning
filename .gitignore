@@ -1,7 +1,7 @@
 scanner_interface/output/
 
 # Ignore Python cache directories
-__pycache__/
+*__pycache__/
 
 # Ignore log files
 *.log
