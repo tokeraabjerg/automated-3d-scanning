@@ -460,3 +460,90 @@ with app.app_context(). See the documentation for more information.
 2024-11-29 14:04:26,268 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
 2024-11-29 14:04:41,615 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
 >>>>>>> 1d4c566 (Trying to rebase)
+2024-11-29 14:12:50,673 - __main__ - INFO - Flask application has started.
+2024-11-29 14:12:50,693 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
+2024-11-29 14:12:50,693 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
+2024-11-29 14:12:50,693 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-29 14:12:55,728 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 14:13:01,764 - scanner_interface.scanner_interface - WARNING - Connection attempt 2/3 failed: Sensor handle is None.
+2024-11-29 14:13:07,799 - scanner_interface.scanner_interface - WARNING - Connection attempt 3/3 failed: Sensor handle is None.
+2024-11-29 14:13:08,807 - scanner_interface.scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-29 14:13:08,812 - __main__ - WARNING - Failed to connect to the sensor. Proceeding with default configurations.
+2024-11-29 14:13:08,813 - scanner_interface.configurations - WARNING - Failed to read 'Current Acquisition Time (µs)'. Using default value: 220000.
+2024-11-29 14:13:08,817 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time Limit (µs)'. Using default value: 30000.
+2024-11-29 14:13:08,817 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time (µs)'. Using default value: 30000.
+2024-11-29 14:13:08,817 - scanner_interface.configurations - WARNING - Failed to read 'Z Start (mm)'. Using default value: 270.0.
+2024-11-29 14:13:08,818 - scanner_interface.configurations - WARNING - Failed to read 'Z End (mm)'. Using default value: 470.0.
+2024-11-29 14:13:08,818 - scanner_interface.configurations - WARNING - Failed to read 'Contrast Comparison Filter'. Using default value: 0.1.
+2024-11-29 14:13:08,818 - scanner_interface.configurations - WARNING - Failed to read 'SDK Queue Size'. Using default value: 5.
+2024-11-29 14:13:08,818 - scanner_interface.configurations - WARNING - Failed to read 'Trigger Source'. Using default value: 0.
+2024-11-29 14:13:08,818 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Enable'. Using default value: 0.
+2024-11-29 14:13:08,818 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Mode'. Using default value: 4.
+2024-11-29 14:13:08,819 - scanner_interface.configurations - WARNING - Failed to read 'Gain'. Using default value: 0.
+2024-11-29 14:13:08,819 - scanner_interface.configurations - WARNING - Failed to read 'Subsampling'. Using default value: 0.
+2024-11-29 14:13:08,819 - scanner_interface.configurations - WARNING - Failed to read 'LED Power (%)'. Using default value: 10.
+2024-11-29 14:13:08,819 - scanner_interface.configurations - WARNING - Failed to read 'User LED'. Using default value: 0.
+2024-11-29 14:13:08,820 - scanner_interface.configurations - WARNING - Failed to read 'LED Activate'. Using default value: 1.
+2024-11-29 14:13:08,820 - scanner_interface.configurations - WARNING - Failed to read 'Extended Measuring Range'. Using default value: 0.
+2024-11-29 14:13:08,820 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
+2024-11-29 14:13:11,101 - __main__ - INFO - Flask application has started.
+2024-11-29 14:13:11,120 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
+2024-11-29 14:13:11,120 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
+2024-11-29 14:13:11,120 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-29 14:13:16,156 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 14:13:22,176 - scanner_interface.scanner_interface - WARNING - Connection attempt 2/3 failed: Sensor handle is None.
+2024-11-29 14:13:28,193 - scanner_interface.scanner_interface - WARNING - Connection attempt 3/3 failed: Sensor handle is None.
+2024-11-29 14:13:29,200 - scanner_interface.scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-29 14:13:29,202 - __main__ - WARNING - Failed to connect to the sensor. Proceeding with default configurations.
+2024-11-29 14:13:29,203 - scanner_interface.configurations - WARNING - Failed to read 'Current Acquisition Time (µs)'. Using default value: 220000.
+2024-11-29 14:13:29,206 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time Limit (µs)'. Using default value: 30000.
+2024-11-29 14:13:29,206 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time (µs)'. Using default value: 30000.
+2024-11-29 14:13:29,207 - scanner_interface.configurations - WARNING - Failed to read 'Z Start (mm)'. Using default value: 270.0.
+2024-11-29 14:13:29,207 - scanner_interface.configurations - WARNING - Failed to read 'Z End (mm)'. Using default value: 470.0.
+2024-11-29 14:13:29,208 - scanner_interface.configurations - WARNING - Failed to read 'Contrast Comparison Filter'. Using default value: 0.1.
+2024-11-29 14:13:29,208 - scanner_interface.configurations - WARNING - Failed to read 'SDK Queue Size'. Using default value: 5.
+2024-11-29 14:13:29,209 - scanner_interface.configurations - WARNING - Failed to read 'Trigger Source'. Using default value: 0.
+2024-11-29 14:13:29,209 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Enable'. Using default value: 0.
+2024-11-29 14:13:29,209 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Mode'. Using default value: 4.
+2024-11-29 14:13:29,209 - scanner_interface.configurations - WARNING - Failed to read 'Gain'. Using default value: 0.
+2024-11-29 14:13:29,210 - scanner_interface.configurations - WARNING - Failed to read 'Subsampling'. Using default value: 0.
+2024-11-29 14:13:29,210 - scanner_interface.configurations - WARNING - Failed to read 'LED Power (%)'. Using default value: 10.
+2024-11-29 14:13:29,211 - scanner_interface.configurations - WARNING - Failed to read 'User LED'. Using default value: 0.
+2024-11-29 14:13:29,211 - scanner_interface.configurations - WARNING - Failed to read 'LED Activate'. Using default value: 1.
+2024-11-29 14:13:29,211 - scanner_interface.configurations - WARNING - Failed to read 'Extended Measuring Range'. Using default value: 0.
+2024-11-29 14:13:29,212 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
+2024-11-29 14:13:29,340 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 14:14:29,544 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 14:15:41,597 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 14:16:41,598 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 14:18:07,056 - scanner_interface.scanner_interface - WARNING - Attempted to disconnect, but sensor was not connected.
+2024-11-29 14:18:07,057 - __main__ - INFO - Scanner disconnected.
+2024-11-29 14:18:07,057 - __main__ - INFO - Scanner disconnected on application shutdown.
+2024-11-29 14:18:09,570 - __main__ - INFO - Flask application has started.
+2024-11-29 14:18:09,595 - scanner_interface.scanner_interface - INFO - Successfully loaded library from /workspace/scanner_interface/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib/libSensor3D.so
+2024-11-29 14:18:09,596 - scanner_interface.scanner_interface - INFO - Configured library functions successfully.
+2024-11-29 14:18:09,596 - scanner_interface.scanner_interface - INFO - Attempting to connect to the sensor.
+2024-11-29 14:18:14,636 - scanner_interface.scanner_interface - WARNING - Connection attempt 1/3 failed: Sensor handle is None.
+2024-11-29 14:18:20,663 - scanner_interface.scanner_interface - WARNING - Connection attempt 2/3 failed: Sensor handle is None.
+2024-11-29 14:18:26,678 - scanner_interface.scanner_interface - WARNING - Connection attempt 3/3 failed: Sensor handle is None.
+2024-11-29 14:18:27,682 - scanner_interface.scanner_interface - ERROR - All connection attempts failed. Unable to connect to the sensor.
+2024-11-29 14:18:27,683 - __main__ - WARNING - Failed to connect to the sensor. Proceeding with default configurations.
+2024-11-29 14:18:27,684 - scanner_interface.configurations - WARNING - Failed to read 'Current Acquisition Time (µs)'. Using default value: 220000.
+2024-11-29 14:18:27,685 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time Limit (µs)'. Using default value: 30000.
+2024-11-29 14:18:27,686 - scanner_interface.configurations - WARNING - Failed to read 'Current Exposure Time (µs)'. Using default value: 30000.
+2024-11-29 14:18:27,686 - scanner_interface.configurations - WARNING - Failed to read 'Z Start (mm)'. Using default value: 270.0.
+2024-11-29 14:18:27,687 - scanner_interface.configurations - WARNING - Failed to read 'Z End (mm)'. Using default value: 470.0.
+2024-11-29 14:18:27,687 - scanner_interface.configurations - WARNING - Failed to read 'Contrast Comparison Filter'. Using default value: 0.1.
+2024-11-29 14:18:27,687 - scanner_interface.configurations - WARNING - Failed to read 'SDK Queue Size'. Using default value: 5.
+2024-11-29 14:18:27,688 - scanner_interface.configurations - WARNING - Failed to read 'Trigger Source'. Using default value: 0.
+2024-11-29 14:18:27,688 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Enable'. Using default value: 0.
+2024-11-29 14:18:27,688 - scanner_interface.configurations - WARNING - Failed to read 'Sensor Mode'. Using default value: 4.
+2024-11-29 14:18:27,688 - scanner_interface.configurations - WARNING - Failed to read 'Gain'. Using default value: 0.
+2024-11-29 14:18:27,689 - scanner_interface.configurations - WARNING - Failed to read 'Subsampling'. Using default value: 0.
+2024-11-29 14:18:27,689 - scanner_interface.configurations - WARNING - Failed to read 'LED Power (%)'. Using default value: 10.
+2024-11-29 14:18:27,689 - scanner_interface.configurations - WARNING - Failed to read 'User LED'. Using default value: 0.
+2024-11-29 14:18:27,690 - scanner_interface.configurations - WARNING - Failed to read 'LED Activate'. Using default value: 1.
+2024-11-29 14:18:27,690 - scanner_interface.configurations - WARNING - Failed to read 'Extended Measuring Range'. Using default value: 0.
+2024-11-29 14:18:27,690 - scanner_interface.project_manager - INFO - ProjectManager initialized with output directory: /workspace/scanner_interface/output
+2024-11-29 14:18:41,582 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
+2024-11-29 14:19:44,532 - scanner_interface.scanner_interface - WARNING - Ping failed: sensorHandle is None.
