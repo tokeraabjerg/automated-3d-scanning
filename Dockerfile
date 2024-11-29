@@ -35,4 +35,4 @@ COPY . /workspace
 EXPOSE 5001
 
 # Command to run when the container starts, specifying the full path to the app.py file
-CMD ["python3", "scanner_interface/app.py"]
+CMD ["python3", "-m" "scanner_interface/app.py"]
