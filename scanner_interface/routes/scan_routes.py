@@ -166,6 +166,7 @@ def auto_scan_thread(scan_interval, project_name, positions, stop_event):
     """
     Thread function to perform auto scan.
     """
+    scans = []  # Array to store scans
     try:
         for position in positions:
             if stop_event.is_set():
@@ -179,6 +180,9 @@ def auto_scan_thread(scan_interval, project_name, positions, stop_event):
             if pcd is None:
                 continue
 
+            # Append the scan to the array
+            scans.append(pcd)
+
             # Post-process the scan (add actual post-processing code here)
             # post_process_scan(pcd)
 
@@ -186,3 +190,10 @@ def auto_scan_thread(scan_interval, project_name, positions, stop_event):
         current_app.logger.error(f"Error in auto scan thread: {e}")
     finally:
         current_app.config['scan_in_progress'] = False
+
+        # Print the total amount of scans and the number of points in each scan
+        total_scans = len(scans)
+        current_app.logger.info(f"Total scans completed: {total_scans}")
+        for i, scan in enumerate(scans):
+            num_points = len(scan.points)
+            current_app.logger.info(f"Scan {i + 1}: {num_points} points")
