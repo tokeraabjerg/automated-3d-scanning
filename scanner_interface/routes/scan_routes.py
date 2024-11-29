@@ -92,6 +92,8 @@ def scan_thread(app, scan_interval, project_name):
             # Replace direct saving with ProjectManager's save_point_cloud method
             project_manager = current_app.config.get('project_manager')
             project_manager.save_point_cloud(pcd, project_name)
+
+            #call icp function
             
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")

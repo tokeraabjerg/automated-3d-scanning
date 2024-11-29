@@ -202,6 +202,12 @@ class ProjectManager:
             voxel_size = max(voxel_size, 0.01)  # Set a minimum voxel size
 
             reduced_pcd = point_cloud.voxel_down_sample(voxel_size=voxel_size)
+
+            # If the downsampled point cloud is still larger than target_points, apply another round of downsampling
+            while len(reduced_pcd.points) > target_points:
+                voxel_size *= 1.1  # Increase voxel size slightly
+                reduced_pcd = reduced_pcd.voxel_down_sample(voxel_size=voxel_size)
+
             return reduced_pcd
         except Exception as e:
             self.logger.error(f"Error reducing point cloud: {e}")
@@ -261,12 +267,46 @@ class ProjectManager:
         try:
             # Load the point cloud
             point_cloud = o3d.io.read_point_cloud(scan_filepath)
-            # Downsample the point cloud significantly for preview
-            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=1000)
+            # Downsample the point cloud for preview
+            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=10000)  # Adjust target points
             # Convert the downsampled point cloud to a format suitable for JSON response
             downsampled_points = np.asarray(downsampled_pcd.points).tolist()
+            downsampled_intensities = np.asarray(downsampled_pcd.colors)[:, 0].tolist()  # Assuming intensity is stored in colors
             self.logger.info(f"Returning reduced point cloud for scan '{scan_filename}' with {len(downsampled_points)} points.")
-            return downsampled_points
+            return {'points': downsampled_points, 'intensities': downsampled_intensities}
         except Exception as e:
             self.logger.error(f"Error getting scan preview for '{scan_filename}': {e}")
+            raise e
+
+    def get_full_size_point_cloud(self, project_name, scan_index, downsample=False, target_points=100000):
+        """
+        Get the full-size point cloud for the specified scan in the project.
+        Optionally downsample the point cloud to reduce its size.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        if not os.path.exists(project_path):
+            self.logger.error(f"Project '{project_name}' does not exist.")
+            raise FileNotFoundError(f"Project '{project_name}' does not exist.")
+
+        scan_filename = f"scan_{scan_index}.ply"
+        scan_filepath = os.path.join(project_path, scan_filename)
+        if not os.path.exists(scan_filepath):
+            self.logger.error(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
+            raise FileNotFoundError(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
+
+        try:
+            # Load the full-size point cloud
+            point_cloud = o3d.io.read_point_cloud(scan_filepath)
+            self.logger.info(f"Returning full-size point cloud for scan '{scan_filename}' with {len(point_cloud.points)} points.")
+            
+            if downsample:
+                point_cloud = self.reduce_point_cloud(point_cloud, target_points)
+                self.logger.info(f"Downsampled point cloud to {len(point_cloud.points)} points.")
+
+            points = np.asarray(point_cloud.points).tolist()
+            intensities = np.asarray(point_cloud.colors)[:, 0].tolist()  # Assuming intensity is stored in colors
+
+            return {'points': points, 'intensities': intensities}
+        except Exception as e:
+            self.logger.error(f"Error getting full-size point cloud for '{scan_filename}': {e}")
             raise e

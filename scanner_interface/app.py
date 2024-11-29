@@ -6,7 +6,7 @@
 #                     It initializes the application, sets up logging, and registers routes.
 #---------------------------------------------------------------------------
 
-from flask import Flask, render_template, request, redirect, url_for, Response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, Response, jsonify, current_app
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 from .project_manager import ProjectManager  # Ensure ProjectManager is imported
 import open3d as o3d
+import numpy as np
 
 from .routes import project_bp, scan_bp, config_bp, interface_bp  # Import new Blueprint
 
@@ -233,6 +234,71 @@ def is_processing():
     Check if a scan is currently in progress.
     """
     return jsonify({'processing': scan_in_progress})
+
+@app.route('/process_point_cloud', methods=['POST'])
+def process_point_cloud():
+    try:
+        # Assume point cloud data is sent as a JSON array of points
+        point_cloud_data = request.json.get('point_cloud')
+        if not point_cloud_data:
+            return jsonify({'status': 'error', 'message': 'No point cloud data provided'}), 400
+
+        # Convert to Open3D point cloud
+        points = np.array(point_cloud_data, dtype=np.float64)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        # Downsample if more than 100,000 points
+        if len(pcd.points) > 100000:
+            pcd = pcd.uniform_down_sample(every_k_points=int(len(pcd.points) / 100000))
+
+        # Convert back to list for JSON response
+        downsampled_points = np.asarray(pcd.points).tolist()
+
+        return jsonify({'status': 'success', 'point_cloud': downsampled_points})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/project/get_full_size_point_cloud', methods=['GET'])
+def get_full_size_point_cloud():
+    """
+    Get the full-size point cloud for the specified project and scan index.
+    Optionally downsample the point cloud to reduce its size.
+    """
+    project_name = request.args.get('projectName')
+    scan_index = request.args.get('scanIndex')
+    downsample = request.args.get('downsample', 'false').lower() == 'true'
+    target_points = int(request.args.get('targetPoints', 100000))  # Set target_points to 100,000
+
+    if not project_name or not scan_index:
+        return jsonify({'status': 'error', 'message': 'Project name and scan index are required'}), 400
+
+    try:
+        scan_index = int(scan_index)
+        project_manager = current_app.config['project_manager']
+        logger.info(f"Fetching full-size point cloud for project: {project_name}, scan index: {scan_index}, downsample: {downsample}, target_points: {target_points}")
+        point_cloud = project_manager.get_full_size_point_cloud(project_name, scan_index, downsample, target_points)
+        logger.info(f"Successfully fetched point cloud with {len(point_cloud['points'])} points.")
+        return jsonify({'status': 'success', 'point_cloud': point_cloud})
+    except Exception as e:
+        current_app.logger.error(f"Error fetching point cloud: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
+    """
+    Process an Open3D point cloud by downsampling it if it has more than 100,000 points.
+
+    :param pcd: The original Open3D point cloud.
+    :return: The processed (downsampled) Open3D point cloud.
+    """
+    try:
+        # Downsample if more than 100,000 points
+        if len(pcd.points) > 100000:
+            pcd = pcd.uniform_down_sample(every_k_points=int(len(pcd.points) / 100000))
+        return pcd
+    except Exception as e:
+        logger.error(f"Error processing point cloud: {e}")
+        return None
 
 if __name__ == '__main__':
     try:

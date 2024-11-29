@@ -126,8 +126,10 @@ function updateConnectionStatus(isConnected) {
     }
 }
 
+let lastLogTime = 0;
+
 // Function to check scanner connection status
-function checkScannerStatus() {
+function checkScannerStatus(logInterval = 30000) {
     fetch('/interface/scanner_status')
         .then(response => response.json())
         .then(data => {
@@ -160,6 +162,12 @@ function checkScannerStatus() {
                         connectingNotificationShown = true;
                     }
                 }
+            }
+
+            // Log a message every logInterval milliseconds
+            const currentTime = Date.now();
+            if (currentTime - lastLogTime >= logInterval) {
+                lastLogTime = currentTime;
             }
         })
         .catch(error => {
@@ -213,11 +221,11 @@ function fetchLogs() {
 
 // 3D Previewer Settings
 
-// Keep the manual refresh function
-function manualRefresh() {
-    // Trigger preview.js to reload the point cloud
-    loadPointCloud();
-}
+// Remove the manual refresh function
+// function manualRefresh() {
+//     // Trigger preview.js to reload the point cloud
+//     loadPointCloud();
+// }
 
 // Scan Interval Settings
 function loadScanInterval() {
@@ -403,8 +411,6 @@ function pollScanStatus() {
                     const stopButton = document.getElementById('stop-scan-button');
                     startButton.disabled = false;
                     stopButton.disabled = true;
-                    // Trigger preview.js to load the point cloud
-                    loadPointCloud();
                 } else {
                     // Scan is still in progress
                     // Optionally, update the loading text
@@ -594,6 +600,98 @@ function attemptReconnect() {
         });
 }
 
+
+function nextScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (currentScanIndex < totalScans) {
+        currentScanIndex++;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function previousScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (currentScanIndex > 1) {
+        currentScanIndex--;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function firstScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (totalScans > 0) {
+        currentScanIndex = 1;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function lastScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (totalScans > 0) {
+        currentScanIndex = totalScans;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function requestAndDisplayPointCloudForIndex(scanIndex) {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showError('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+    console.log(`Requesting point cloud for project: ${projectName}, scan index: ${scanIndex}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+
+    fetch(`/project/get_full_size_point_cloud?projectName=${projectName}&scanIndex=${scanIndex}&downsample=true&targetPoints=100000`, { signal: controller.signal })
+        .then(response => {
+            clearTimeout(timeoutId);
+            console.log('Fetch response received:', response);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Fetch data received:', data);
+            if (data.status === 'success') {
+                const pointCloud = data.point_cloud;
+                displayPointCloudOverlay(pointCloud);
+            } else {
+                showError(`Error: ${data.message}`, 'Point Cloud Retrieval');
+            }
+        })
+        .catch(error => {
+            if (error.name === 'AbortError') {
+                console.error('Fetch request timed out');
+                showError('Request timed out. Please try again.', 'Point Cloud Retrieval');
+            } else {
+                console.error('Error fetching point cloud:', error);
+                showError('An unexpected error occurred while fetching the point cloud.', 'Point Cloud Retrieval');
+            }
+        });
+}
+
 // Optionally, periodically check scanner status and update UI
 setInterval(function() {
     fetch('/interface/scanner_status')
@@ -607,100 +705,90 @@ setInterval(function() {
         });
 }, 5000); // Every 5 seconds
 
+let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
+
+function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    localStorage.setItem('autoRefresh', autoRefresh);
+}
+
 let currentScanIndex = 1;
 let totalScans = 0;
 let lastRequestedScanIndex = null;
 
-function updateScanSelector() {
-    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
-    if (!selectedProject) {
-        document.getElementById('scan-selector').textContent = 'No project selected';
-        return;
+
+document.addEventListener('DOMContentLoaded', function() {
+    let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
+    const autoRefreshCheckbox = document.getElementById('auto-refresh-checkbox');
+    if (autoRefreshCheckbox) {
+        autoRefreshCheckbox.checked = autoRefresh;
     }
 
-    const projectName = selectedProject.value;
-    fetch(`/project/get_scan_count?projectName=${projectName}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                totalScans = data.scanCount;
-                document.getElementById('scan-selector').textContent = `${currentScanIndex}/${totalScans}`;
-                // Request and display the scan preview only if the scan index has changed
-                if (currentScanIndex !== lastRequestedScanIndex) {
-                    showViewerLoadingIndicator();
-                    requestScanPreview(projectName, currentScanIndex);
-                    lastRequestedScanIndex = currentScanIndex;
+    function updateScanSelector() {
+        const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+        if (!selectedProject) {
+            document.getElementById('scan-selector').textContent = 'No project selected';
+            return;
+        }
+
+        const projectName = selectedProject.value;
+        fetch(`/project/get_scan_count?projectName=${projectName}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const previousTotalScans = totalScans;
+                    totalScans = data.scanCount;
+                    document.getElementById('scan-selector').textContent = `${currentScanIndex}/${totalScans}`;
+                    // If auto-refresh is enabled and the total scans have increased, jump to the last scan
+                    if (autoRefresh && totalScans > previousTotalScans) {
+                        currentScanIndex = totalScans;
+                    }
+                    // Request and display the scan preview only if the scan index has changed
+                    if (currentScanIndex !== lastRequestedScanIndex) {
+                        showViewerLoadingIndicator();
+                        requestScanPreview(projectName, currentScanIndex);
+                        lastRequestedScanIndex = currentScanIndex;
+                    }
+                } else {
+                    showError(`Error: ${data.message}`, 'Scan Selector');
                 }
-            } else {
-                showError(`Error: ${data.message}`, 'Scan Selector');
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching scan count:', error);
-            showError('An unexpected error occurred while fetching scan count.', 'Scan Selector');
-        });
-}
-
-function requestScanPreview(projectName, scanIndex) {
-    fetch(`/project/get_scan_preview?projectName=${projectName}&scanIndex=${scanIndex}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                const scanPreview = data.scanPreview;
-                // Display the scan preview using the previewer
-                displayScanPreview(scanPreview);
-                hideViewerLoadingIndicator();
-            } else {
-                showError(`Error: ${data.message}`, 'Scan Preview');
-                hideViewerLoadingIndicator();
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching scan preview:', error);
-            showError('An unexpected error occurred while fetching scan preview.', 'Scan Preview');
-            hideViewerLoadingIndicator();
-        });
-}
-
-function displayScanPreview(scanPreview) {
-    // Use the preview.js to load the point cloud
-    loadPointCloudFromData(scanPreview);
-}
-
-function nextScan() {
-    if (currentScanIndex < totalScans) {
-        currentScanIndex++;
-        updateScanSelector();
-        console.log(`Current scan index: ${currentScanIndex}`);
-    }
-}
-
-function previousScan() {
-    if (currentScanIndex > 1) {
-        currentScanIndex--;
-        updateScanSelector();
-        console.log(`Current scan index: ${currentScanIndex}`);
-    }
-}
-
-window.onload = function() {
-    fetchLogs();
-    loadScanInterval(); // Load scan interval from localStorage
-
-    // Initially disable the Stop button since no scan is active
-    const stopButton = document.getElementById('stop-scan-button');
-    if (stopButton) {
-        stopButton.disabled = true;
+            })
+            .catch(error => {
+                console.error('Error fetching scan count:', error);
+                showError('An unexpected error occurred while fetching scan count.', 'Scan Selector');
+            });
     }
 
-    // Start polling for logs every 2 seconds
-    setInterval(fetchLogs, 2000);
+    // Attach the function to the window object to make it globally accessible
+    window.updateScanSelector = updateScanSelector;
 
-    // Check scanner status immediately
-    checkScannerStatus();
+    window.onload = function() {
+        fetchLogs();
+        loadScanInterval(); // Load scan interval from localStorage
 
-    // Start polling for scanner status every 10 seconds
-    setInterval(checkScannerStatus, 10000); // every 10 seconds
+        // Initially disable the Stop button since no scan is active
+        const stopButton = document.getElementById('stop-scan-button');
+        if (stopButton) {
+            stopButton.disabled = true;
+        }
 
-    setInterval(updateScanSelector, 5000); // Update scan selector every 5 seconds
-};
+        // Start polling for logs every 2 seconds
+        setInterval(fetchLogs, 2000);
+
+        // Check scanner status immediately
+        checkScannerStatus();
+
+        // Start polling for scanner status every 10 seconds
+        setInterval(() => checkScannerStatus(30000), 10000); // every 10 seconds
+
+        // Update scan selector every 5 seconds
+        setInterval(updateScanSelector, 5000);
+
+        // Initialize auto-refresh checkbox
+        let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
+        const autoRefreshCheckbox = document.getElementById('auto-refresh-checkbox');
+        if (autoRefreshCheckbox) {
+            autoRefreshCheckbox.checked = autoRefresh;
+        }
+    };
+});
