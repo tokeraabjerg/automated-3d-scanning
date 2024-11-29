@@ -284,6 +284,38 @@ def get_full_size_point_cloud():
         current_app.logger.error(f"Error fetching point cloud: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/scan/manual_capture', methods=['POST'])
+def manual_capture():
+    """
+    Start a manual capture scan.
+    """
+    data = request.json
+    scan_interval = data.get('scanInterval')
+    project_name = data.get('selectedProject')
+
+    if not scan_interval or not project_name:
+        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
+
+    try:
+        # Start the scan thread
+        executor = current_app.config['executor']
+        stop_event = current_app.config['stop_event']
+        scan_lock = current_app.config['scan_lock']
+        scan_in_progress = current_app.config['scan_in_progress']
+
+        with scan_lock:
+            if scan_in_progress:
+                return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
+            current_app.config['scan_in_progress'] = True
+
+        future = executor.submit(scan_thread, scan_interval, project_name, stop_event)
+        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
+
+        return jsonify({'status': 'success', 'project': project_name}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error starting manual capture: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
     """
     Process an Open3D point cloud by downsampling it if it has more than 100,000 points.

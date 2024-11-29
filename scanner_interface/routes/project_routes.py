@@ -158,3 +158,23 @@ def get_scan_preview():
     except Exception as e:
         logger.error(f"Error getting scan preview: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to get scan preview.'}), 500
+
+@project_bp.route('/get_positions', methods=['GET'])
+def get_positions():
+    """
+    Retrieve the contents of positions.json for the specified project.
+    """
+    project_name = request.args.get('projectName')
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
+
+    project_manager = current_app.config.get('project_manager')
+    if not project_manager:
+        logger.error("Project manager is not available.")
+        return jsonify({'status': 'error', 'message': 'Project manager is not available'}), 500
+
+    positions = project_manager.get_positions(project_name)
+    if positions is None:
+        return jsonify({'status': 'error', 'message': 'positions.json not found or empty'}), 404
+
+    return jsonify({'status': 'success', 'positions': positions})
