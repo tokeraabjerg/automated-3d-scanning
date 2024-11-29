@@ -221,6 +221,10 @@ button, input[type="submit"] {
 .project-actions {
     display: flex;
     gap: 10px;
+<<<<<<< HEAD
+=======
+    padding-right: 10px;
+>>>>>>> 751cafbf98fc6b982e16a6db222caee1d75e3ef4
 }
 
 .rename-button, .delete-button {
@@ -381,4 +385,52 @@ button, input[type="submit"] {
 /* Highlighted project item */
 .project-item.highlighted {
     background-color: #d3f9d8; /* Light green background for highlighted row */
+<<<<<<< HEAD
+=======
+}
+
+/* Scan preview button styling */
+#scan-preview button {
+    background-color: #4CAF50; /* Green background */
+    color: white; /* White text */
+    border: none; /* Remove border */
+    padding: 5px 10px; /* Adjust padding */
+    text-align: center; /* Center the text */
+    text-decoration: none; /* Remove underline */
+    display: inline-block; /* Make the buttons inline-block */
+    font-size: 24px; /* Increase font size for arrows */
+    font-weight: bold; /* Make the font thicker */
+    margin: 4px 2px; /* Add some margin */
+    cursor: pointer; /* Add a pointer cursor on hover */
+    border-radius: 5px; /* Rounded corners */
+}
+
+#scan-preview button:hover {
+    background-color: #45a049; /* Darker green on hover */
+}
+
+/* Loading Indicator in Viewer */
+#viewer-loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 1000; /* High z-index to appear above other elements */
+}
+
+#viewer-loading-indicator .spinner {
+    border: 4px solid #f3f3f3; /* Light grey */
+    border-top: 4px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 2s linear infinite;
+    margin-right: 10px;
+>>>>>>> 751cafbf98fc6b982e16a6db222caee1d75e3ef4
 }

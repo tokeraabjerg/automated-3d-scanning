@@ -1,5 +1,7 @@
 import socket
 import time
+import json  # Add this line
+import os     # Add this line
 
 # Configure the Ethernet connection
 arduino_ip = '192.168.100.115'  # Change this to your Arduino's IP address
@@ -24,32 +26,36 @@ def send_command(command):
                     response += part + "\n"
                 except socket.timeout:
                     break
-
-            # Parse the response
-            try:
-                state, message = response.split(',', 1)
-                state = state.strip().strip('"')
-                message = message.strip().strip('"')
-                
-                if state.lower() == "success":
-                    if "Motor A Position" in message and "Motor B Position" in message:
-                        # Extract positions
-                        parts = message.split(',')
-                        pos_a = parts[0].split(':')[1].strip()
-                        pos_b = parts[1].split(':')[1].strip()
-                        print(f"Success: Motor A Position: {pos_a}, Motor B Position: {pos_b}")
-                    else:
-                        print(f"Success: {message}")
-                elif state.lower() == "error":
-                    print(f"Error: {message}")
-                else:
-                    print(f"Unknown state '{state}': {message}")
-            except ValueError:
-                print(f"Invalid response format: {response}")
-
             return response.strip()
         except socket.error as e:
             return f"Socket error: {e}"
+
+def perform_scan():
+    """
+    Perform a scan by reading positions from positions.json and moving motors.
+    """
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))  # Add this line
+        positions_path = os.path.join(script_dir, 'positions.json')  # Add this line
+        with open(positions_path, 'r') as file:  # Modify this line
+            positions = json.load(file)  # Load JSON data
+        
+        for entry in positions:
+            pos_a = entry['pos_a']
+            pos_b = entry['pos_b']
+            command_a = f"MOVE_ABS A {pos_a}"
+            command_b = f"MOVE_ABS B {pos_b}"
+            
+            response_a = send_command(command_a)
+            print(f"Motor A: {response_a}")
+            
+            response_b = send_command(command_b)
+            print(f"Motor B: {response_b}")
+            
+            time.sleep(5)  # Wait for 5 seconds between positions
+        print("Scan complete.")
+    except Exception as e:
+        print(f"Error during scan: {e}")
 
 def main():
     # Wait for the Arduino to initialize
@@ -58,18 +64,28 @@ def main():
     print("Arduino Ethernet Communication Initialized.")
     print("Available Commands:")
     print("  HOME                     - Home both drivers A and B")
+    print("  HOME_LOOP                - Home both drivers A and B, loops continuously until STOP_HOME_LOOP is sent")
     print("  MOVE_REL A <steps>       - Move Driver A relative steps")
     print("  MOVE_REL B <steps>       - Move Driver B relative steps")
     print("  MOVE_ABS A <position>    - Move Driver A to absolute position")
     print("  MOVE_ABS B <position>    - Move Driver B to absolute position")
     print("  GETPOS                   - Get current positions")
-    
+    print("  PERFORM_SCAN             - Perform scan with predefined positions")
     while True:
         command = input("Enter command: ")
         if command.lower() == 'exit':
             break
-        response = send_command(command)
-        print(f"Response: {response}")
+        elif command.upper() == 'PERFORM_SCAN':
+            perform_scan()
+        elif command.upper() == 'START_HOME_LOOP':
+            response = send_command("HOME_LOOP")
+            print(f"Response: {response}")
+        elif command.upper() == 'STOP_HOME_LOOP':
+            response = send_command("HOME_LOOP")
+            print(f"Response: {response}")
+        else:
+            response = send_command(command)
+            print(f"Response: {response}")
     
     # No need to manually close the socket as 'with' handles it
 

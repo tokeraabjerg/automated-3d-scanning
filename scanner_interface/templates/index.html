@@ -120,6 +120,10 @@
                 </form>
             </div>
             <br><br>
+<<<<<<< HEAD
+=======
+            <br><br>
+>>>>>>> 751cafbf98fc6b982e16a6db222caee1d75e3ef4
             <h2>Configurations</h2>
             <form action="{{ url_for('config_bp.update_configurations') }}" method="post">
                 <table>
@@ -170,6 +174,7 @@
             </form>
         </div>
         <div id="right-panel">
+<<<<<<< HEAD
             <h2>3D Preview</h2>
             <h2>
                 <button type="button" onclick="manualRefresh()">Refresh Viewer</button>
@@ -177,6 +182,28 @@
             <div id="viewer-container">
                 <!-- 3D Viewer Canvas -->
                 <div id="viewer" style="width: 100%; height: 400px"></div>
+=======
+            <div style="display: flex; align-items: center;">
+                <h2>3D Preview</h2>
+                <div id="scan-preview" style="display: flex; align-items: center; margin-left: 20px;">
+                    <button onclick="firstScan()">&#171;</button> <!-- Skip to first scan -->
+                    <button onclick="previousScan()">&lsaquo;</button> <!-- Previous scan -->
+                    <span id="scan-selector" style="margin: 0 10px;">Select a project</span>
+                    <button onclick="nextScan()">&rsaquo;</button> <!-- Next scan -->
+                    <button onclick="lastScan()">&#187;</button> <!-- Skip to last scan -->
+                    <label style="margin-left: 10px;">
+                        <input type="checkbox" id="auto-refresh-checkbox" onchange="toggleAutoRefresh()" checked> Auto-refresh
+                    </label>
+                </div>
+            </div>
+            <div id="viewer-container" style="position: relative;">
+                <!-- 3D Viewer Canvas -->
+                <div id="viewer" style="width: 100%; height: 400px;"></div>
+                <div id="viewer-loading-indicator" class="loading-indicator" style="display: none;">
+                    <div class="spinner"></div>
+                    <span>Loading...</span>
+                </div>
+>>>>>>> 751cafbf98fc6b982e16a6db222caee1d75e3ef4
             </div>
             <h2>Project Scans</h2>
             <div id="project-scans">
@@ -186,6 +213,11 @@
             <div id="log-output">
                 Loading logs...
             </div>
+<<<<<<< HEAD
+=======
+            <!-- Add a button to request and display the point cloud for index 41 -->
+            <button onclick="requestAndDisplayPointCloudForIndex(41)">Display Point Cloud for Index 41</button>
+>>>>>>> 751cafbf98fc6b982e16a6db222caee1d75e3ef4
         </div>
     </div>
 </body>
