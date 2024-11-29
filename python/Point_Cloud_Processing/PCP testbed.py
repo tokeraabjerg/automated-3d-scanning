@@ -6,7 +6,7 @@ from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_
 from PP import preprocess_point_cloud
 from Calibration_by_fixture import Calibration_by_fixture
 
-def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size, mcd=4):
+def Point_Cloud_Processing(combined_cloud, combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size, mcd=4):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -36,98 +36,80 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
 
     # Preproces: Downsize, Remove outliers, Find normals
-    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
-    combined_cloud.transform(Calibration_transformation)
 
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
 
-    # Visualize the downsampled point cloud
-    
-    o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
-    # Beregn bounding box, størrelse af pooint cloud
+    # Visualize the downsampled point cloud    
+    # o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
 
-    #    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
-    #    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
+    target_cloud.paint_uniform_color([1, 0.706, 0])
+    target_cloud_normal_sample, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
 
-    
-        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
+
+    if theta_pan == 0 and theta_tilt == 0:
+        print("Nevermind, the point cloud is already aligned")
+        initial_transformation=np.eye(4)
+    else:
+        # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+        o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
+        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(rotation_vectors[i][2])))
+        print(initial_rotation)
+        target_cloud.rotate(initial_rotation, center=(0,0,0))
+        o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
         
-
-        target_cloud.paint_uniform_color([1, 0.706, 0])
-
-        if theta_pan == 0 and theta_tilt == 0:
-            print("Nice job idiot, you forgot to turn on the motor")
-        else:
-            # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
-            initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(rotation_vectors[i][2])))
-            print(initial_rotation)
-            target_cloud.rotate(initial_rotation, center=(0,0,0))
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
-            # target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-            # For now, translation by densitity alignment is not implimented
-            # translation_vector=combined_center-target_center
-            # translation_vector=unrotated_target_center-target_center
-            translation_vector=(0,0,0)
-            target_cloud.translate(translation_vector)
-            #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
-            
-            int_rot_4x4=np.eye(4)
-            int_rot_4x4[:3, :3] = initial_rotation 
-            translation_matrix = np.eye(4)
-            translation_matrix[:3, 3] = translation_vector 
-            initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
-
+        # translation_vector=(0,0,0)
+        # target_cloud.translate(translation_vector)
+        #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
+        
+        int_rot_4x4=np.eye(4)
+        int_rot_4x4[:3, :3] = initial_rotation 
+        # translation_matrix = np.eye(4)
+        # translation_matrix[:3, 3] = translation_vector 
+        # initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
+        initial_transformation=int_rot_4x4
 
         result=decompose_transformation(initial_transformation)
         print("Translation (x, y, z):", result["translation"])
         print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
 
-        # Step 2: Point-to-Plane ICP
-        # Estimating normals for source and target point clouds, som brugt i point to plane
-        radius_normal = 2*voxel_size  # Radius til normal estimering
-        combined_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
-        target_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
-        
-        print("Performing ICP registration...")
-        # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
-        # icp_transformation = [None] * len(ply_files)
+    # Step 2: Point-to-Plane ICP
+    '''
+    radius_normal = 2*voxel_size  # Radius til normal estimering
+    combined_cloud.estimate_normals(
+    search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
+    target_cloud.estimate_normals(
+    search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
+    '''
 
-        icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
-        # aligned_target=target_cloud.transform(icp_transformation)
-        # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
+    print("Performing ICP registration...")
+    icp_transformation, aligned_target=Point_to_Plane_with_Normal_Check(combined_cloud_normal_sample, target_cloud_normal_sample, mcd, normal_threshold=10)
 
-        # Initialize combined_transformation as a list of independent identity matrices
-        combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
-
-        # Combine transformations for the i-th transformation
-        # TODO: Add zero transformation to the combined transformation
-        combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
-        # Decompose the transformation and print results
-        result = decompose_transformation(combined_transformation[i])
-        print(f"PC nr {i} was transformed by:")
-        print("Translation (x, y, z):", result["translation"])
-        print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
+    # Combine transformations for the i-th transformation
+    # TODO: Add zero transformation to the combined transformation
+    combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
+    # Decompose the transformation and print results
+    result = decompose_transformation(combined_transformation[i])
+    print(f"PC nr {i} was transformed by:")
+    print("Translation (x, y, z):", result["translation"])
+    print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
 
 
-        combined_cloud += aligned_target
+    combined_cloud += aligned_target
 
-        # Anvend den samlede transformation på den højere opløsnings punktsky
-        aligned_voxel = target_voxel.transform(combined_transformation[i])
-        combined_voxel += aligned_voxel
-        
-        # R=combined_transformation[i][:3, :3]
-        # print('LOOK HERE')
-        # print(R)
-        # axis, angle = extract_rotation_axis_and_angle(R)
-        # print("Rotation Axis:", axis)
-        # print("Rotation Angle (degrees):", np.degrees(angle))
+    # Anvend den samlede transformation på den højere opløsnings punktsky
+    aligned_voxel = target_voxel.transform(combined_transformation[i])
+    combined_cloud += aligned_voxel
+    
+    # R=combined_transformation[i][:3, :3]
+    # print('LOOK HERE')
+    # print(R)
+    # axis, angle = extract_rotation_axis_and_angle(R)
+    # print("Rotation Axis:", axis)
+    # print("Rotation Angle (degrees):", np.degrees(angle))
 
-        # Optional: Visualize the current merged cloud
-        o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
-        o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
+    # Optional: Visualize the current merged cloud
+    o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
+    o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
 
     return combined_voxel, combined_transformation
 
@@ -150,6 +132,10 @@ if __name__ == "__main__":
         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
     ]
     Calibration_known = False
+
+    # Initialize combined_transformation as a list of independent identity matrices
+    combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
+    
     for i in range(1, len(ply_files)):
         print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
         
@@ -172,9 +158,9 @@ if __name__ == "__main__":
         try:
             combined_cloud
         except NameError:
-            combined_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5)
+            combined_cloud_normal_sample, combined_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5)
         else:
-            combined_cloud, combined_transformation = Point_Cloud_Processing(combined_cloud, current_cloud, theta_pan, theta_tilt, Calibration_transformation, resolution=1, mcd=4)
+            combined_cloud, combined_transformation = Point_Cloud_Processing(combined_cloud, combined_cloud_normal_sample, current_cloud, theta_pan, theta_tilt, Calibration_transformation, resolution=1, mcd=4)
 
     
 """
