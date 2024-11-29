@@ -7,6 +7,7 @@ import logging
 import re
 import open3d as o3d
 import numpy as np
+import json
 
 class ProjectManager:
     def __init__(self, output_dir):
@@ -310,3 +311,24 @@ class ProjectManager:
         except Exception as e:
             self.logger.error(f"Error getting full-size point cloud for '{scan_filename}': {e}")
             raise e
+
+    def get_positions(self, project_name):
+        """
+        Retrieve the contents of positions.json for the specified project.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        positions_file = os.path.join(project_path, 'positions.json')
+
+        if not os.path.exists(positions_file):
+            self.logger.warning(f"positions.json not found for project '{project_name}'.")
+            return None
+
+        try:
+            with open(positions_file, 'r') as file:
+                positions = json.load(file)
+                self.logger.info(f"Retrieved positions for project '{project_name}': {positions}")
+                return positions
+        except Exception as e:
+            self.logger.error(f"Error reading positions.json for project '{project_name}': {e}")
+            return None
+
