@@ -7,19 +7,17 @@ import open3d as o3d
 import numpy as np
 from ICP import Point_to_Plane
 
-def Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil):
+def Zero_point_cloud_by_fixture(alignment_point_cloud, Fikstur_fil):
     """
     Align a point cloud with a fixture using  ICP.
     
     Parameters:
-    - ply_file: Path to the point cloud file.
+    - alignment_point_cloud: The alignment point cloud file.
     - fixture_reference: Path to the ply file of the fixture.
     
     Returns:
     - Zeroing transformation: The aligning transformation.
-    """
-    
-
+    """    
     # Load the and prepare the fixture
     Fikstur = o3d.io.read_point_cloud(Fikstur_fil)
     Fikstur.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(90), np.radians(90), np.radians(0))), center=(0,0,0))
@@ -36,7 +34,7 @@ def Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil):
         combined_geometry += arrow
     
     # Visualize current setup
-    # o3d.visualization.draw_geometries([Fikstur, combined_geometry, Fikstur_forskudt])    
+    #o3d.visualization.draw_geometries([Fikstur, combined_geometry, Fikstur_forskudt])    
     
     # Remove excess points from the fixture
     min_bound = (-120.0, -120.0, -14.0)  # Replace with your box's minimum x, y, and z coordinates
@@ -45,22 +43,22 @@ def Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil):
 
     # o3d.visualization.draw_geometries([Fikstur_Reduced, combined_geometry])
     Fikstur_Reduced, density_vector_fiks = center_and_filter_point_cloud(Fikstur_Reduced, radius=60)
-    point_cloud, density_vector_pc = center_and_filter_point_cloud(Fikstur_forskudt, radius=60)
+    alignment_point_cloud, density_vector_pc = center_and_filter_point_cloud(alignment_point_cloud, radius=60)
         # TODO: When testing with the real scans, uncomment the following line and test the alignment. 
         # Will need to be added to zero trans.
     # centroid = np.mean(np.asarray(point_cloud.points), axis=0)
     # point_cloud.translate(-centroid)
-    # o3d.visualization.draw_geometries([Fikstur_Reduced, point_cloud, combined_geometry], window_name="reduced and centered") 
+    o3d.visualization.draw_geometries([Fikstur_Reduced, alignment_point_cloud, combined_geometry], window_name="reduced and centered") 
     
-    radius_normal = 2*1.5  # Radius til normal estimering
-    point_cloud.estimate_normals(
-    search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
+    radius_normal = 2  # Radius til normal estimering
+    # alignment_point_cloud.estimate_normals(
+    # search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
     Fikstur_Reduced.estimate_normals(
     search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
     Fikstur_Reduced.paint_uniform_color([1, 0.706, 0])
-    Transformation, point_cloud=Point_to_Plane(Fikstur_Reduced, point_cloud, 5)
-    # o3d.visualization.draw_geometries([Fikstur_Reduced, point_cloud, combined_geometry], window_name="applied ICP") 
-
+    Transformation, alignment_point_cloud=Point_to_Plane(Fikstur_Reduced, alignment_point_cloud, 5)
+    o3d.visualization.draw_geometries([Fikstur_Reduced, alignment_point_cloud, combined_geometry], window_name="applied ICP") 
+    
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = -density_vector_pc 
     Zero_transformation=np.dot(Transformation, translation_matrix)
@@ -126,16 +124,7 @@ def center_and_filter_point_cloud(point_cloud, radius):
 # Eksempel på brug af funktionen:
 if __name__ == "__main__":
     from Misc_functions import create_arrow
-
-    Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
-    Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    
-    Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
-    Zero_transformation, Fikstur=Zero_point_cloud_by_fixture(Fikstur_forskudt, Fikstur_fil)
-    
-    Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Fikstur_forskudt.transform(Zero_transformation)
+    from PP import preprocess_point_cloud
 
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
@@ -145,8 +134,29 @@ if __name__ == "__main__":
     combined_geometry = o3d.geometry.TriangleMesh()
     for arrow in arrows:
         combined_geometry += arrow
+
+    Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
+    Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
+    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\20241127_160500_point_cloud_1.ply")
+    Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1)
+    Ny_alignment_voxcopy = Ny_alignment_vox
+    Ny_alignment_vox.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(-90))))
+    o3d.visualization.draw_geometries([Ny_alignment_vox, Fikstur, combined_geometry], window_name="Prior to transform")
+    Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
+    Zero_transformation, Fikstur=Zero_point_cloud_by_fixture(Ny_alignment_vox, Fikstur_fil)
+    
+
+
+    Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
+    Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
+    Fikstur_forskudt.transform(Zero_transformation)
+
+    #Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 2)
+    Ny_alignment_voxcopy.transform(Zero_transformation)
+
+
     Fikstur_forskudt.paint_uniform_color([1, 0.706, 1])
-    o3d.visualization.draw_geometries([Fikstur_forskudt_uden_trans, Fikstur_forskudt, combined_geometry], window_name="Applied zero transform")
+    o3d.visualization.draw_geometries([Ny_alignment_voxcopy, Ny_alignment_vox, Fikstur, combined_geometry], window_name="Applied zero transform")
     
 """
     #Align the fixture with the global axis

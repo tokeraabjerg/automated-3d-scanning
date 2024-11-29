@@ -2,7 +2,7 @@ import open3d as o3d
 import numpy as np
 from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
 from ICP import Point_to_Plane, legacy_icp_with_logging
-from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, remove_small_clusters
+from Misc_functions import compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, remove_small_clusters, remove_points_within_distance_of_pointcloud
 from PP import preprocess_point_cloud
 from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
 
@@ -166,7 +166,8 @@ if __name__ == "__main__":
 
     # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
     rotation_vectors = [
-    (None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
+    #(None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
+    (0, 0, 0),     # Ingen rotation identificere en point cloud som værende velegnet til zeroing.
     (15, 0, 0),     # Rotation omkring en vilkårlig akse
     (45, 0, 0)    # 90 grader omkring y-aksen
     ]
@@ -179,14 +180,25 @@ if __name__ == "__main__":
     # x_axis=(143.31, 15,-345)
 
     # Obtain zeroing transformation
-    # zero_transformation=Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil)
+    Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
+
+    if rotation_vectors[0] == (0,0,0):
+        print("Zeroing point clouds by fixture-based method")
+        Alignment_point_cloud = o3d.io.read_point_cloud(ply_files[0])
+    else:
+        raise ValueError("lacking zeroing point cloud")
+    
+    zero_transformation, Fikstur=Zero_point_cloud_by_fixture(Alignment_point_cloud, Fikstur_fil)
     zero_transformation = np.eye(4)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, zero_transformation, voxel_size=1.5, mcd=4)
+    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, zero_transformation, voxel_size=1.5, mcd=4)
+    print(combined_transformation.shape)
+    final_cloud_minus_fixture = remove_points_within_distance_of_pointcloud(Fikstur, final_cloud, 10)
 
     # Save the final merged point cloud
-    output_file = "merged_point_cloud.ply"
+    output_ply = "merged_point_cloud.ply"
+    output_trans = "combined_transformation.json"
     #o3d.io.write_point_cloud(output_file, final_cloud)
     #print(f"Final merged point cloud saved to: {output_file}")
 
