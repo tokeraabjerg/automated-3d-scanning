@@ -42,3 +42,4 @@ KD tree mean value
 
 Logger
 
+Function til Ola, alignment af STL
