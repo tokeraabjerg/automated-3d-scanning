@@ -107,3 +107,54 @@ def delete_project():
     except Exception as e:
         logger.error(f"Error deleting project: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to delete project.'}), 500
+
+@project_bp.route('/get_scan_count', methods=['GET'])
+def get_scan_count():
+    """
+    Get the number of scans in the specified project.
+    Expects a query parameter 'projectName'.
+    """
+    project_name = request.args.get('projectName')
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name not provided.'}), 400
+
+    try:
+        # Access project_manager through current_app
+        project_manager: ProjectManager = current_app.config['project_manager']
+        scan_count = project_manager.get_scan_count(project_name)
+        return jsonify({'status': 'success', 'scanCount': scan_count}), 200
+    except FileNotFoundError as e:
+        logger.error(e)
+        return jsonify({'status': 'error', 'message': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error getting scan count: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to get scan count.'}), 500
+
+@project_bp.route('/get_scan_preview', methods=['GET'])
+def get_scan_preview():
+    """
+    Get a downsampled preview of the specified scan in the project.
+    Expects query parameters 'projectName' and 'scanIndex'.
+    """
+    project_name = request.args.get('projectName')
+    scan_index = request.args.get('scanIndex')
+
+    if not project_name or not scan_index:
+        return jsonify({'status': 'error', 'message': 'Project name or scan index not provided.'}), 400
+
+    try:
+        scan_index = int(scan_index)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid scan index provided.'}), 400
+
+    try:
+        # Access project_manager through current_app
+        project_manager: ProjectManager = current_app.config['project_manager']
+        scan_preview = project_manager.get_scan_preview(project_name, scan_index)
+        return jsonify({'status': 'success', 'scanPreview': scan_preview}), 200
+    except FileNotFoundError as e:
+        logger.error(e)
+        return jsonify({'status': 'error', 'message': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error getting scan preview: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to get scan preview.'}), 500
