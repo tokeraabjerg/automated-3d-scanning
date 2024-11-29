@@ -52,7 +52,7 @@ def perform_scan():
             response_b = send_command(command_b)
             print(f"Motor B: {response_b}")
             
-            time.sleep(5)  # Wait for 5 seconds between positions
+            time.sleep(1)  # Wait for 1 seconds between positions
         print("Scan complete.")
     except Exception as e:
         print(f"Error during scan: {e}")
