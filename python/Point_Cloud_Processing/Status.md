@@ -11,21 +11,24 @@ Stærkere værktøj til Initial alignement (Kan vi finde omdrejnignsakse, og kom
 Lige nu anvendes en kendt vinkel, og en translation baseret på densitet. Lidt primitivt.
 - Ovenstående er løst ved zero-transform 
 
-Bedre skalering af Max dist., outlier/noise removal etc, således det afhænger af voxel size.
+Bedre skalering af Max dist., outlier/noise removal etc, således det afhænger af voxel size., Done
 
 Bedre forklaring af normal space sampling - er nu lavet i overleaf! 
 
-
-
-MDP AKTIV:
-Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  - Done, new func has logging
+Add auto cropping - Done, function added, needs refinement
 
 Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust. - Done, added as new func.
 
-Fix Testbed/update to zero transform scheme - Pending
+Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  - Done, new func has logging
 
-Add auto cropping - Current
+MDP AKTIV:
+
+Fix forsøgs opstilling - pending
+
+Fix Testbed/update to zero transform scheme - Pending
 
 Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår DBSCAN
 
 Skalering - Pending
+
+Combined transformation som json - Pending

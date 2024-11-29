@@ -6,7 +6,7 @@ from Misc_functions import remove_points_within_distance_of_pointcloud, compute_
 from PP import preprocess_point_cloud
 from Zero_point_cloud_by_fixture import Zero_point_cloud_by_fixture
 
-def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
+def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -39,7 +39,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     combined_cloud.translate(x_axis)
-    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
+    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, resolution)
     # combined_cloud.transform(zero_transformation)
 
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
@@ -51,14 +51,15 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
     #    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
     #    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
-
+# Initialize combined_transformation as a list of independent identity matrices
+    combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
     for i in range(1, len(ply_files)):
         print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
 
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
         target_cloud.translate(x_axis)
-        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
+        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, resolution)
         
 
         target_cloud.paint_uniform_color([1, 0.706, 0])
@@ -100,7 +101,7 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
         # Step 2: Point-to-Plane ICP
         # Estimating normals for source and target point clouds, som brugt i point to plane
-        radius_normal = 2*voxel_size  # Radius til normal estimering
+        radius_normal = 2*resolution  # Radius til normal estimering
         combined_cloud.estimate_normals(
         search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
         target_cloud.estimate_normals(
@@ -113,9 +114,6 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
         icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
         # aligned_target=target_cloud.transform(icp_transformation)
         # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
-
-        # Initialize combined_transformation as a list of independent identity matrices
-        combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
 
         # Combine transformations for the i-th transformation
         combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
@@ -145,15 +143,27 @@ def process_point_clouds(ply_files, rotation_vectors, voxel_size, mcd):
 
     return combined_voxel, combined_transformation
 
+def extract_transformation_matrices(combined_transformation):
+    if isinstance(combined_transformation, np.ndarray):
+        # If combined_transformation is a single numpy array
+        print("Combined transformation matrix:")
+        print(combined_transformation)
+    elif isinstance(combined_transformation, list):
+        # If combined_transformation is a list of numpy arrays
+        for i, transformation in enumerate(combined_transformation):
+            print(f"Transformation matrix {i + 1}:")
+            print(transformation)
+    else:
+        print("Unknown format for combined_transformation")
 
+import json
+def save_transformations_to_json(transformations, output_file):
+    # Convert numpy arrays to lists
+    transformations_list = [transformation.tolist() for transformation in transformations]
 
-#     ply_files = [
-#         r"C:\Users\mikke\Desktop\bunny\data\bun000.ply",
-#         r"C:\Users\mikke\Desktop\bunny\data\bun045.ply",
-#         r"C:\Users\mikke\Desktop\bunny\data\bun090.ply"
-#         #r"C:\Users\mikke\Desktop\bunny\data\bun315.ply"
-#         #r"C:\Users\mikke\Desktop\bunny\data\bun270.ply"
-#     ]
+    # Save to JSON file
+    with open(output_file, 'w') as f:
+        json.dump(transformations_list, f, indent=4)
 
 if __name__ == "__main__":
     # List of .ply files to process
@@ -182,10 +192,15 @@ if __name__ == "__main__":
     # zero_transformation = np.eye(4)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud = process_point_clouds(ply_files, rotation_vectors, voxel_size=1.5, mcd=4)
-
+    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, resolution=2, mcd=4)
+    extract_transformation_matrices(combined_transformation)    
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
+    output_trans = "combined_transformation.json"
+    save_transformations_to_json(combined_transformation, output_trans)
+    print(f"Transformation matrices saved to: {output_trans}")
+    
+
     #o3d.io.write_point_cloud(output_file, final_cloud)
     #print(f"Final merged point cloud saved to: {output_file}")
 
