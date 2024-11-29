@@ -33,7 +33,7 @@ def Point_to_Plane(source, target, mcd):
     # Return the transformed target point cloud for further use (or visualization)
     return icp_result.transformation, target
 
-def Point_to_Plane_with_Normal_Check(source, target, mcd):
+def Point_to_Plane_with_Normal_Check(source, target, mcd, normal_threshold):
     # Point Association using ICP for Open3D v0.18.0
     print("Running ICP with normal check...")
 
@@ -46,7 +46,7 @@ def Point_to_Plane_with_Normal_Check(source, target, mcd):
 
     # Correspondence checker based on normal
     correspondence_checker = o3d.pipelines.registration.CorrespondenceCheckerBasedOnNormal(
-        normal_angle_threshold=np.deg2rad(30.0)  # Adjust the angle threshold as needed
+        normal_angle_threshold=np.deg2rad(normal_threshold)  # Adjust the angle threshold as needed
     )
 
     # Perform ICP

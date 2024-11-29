@@ -5,24 +5,17 @@ from Misc_functions import sample_adjacent_point_pairs, create_arrow
 
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
-def preprocess_point_cloud(pcd, resolution):
-    #print(":: Rand Downsample with a resolution %.3f." % resolution)
-    #pcd_rand=pcd.random_down_sample(0.005*resolution)
-    #print(len(pcd_rand.points))
-    #o3d.visualization.draw_geometries([pcd_rand], window_name="rand Cloud")
+def preprocess_point_cloud(pcd, resolution, std_ratio):
+
     print(":: Voxel Downsample with a resolution %.3f." % resolution)
     pcd_voxel=pcd.voxel_down_sample(1/resolution)
-    print(f"PCD vox has {len(pcd_voxel.points)} points")
+    print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
     # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
-    
     
     # Remove statistical outliers
     print(":: Statistically remove outliers.")
-    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100*resolution), std_ratio=0.5, print_progress=True)
+    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100*resolution), std_ratio=std_ratio, print_progress=True)
     #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
-    
-    #pcd_voxel.estimate_normals(
-    #    o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
 
     # Downsample using normal space sampling
     vox_meandist=sample_adjacent_point_pairs(pcd_voxel, 100, 1)
@@ -39,6 +32,11 @@ Firstly, we shall consider different downsampling methods.
 Then, we shall consider removing outliers.
 Finally, we shall consider finding normals for the Point to Plane algorithm.
 """
+
+
+
+
+
 def assign_colors(labels):
     # Define a set of colors
     colors = [
@@ -80,7 +78,7 @@ if __name__ == "__main__":
     for arrow in arrows:
         AxisArrow += arrow
     o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Piss Clustering")
-    br
+    
     meandist = sample_adjacent_point_pairs(combined_cloud, 10, 1)
     print(f"Mean distance between points: {meandist}")
     resolution = 1

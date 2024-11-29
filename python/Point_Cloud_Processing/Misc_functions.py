@@ -293,3 +293,27 @@ def sample_adjacent_point_pairs(pcd, n, max_distance):
     average_distance = np.mean(valid_distances)
 
     return average_distance
+
+def average_distance_to_nearest_point(pcd):
+    points = np.asarray(pcd.points)
+    num_points = points.shape[0]
+
+    if num_points < 2:
+        raise ValueError("Point cloud must contain at least 2 points.")
+
+    # Create a KD-tree for the point cloud
+    kdtree = o3d.geometry.KDTreeFlann(pcd)
+
+    # Initialize a list to store the distances to the nearest point
+    distances = []
+
+    # Iterate over each point in the point cloud
+    for i in range(num_points):
+        # Find the nearest neighbor (excluding the point itself)
+        [_, idx, dists] = kdtree.search_knn_vector_3d(points[i], 2)
+        distances.append(dists[1])  # The first distance is 0 (the point itself), so take the second
+
+    # Calculate the average distance
+    average_distance = np.mean(distances)
+
+    return average_distance

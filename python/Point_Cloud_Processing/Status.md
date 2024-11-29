@@ -34,3 +34,11 @@ Skalering - Pending
 Combined transformation som json - Pending
 
 Test Poisson vs almen Voxel
+
+Ny func til 2 pcd, ikke fil dest.
+Evt. bedre behandling mht. 
+
+KD tree mean value
+
+Logger
+
