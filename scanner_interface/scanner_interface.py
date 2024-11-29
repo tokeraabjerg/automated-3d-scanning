@@ -89,6 +89,8 @@ class ScannerInterface:
         self.timeout = timeout
         self.lock = threading.Lock()
         self.connected = False  # Initialize the connected attribute
+        self.last_ping_failed_log_time = 0  # Initialize the last log time for ping failure
+        self.ping_log_interval = 60  # Set the log interval to 60 seconds
 
         self._configure_library_functions()
 
@@ -228,14 +230,18 @@ class ScannerInterface:
                 'error_code': error_code
             }
 
-    def perform_scan(self, scan_interval: int = 1, stop_event: Optional[threading.Event] = None):
-        """
-        Perform a single scan and return the point cloud data.
+    def perform_scan(self, scan_interval: int = 1, stop_event: Optional[threading.Event] = None) -> Optional[o3d.geometry.PointCloud]:
+        logger.info("Starting perform_scan method.")
 
-        :param scan_interval: Interval between starting and stopping scan in seconds.
-        :param stop_event: Event to signal scan stop.
-        :return: Single Open3D point cloud.
-        """
+        # Cancel existing timer if it exists
+        if hasattr(self, 'stop_timer') and self.stop_timer.is_alive():
+            self.stop_timer.cancel()
+            logger.info("Existing stop timer canceled before starting a new scan.")
+
+        # Clear the stop_event before starting the scan
+        if stop_event:
+            stop_event.clear()
+
         try:
             # Hardcoded configurations
             sensor_mode = "4"        # 4: 3D Point Cloud
@@ -248,18 +254,19 @@ class ScannerInterface:
             # Configure sensor using hardcoded configurations
             if not self.write_sensor_command(f"SetSensorMode={sensor_mode}"):
                 logger.error("Failed to set sensor mode.")
-                return []
+                return None
+
             if not self.write_sensor_command(f"SetTriggerSource={trigger_source}"):
                 logger.error("Failed to set trigger source.")
-                return []
+                return None
+
             if not self.write_sensor_command(f"SetLEDPattern={led_pattern}"):
                 logger.error("Failed to set LED pattern.")
-                return []
+                return None
+
             if not self.write_sensor_command("SetAcquisitionStart"):
                 logger.error("Failed to start acquisition.")
-                return []
-
-            logger.info("Acquisition started successfully.")
+                return None
 
             # Try to read camera dimensions
             camera_width_str = self.read_sensor_parameter("GetPixelXMax")
@@ -271,7 +278,7 @@ class ScannerInterface:
 
             if camera_width_str is None or camera_height_str is None:
                 logger.error("Failed to obtain camera dimensions. Aborting scan.")
-                return []
+                return None
 
             try:
                 camera_width = int(camera_width_str)
@@ -279,7 +286,7 @@ class ScannerInterface:
                 logger.info(f"Camera dimensions: width={camera_width}, height={camera_height}")
             except ValueError as ve:
                 logger.error(f"Invalid camera dimensions received: width='{camera_width_str}', height='{camera_height_str}'")
-                return []
+                return None
 
             nrPixels = camera_width * camera_height
             pc_size = (sizeof(POINT3D) + sizeof(c_ushort)) * nrPixels
@@ -298,15 +305,15 @@ class ScannerInterface:
 
             if stop_event and stop_event.is_set():
                 logger.info("Scan stopped by user before starting scan.")
-                return []
+                return None
 
             # Start a timer to stop acquisition after scan_interval seconds
-            stop_timer = threading.Timer(scan_interval, self.stop_scan)
-            stop_timer.start()
+            self.stop_timer = threading.Timer(scan_interval, self.stop_scan)
+            self.stop_timer.start()
 
-            scan_start_time = time.time()
             logger.info("Attempting to acquire scan.")
 
+            # Perform the scan
             result = self.lib.Sensor3D_GetPointCloud(
                 self.sensorHandle,
                 byref(scanBuffer),
@@ -317,20 +324,21 @@ class ScannerInterface:
             )
 
             # Ensure the timer is canceled if acquisition completes before interval
-            stop_timer.cancel()
+            self.stop_timer.cancel()
+            self.stop_scan()
 
             if stop_event and stop_event.is_set():
                 logger.info("Scan stopped by user during acquisition.")
-                return []
+                return None
 
             if result != SENSOR3D_OK:
                 logger.error(f"Error acquiring point cloud, result: {result}")
-                return []
+                return None
 
             logger.info(f"Scan: Number of points: {number_of_points.value}")
             if number_of_points.value == 0:
                 logger.error("No points acquired. Skipping this scan.")
-                return []
+                return None
 
             # Convert to numpy arrays
             points_np = np.zeros((number_of_points.value, 3), dtype=np.float64)
@@ -347,61 +355,19 @@ class ScannerInterface:
             intensities_normalized = (intensities_np / 65535).astype(np.float64)
             pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
 
-            #  pcd is the Open3D point cloud
-            return [pcd]
-    
+            # pcd is the Open3D point cloud
+            logger.info("Scan completed successfully.")
+            return pcd
+
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")
-            return []
+            return None
 
-    def reduce_and_save_point_cloud(self, pcd: o3d.geometry.PointCloud, sca: int):
-        """
-        Reduce the point cloud to less than 100,000 points and save it.
-
-        :param pcd: The original point cloud.
-        :param scan_number: The scan number for naming purposes.
-        """
-        try:
-            num_points = len(pcd.points)
-            logger.info(f"Original point cloud has {num_points} points.")
-
-            if num_points > 100000:
-                # Calculate voxel size to reduce to approximately 100,000 points
-                voxel_size = self.calculate_voxel_size(pcd, target_points=100000)
-                pcd_reduced = pcd.voxel_down_sample(voxel_size=voxel_size)
-                logger.info(f"Reduced point cloud to {len(pcd_reduced.points)} points using voxel size {voxel_size}.")
-            else:
-                pcd_reduced = pcd
-                logger.info("Point cloud size is within the desired limit. No reduction needed.")
-
-            # Save the reduced point cloud to a fixed filename, overwriting previous
-            reduced_pcd_filename = os.path.join(self.output_directory, "reduced_point_cloud.ply")
-            o3d.io.write_point_cloud(reduced_pcd_filename, pcd_reduced)
-            logger.info(f"Saved reduced point cloud to {reduced_pcd_filename}")
-        except Exception as e:
-            logger.error(f"Error during point cloud reduction and saving: {e}")
-
-    def calculate_voxel_size(self, pcd: o3d.geometry.PointCloud, target_points: int = 100000) -> float:
-        """
-        Calculate an appropriate voxel size to reduce the point cloud to approximately target_points.
-
-        :param pcd: The original point cloud.
-        :param target_points: The desired number of points after reduction.
-        :return: The calculated voxel size.
-        """
-        try:
-            # Estimate voxel size by scaling based on the ratio of target_points to current points
-            num_points = len(pcd.points)
-            if num_points <= target_points:
-                return 0.0  # No reduction needed
-
-            ratio = (num_points / target_points) ** (1/3)  # Assuming uniform scaling
-            voxel_size = 0.1 * ratio  # Base voxel size is 0.1, adjust as needed
-            voxel_size = max(voxel_size, 0.01)  # Set a minimum voxel size
-            return voxel_size
-        except Exception as e:
-            logger.error(f"Error calculating voxel size: {e}")
-            return 0.1  # Default voxel size
+        finally:
+            # Ensure the timer is canceled if still running
+            if hasattr(self, 'stop_timer') and self.stop_timer.is_alive():
+                self.stop_timer.cancel()
+                logger.info("Stop timer canceled in finally block.")
 
     def write_sensor_command(self, command: str) -> bool:
         """
@@ -457,9 +423,12 @@ class ScannerInterface:
         Send the SetAcquisitionStop command to the sensor.
         """
         if self.write_sensor_command("SetAcquisitionStop"):
-            logger.info("Acquisition stopped successfully by timer.")
+            logger.debug("Acquisition stopped successfully.")
+            # Optionally, set the stop_event here if it's being used
+            # if stop_event:
+            #     stop_event.set()
         else:
-            logger.error("Failed to stop acquisition via timer.")
+            logger.error("Failed to stop acquisition.")
 
     def ping_sensor(self) -> bool:
         """
@@ -469,7 +438,10 @@ class ScannerInterface:
         """
         with self.lock:
             if not self.sensorHandle:
-                logger.warning("Ping failed: sensorHandle is None.")
+                current_time = time.time()
+                if current_time - self.last_ping_failed_log_time > self.ping_log_interval:
+                    logger.warning("Ping failed: sensorHandle is None.")
+                    self.last_ping_failed_log_time = current_time
                 self.connected = False  # Update connection status
                 return False
 
@@ -477,7 +449,7 @@ class ScannerInterface:
             result = self.lib.Sensor3D_GetSensorStatus(self.sensorHandle, byref(status))
 
             if result == SENSOR3D_OK:
-                logger.info("Ping successful: Sensor is connected.")
+                logger.debug("Ping successful: Sensor is connected.")
                 self.connected = True  # Update connection status
                 return True
             else:

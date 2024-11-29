@@ -34,13 +34,16 @@ def stl_to_point_cloud(stl_file, output_file, num_points=100000):
     point_cloud = mesh.sample_points_poisson_disk(number_of_points=num_points, init_factor=5)
 
     # Save the point cloud as a PLY file
-    print(f"Saving point cloud to {output_file}...")
-    o3d.io.write_point_cloud(output_file, point_cloud)
-    print(f"Point cloud successfully saved to {output_file}")
+    #print(f"Saving point cloud to {output_file}...")
+    #o3d.io.write_point_cloud(output_file, point_cloud)
+    #print(f"Point cloud successfully saved to {output_file}")
 
-# File paths
-stl_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTap.STL"  # Replace with your STL file path
-output_ply_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC.ply"  # Output PLY file
+    return point_cloud
 
-# Convert and save the point cloud
-stl_to_point_cloud(stl_file, output_ply_file, num_points=100000)
+if __name__ == "__main__":
+    # File paths
+    stl_file = r"C:\Users\ovikd\Documents\Punktskyer\Design.STL"  # Replace with your STL file path
+    output_ply_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC.ply"  # Output PLY file
+
+    # Convert and save the point cloud
+    stl_to_point_cloud(stl_file, output_ply_file, num_points=100000)

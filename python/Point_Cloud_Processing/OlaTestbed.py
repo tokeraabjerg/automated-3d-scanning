@@ -1,45 +1,8 @@
-import open3d as o3d
-import numpy as np
-import sys
-from Comparison import compare_point_clouds
-from PCP import process_point_clouds
-from STP import STL_to_pointcloud
+from CompleteComparison import complete_comparison
+from Translatory_crutch import align_centroids
 
-# File paths
-stl_file = r"C:\Users\ovikd\Downloads\testemne_pointcloud.ply"
-ply_file = r"C:\Users\ovikd\Downloads\cropped_est.ply"
-voxel_size = 0.5 # Set the desired voxel size
-
-# Load and downsample the PLY file
-print("Loading and downsampling PLY file...")
-ply_pcd = o3d.io.read_point_cloud(ply_file)
-if ply_pcd.is_empty():
-    print("Failed to load the PLY file.")
-    sys.exit()
-
-print(f"Original PLY point cloud has {len(ply_pcd.points)} points.")
-ply_pcd_downsampled = ply_pcd.voxel_down_sample(voxel_size=voxel_size)
-print(f"Downsampled PLY point cloud has {len(ply_pcd_downsampled.points)} points.")
-
-# Save the downsampled PLY point cloud to a temporary file for further processing
-downsampled_ply_file = r"C:\Users\ovikd\Downloads\downsampled_cropped_est.ply"
-o3d.io.write_point_cloud(downsampled_ply_file, ply_pcd_downsampled)
-print(f"Downsampled PLY point cloud saved to {downsampled_ply_file}")
-
-# Process and compare point clouds
-print("Saving point clouds to matrix.")
-plys = [downsampled_ply_file, stl_file]
-
-rotation_vectors = [
-    (None),    # Tom første indgang
-    (90, 180, 180)     # Rotation omkring en vilkårlig akse
-    #(0, 0, 0)    # 90 grader omkring y-aksen
-    ]
+stl_file = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTap.STL"
+scanned_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"  # Replace with your scanned point cloud path
 
 
-print("Processing point clouds")
-output_file = process_point_clouds(plys, rotation_vectors, voxel_size=1.5, mcd=4)
-
-# Call the function to compare point clouds
-print("Comparing point clouds.")
-compare_point_clouds(output_file, downsampled_ply_file, 0.001)
+complete_comparison(stl_file,scanned_pc_path1)

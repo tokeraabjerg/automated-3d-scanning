@@ -1,0 +1,10 @@
+scanner_interface/output/
+
+# Ignore Python cache directories
+*__pycache__/
+
+# Ignore log files
+*.log
+
+# Ignore specific log file
+scanner_interface/app.log

@@ -126,9 +126,11 @@ function updateConnectionStatus(isConnected) {
     }
 }
 
+let lastLogTime = 0;
+
 // Function to check scanner connection status
-function checkScannerStatus() {
-    fetch('/scanner_status')
+function checkScannerStatus(logInterval = 30000) {
+    fetch('/interface/scanner_status')
         .then(response => response.json())
         .then(data => {
             console.log('Scanner Status:', data);
@@ -161,6 +163,12 @@ function checkScannerStatus() {
                     }
                 }
             }
+
+            // Log a message every logInterval milliseconds
+            const currentTime = Date.now();
+            if (currentTime - lastLogTime >= logInterval) {
+                lastLogTime = currentTime;
+            }
         })
         .catch(error => {
             console.error('Error checking scanner status:', error);
@@ -189,11 +197,14 @@ function fetchLogs() {
         })
         .then(data => {
             const logOutput = document.getElementById('log-output');
+            const isScrolledToTop = logOutput.scrollTop === 0;
             // Split the log data into lines, reverse the order, and join back into a string
             let reversedLogs = data.split('\n').reverse().join('\n');
             logOutput.textContent = reversedLogs;
-            // Scroll to the top to show the newest logs
-            logOutput.scrollTop = 0;
+            // Scroll to the top to show the newest logs only if the user is not scrolling
+            if (isScrolledToTop) {
+                logOutput.scrollTop = 0;
+            }
             errorDisplayed = false; // Reset error display flag on successful fetch
         })
         .catch(error => {
@@ -210,11 +221,11 @@ function fetchLogs() {
 
 // 3D Previewer Settings
 
-// Keep the manual refresh function
-function manualRefresh() {
-    // Trigger preview.js to reload the point cloud
-    loadPointCloud();
-}
+// Remove the manual refresh function
+// function manualRefresh() {
+//     // Trigger preview.js to reload the point cloud
+//     loadPointCloud();
+// }
 
 // Scan Interval Settings
 function loadScanInterval() {
@@ -250,9 +261,33 @@ function hideLoadingIndicator() {
     loadingIndicator.style.display = 'none';
 }
 
-// Function to handle Start Scan form submission
-function handleStartScan(event) {
+function showViewerLoadingIndicator() {
+    const loadingIndicator = document.getElementById('viewer-loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'flex';
+    } else {
+        console.error('viewer-loading-indicator element not found.');
+    }
+}
+
+function hideViewerLoadingIndicator() {
+    const loadingIndicator = document.getElementById('viewer-loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    } else {
+        console.error('viewer-loading-indicator element not found.');
+    }
+}
+
+// Function to handle Manual Capture form submission
+function handleManualCapture(event) {
     event.preventDefault(); // Prevent default form submission
+
+    // Check if the scanner is connected
+    if (!scannerConnected) {
+        showError('Scanner is not connected. Please connect the scanner before starting a scan.', 'Scan Validation');
+        return;
+    }
 
     const scanInterval = parseInt(document.getElementById('scanInterval').value);
     const selectedProject = document.querySelector('input[name="selected-project"]:checked');
@@ -260,6 +295,9 @@ function handleStartScan(event) {
     let project = null;
     if (selectedProject) {
         project = selectedProject.value;
+    } else {
+        showWarning('Please select or create a project before starting a scan.', 'Scan Validation');
+        return;
     }
 
     // Input Validation
@@ -309,6 +347,150 @@ function handleStartScan(event) {
         showError('An error occurred while starting the scan.', 'Scan Status');
         hideLoadingIndicator();
         startButton.disabled = false;
+        stopButton.disabled = true;
+    });
+}
+
+// Function to handle Manual Capture form submission
+function handleManualCapture(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    // Check if the scanner is connected
+    if (!scannerConnected) {
+        showError('Scanner is not connected. Please connect the scanner before starting a scan.', 'Scan Validation');
+        return;
+    }
+
+    const scanInterval = parseInt(document.getElementById('scanInterval').value);
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+
+    let project = null;
+    if (selectedProject) {
+        project = selectedProject.value;
+    } else {
+        showWarning('Please select or create a project before starting a scan.', 'Scan Validation');
+        return;
+    }
+
+    // Input Validation
+    if (scanInterval < 1) {
+        showWarning('Scan interval must be at least 1.', 'Scan Validation');
+        return;
+    }
+
+    // Show loading indicator with "Starting scan..."
+    showLoadingIndicator('Starting scan...');
+
+    // Disable the Manual Capture button and Stop button to prevent multiple clicks
+    const manualCaptureButton = document.getElementById('manual-capture-button');
+    const stopButton = document.getElementById('stop-scan-button');
+    manualCaptureButton.disabled = true;
+    stopButton.disabled = true;
+
+    fetch('/scan/manual_capture', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            scanInterval: scanInterval,
+            selectedProject: project
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess(`Manual capture started for project: ${data.project}`, 'Scan Status');
+            // Update loading indicator to "Scanning..."
+            showLoadingIndicator('Scanning...');
+            // Enable the Stop button
+            stopButton.disabled = false;
+            // Start polling for scan status
+            pollScanStatus();
+        } else {
+            showError(`Error: ${data.message}`, 'Scan Status');
+            hideLoadingIndicator();
+            manualCaptureButton.disabled = false;
+            stopButton.disabled = true;
+        }
+    })
+    .catch(error => {
+        console.error('Error starting manual capture:', error);
+        showError('An error occurred while starting the manual capture.', 'Scan Status');
+        hideLoadingIndicator();
+        manualCaptureButton.disabled = false;
+        stopButton.disabled = true;
+    });
+}
+
+// Function to handle Auto Scan form submission
+function handleAutoScan(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    // Check if the scanner is connected
+    if (!scannerConnected) {
+        showError('Scanner is not connected. Please connect the scanner before starting a scan.', 'Scan Validation');
+        return;
+    }
+
+    const scanInterval = parseInt(document.getElementById('scanInterval').value);
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+
+    let project = null;
+    if (selectedProject) {
+        project = selectedProject.value;
+    } else {
+        showWarning('Please select or create a project before starting a scan.', 'Scan Validation');
+        return;
+    }
+
+    // Input Validation
+    if (scanInterval < 1) {
+        showWarning('Scan interval must be at least 1.', 'Scan Validation');
+        return;
+    }
+
+    // Show loading indicator with "Starting auto scan..."
+    showLoadingIndicator('Starting auto scan...');
+
+    // Disable the Auto Scan button and Stop button to prevent multiple clicks
+    const autoScanButton = document.getElementById('auto-scan-button');
+    const stopButton = document.getElementById('stop-scan-button');
+    autoScanButton.disabled = true;
+    stopButton.disabled = true;
+
+    fetch('/scan/auto_scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            scanInterval: scanInterval,
+            selectedProject: project
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess(`Auto scan started for project: ${data.project}`, 'Scan Status');
+            // Update loading indicator to "Scanning..."
+            showLoadingIndicator('Scanning...');
+            // Enable the Stop button
+            stopButton.disabled = false;
+            // Start polling for scan status
+            pollScanStatus();
+        } else {
+            showError(`Error: ${data.message}`, 'Scan Status');
+            hideLoadingIndicator();
+            autoScanButton.disabled = false;
+            stopButton.disabled = true;
+        }
+    })
+    .catch(error => {
+        console.error('Error starting auto scan:', error);
+        showError('An error occurred while starting the auto scan.', 'Scan Status');
+        hideLoadingIndicator();
+        autoScanButton.disabled = false;
         stopButton.disabled = true;
     });
 }
@@ -379,8 +561,6 @@ function pollScanStatus() {
                     const stopButton = document.getElementById('stop-scan-button');
                     startButton.disabled = false;
                     stopButton.disabled = true;
-                    // Trigger preview.js to load the point cloud
-                    loadPointCloud();
                 } else {
                     // Scan is still in progress
                     // Optionally, update the loading text
@@ -544,22 +724,35 @@ function highlightSelectedProject(radio) {
     if (selectedProjectItem) {
         selectedProjectItem.classList.add('highlighted');
     }
-}
 
-function pingSensor() {
-    fetch('/scanner_status')
+    // Fetch and display planned scan count
+    const projectName = radio.value;
+    fetch(`/project/get_positions?projectName=${projectName}`)
         .then(response => response.json())
         .then(data => {
-            alert('Sensor connected: ' + data.connected);
+            if (data.status === 'success') {
+                const plannedScanCount = data.positions.length;
+                document.getElementById('planned-scan-count').textContent = `Planned Scans: ${plannedScanCount}`;
+            } else {
+                document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
+                showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+            }
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error fetching positions:', error);
+            document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
+            showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
         });
 }
 
 function attemptReconnect() {
-    fetch('/attempt_reconnect', { method: 'POST' })
-        .then(response => response.json())
+    fetch('/interface/attempt_reconnect', { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.status === "success") {
                 toastr.success(data.message);
@@ -576,9 +769,101 @@ function attemptReconnect() {
         });
 }
 
+
+function nextScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (currentScanIndex < totalScans) {
+        currentScanIndex++;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function previousScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (currentScanIndex > 1) {
+        currentScanIndex--;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function firstScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (totalScans > 0) {
+        currentScanIndex = 1;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function lastScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('No project selected.', 'Scan Selector');
+        return;
+    }
+    if (totalScans > 0) {
+        currentScanIndex = totalScans;
+        updateScanSelector();
+        console.log(`Current scan index: ${currentScanIndex}`);
+    }
+}
+
+function requestAndDisplayPointCloudForIndex(scanIndex) {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showError('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+    console.log(`Requesting point cloud for project: ${projectName}, scan index: ${scanIndex}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+
+    fetch(`/project/get_full_size_point_cloud?projectName=${projectName}&scanIndex=${scanIndex}&downsample=true&targetPoints=100000`, { signal: controller.signal })
+        .then(response => {
+            clearTimeout(timeoutId);
+            console.log('Fetch response received:', response);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Fetch data received:', data);
+            if (data.status === 'success') {
+                const pointCloud = data.point_cloud;
+                displayPointCloudOverlay(pointCloud);
+            } else {
+                showError(`Error: ${data.message}`, 'Point Cloud Retrieval');
+            }
+        })
+        .catch(error => {
+            if (error.name === 'AbortError') {
+                console.error('Fetch request timed out');
+                showError('Request timed out. Please try again.', 'Point Cloud Retrieval');
+            } else {
+                console.error('Error fetching point cloud:', error);
+                showError('An unexpected error occurred while fetching the point cloud.', 'Point Cloud Retrieval');
+            }
+        });
+}
+
 // Optionally, periodically check scanner status and update UI
 setInterval(function() {
-    fetch('/scanner_status')
+    fetch('/interface/scanner_status')
         .then(response => response.json())
         .then(data => {
             updateConnectionStatus(data.connected);
@@ -589,22 +874,90 @@ setInterval(function() {
         });
 }, 5000); // Every 5 seconds
 
-window.onload = function() {
-    fetchLogs();
-    loadScanInterval(); // Load scan interval from localStorage
+let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
 
-    // Initially disable the Stop button since no scan is active
-    const stopButton = document.getElementById('stop-scan-button');
-    if (stopButton) {
-        stopButton.disabled = true;
+function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    localStorage.setItem('autoRefresh', autoRefresh);
+}
+
+let currentScanIndex = 1;
+let totalScans = 0;
+let lastRequestedScanIndex = null;
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
+    const autoRefreshCheckbox = document.getElementById('auto-refresh-checkbox');
+    if (autoRefreshCheckbox) {
+        autoRefreshCheckbox.checked = autoRefresh;
     }
 
-    // Start polling for logs every 2 seconds
-    setInterval(fetchLogs, 2000);
+    function updateScanSelector() {
+        const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+        if (!selectedProject) {
+            document.getElementById('scan-selector').textContent = 'No project selected';
+            return;
+        }
 
-    // Check scanner status immediately
-    checkScannerStatus();
+        const projectName = selectedProject.value;
+        fetch(`/project/get_scan_count?projectName=${projectName}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const previousTotalScans = totalScans;
+                    totalScans = data.scanCount;
+                    document.getElementById('scan-selector').textContent = `${currentScanIndex}/${totalScans}`;
+                    // If auto-refresh is enabled and the total scans have increased, jump to the last scan
+                    if (autoRefresh && totalScans > previousTotalScans) {
+                        currentScanIndex = totalScans;
+                    }
+                    // Request and display the scan preview only if the scan index has changed
+                    if (currentScanIndex !== lastRequestedScanIndex) {
+                        showViewerLoadingIndicator();
+                        requestScanPreview(projectName, currentScanIndex);
+                        lastRequestedScanIndex = currentScanIndex;
+                    }
+                } else {
+                    showError(`Error: ${data.message}`, 'Scan Selector');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching scan count:', error);
+                showError('An unexpected error occurred while fetching scan count.', 'Scan Selector');
+            });
+    }
 
-    // Start polling for scanner status every 10 seconds
-    setInterval(checkScannerStatus, 10000); // every 10 seconds
-};
+    // Attach the function to the window object to make it globally accessible
+    window.updateScanSelector = updateScanSelector;
+
+    window.onload = function() {
+        fetchLogs();
+        loadScanInterval(); // Load scan interval from localStorage
+
+        // Initially disable the Stop button since no scan is active
+        const stopButton = document.getElementById('stop-scan-button');
+        if (stopButton) {
+            stopButton.disabled = true;
+        }
+
+        // Start polling for logs every 2 seconds
+        setInterval(fetchLogs, 2000);
+
+        // Check scanner status immediately
+        checkScannerStatus();
+
+        // Start polling for scanner status every 10 seconds
+        setInterval(() => checkScannerStatus(30000), 10000); // every 10 seconds
+
+        // Update scan selector every 5 seconds
+        setInterval(updateScanSelector, 5000);
+
+        // Initialize auto-refresh checkbox
+        let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
+        const autoRefreshCheckbox = document.getElementById('auto-refresh-checkbox');
+        if (autoRefreshCheckbox) {
+            autoRefreshCheckbox.checked = autoRefresh;
+        }
+    };
+});

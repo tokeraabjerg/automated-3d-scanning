@@ -1,5 +1,6 @@
 {
     "python.analysis.extraPaths": [
-        "./python/Point Cloud Processing"
+        "./python/Point Cloud Processing",
+        "./python/Diverse_scripts"
     ]
 }

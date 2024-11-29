@@ -46,4 +46,4 @@ def update_configurations():
                 return f"Failed to set {key}", 400
 
     logger.info("All configurations updated successfully.")
-    return redirect(url_for('config_bp.get_configurations'))
+    return redirect(url_for('index'))  # Redirect to the main interface page

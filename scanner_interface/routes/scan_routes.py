@@ -16,84 +16,75 @@ import open3d as o3d
 scan_bp = Blueprint('scan_bp', __name__, url_prefix='/scan')  # Added url_prefix='/scan'
 logger = logging.getLogger(__name__)
 
-@scan_bp.route('/start_scan', methods=['POST'])
-def start_scan():
+@scan_bp.route('/manual_capture', methods=['POST'])
+def manual_capture():
     """
-    Handle scan initiation request from the user.
-    Initiates a single scan.
+    Start a manual capture scan.
     """
-    scan_in_progress = current_app.config.get('scan_in_progress', False)
-    scan_lock = current_app.config.get('scan_lock')
-    stop_event = current_app.config.get('stop_event')
-    executor = current_app.config.get('executor')
+    data = request.json
+    scan_interval = data.get('scanInterval')
+    project_name = data.get('selectedProject')
 
-    scanner = current_app.config.get('scanner')
-    project_manager = current_app.config.get('project_manager')
-    output_directory = current_app.config.get('output_directory')
+    if not scan_interval or not project_name:
+        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
 
-    if scanner is None or not scanner.sensorHandle:
-        logger.error("Scanner is not connected.")
-        return jsonify({"status": "error", "message": "Scanner is not connected."}), 400
+    try:
+        # Start the scan thread
+        executor = current_app.config['executor']
+        stop_event = current_app.config['stop_event']
+        scan_lock = current_app.config['scan_lock']
+        scan_in_progress = current_app.config['scan_in_progress']
 
-    with scan_lock:
-        if scan_in_progress:
-            logger.warning("Attempted to start a scan while another scan is in progress.")
-            return jsonify({"status": "error", "message": "Scan is already in progress."}), 400
-        try:
-            data = request.get_json()
-            scan_interval = int(data.get('scanInterval', 3))  # Default to 3 seconds
-            selected_project = data.get('selectedProject')  # Optional
-            if scan_interval < 1:
-                raise ValueError("Scan interval must be at least 1 second.")
-        except (ValueError, TypeError) as ve:
-            logger.error(f"Invalid input provided: {ve}")
-            return jsonify({"status": "error", "message": f"Invalid input: {ve}"}), 400
+        with scan_lock:
+            if scan_in_progress:
+                return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
+            current_app.config['scan_in_progress'] = True
 
-        # If no project is selected, create a new one with the current timestamp
-        if not selected_project:
-            try:
-                selected_project = project_manager.create_project()
-                logger.info(f"Created new project: {selected_project}")
-            except Exception as e:
-                logger.error(f"Error creating project: {e}")
-                return jsonify({"status": "error", "message": str(e)}), 500
-        else:
-            # Verify that the selected project exists
-            if selected_project not in project_manager.load_projects():
-                logger.error(f"Selected project '{selected_project}' does not exist.")
-                return jsonify({"status": "error", "message": "Selected project does not exist."}), 400
+        future = executor.submit(scan_thread, scan_interval, project_name, stop_event)
+        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
 
-        current_app.config['scan_in_progress'] = True
-        stop_event.clear()  # Reset the stop_event before starting a new scan
-        logger.info(f"Starting scan, interval of {scan_interval} seconds, project '{selected_project}'.")
-        executor.submit(scan_thread, scan_interval, selected_project)
-    return jsonify({"status": "success", "message": "Scan started.", "project": selected_project}), 200
+        return jsonify({'status': 'success', 'project': project_name}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error starting manual capture: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def scan_thread(scan_interval, project_name):
+def scan_thread(app, scan_interval, project_name):
     """
     Thread function to handle the scanning process.
     """
-    scan_lock = current_app.config.get('scan_lock')
-    scan_in_progress = current_app.config.get('scan_in_progress')
-    stop_event = current_app.config.get('stop_event')
-    scanner = current_app.config.get('scanner')
-    output_directory = current_app.config.get('output_directory')
+    logger.info("Scan thread started.")
+    
+    with app.app_context():
+        try:
+            scan_lock = current_app.config.get('scan_lock')
+            if scan_lock is None:
+                logger.error("scan_lock is None. Exiting scan thread.")
+                return
 
-    try:
-        # Corrected perform_scan call
-        pcds = scanner.perform_scan(scan_interval=scan_interval, stop_event=stop_event)
+            scanner = current_app.config.get('scanner')
+            if scanner is None:
+                logger.error("scanner is None. Exiting scan thread.")
+                return
 
-        for idx, pcd in enumerate(pcds, start=1):
-            # Save the point cloud as a .ply file
-            output_filename = os.path.join(output_directory, f"{project_name}_point_cloud_{idx}.ply")
-            o3d.io.write_point_cloud(output_filename, pcd)
-            logger.info(f"Saved point cloud to {output_filename}")
-    except Exception as e:
-        logger.exception(f"An error occurred during scanning: {e}")
-    finally:
-        with scan_lock:
-            current_app.config['scan_in_progress'] = False
-        logger.info("Scan process completed and scan_in_progress flag reset.")
+            output_directory = current_app.config.get('output_directory')
+
+            pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=current_app.config.get('stop_event'))
+            if pcd is None:
+                logger.error("Failed to perform scan. Exiting scan thread.")
+                return
+
+            # Replace direct saving with ProjectManager's save_point_cloud method
+            project_manager = current_app.config.get('project_manager')
+            project_manager.save_point_cloud(pcd, project_name)
+
+            #call icp function
+            
+        except Exception as e:
+            logger.exception(f"An error occurred during scanning: {e}")
+        finally:
+            with scan_lock:
+                current_app.config['scan_in_progress'] = False
+            logger.info("Scan process completed and scan_in_progress flag reset.")
 
 @scan_bp.route('/stop_scan', methods=['POST'])
 def stop_scan():
@@ -101,6 +92,7 @@ def stop_scan():
     Handle scan termination request from the user by setting the stop_event.
     This signals the scanning thread to stop the scan gracefully.
     """
+    logger.info("Starting stop scan request.")
     scan_in_progress = current_app.config.get('scan_in_progress', False)
     stop_event = current_app.config.get('stop_event')
     scanner = current_app.config.get('scanner')
@@ -126,3 +118,71 @@ def is_processing():
     """
     scan_in_progress = current_app.config.get('scan_in_progress', False)
     return jsonify({'processing': scan_in_progress})
+
+@scan_bp.route('/auto_scan', methods=['POST'])
+def auto_scan():
+    """
+    Start an auto scan that loops through positions in positions.json.
+    """
+    data = request.json
+    scan_interval = data.get('scanInterval')
+    project_name = data.get('selectedProject')
+
+    if not scan_interval or not project_name:
+        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
+
+    # Check if the scanner is connected
+    scanner = current_app.config.get('scanner')
+    if not scanner or not scanner.connected:
+        return jsonify({'status': 'error', 'message': 'Scanner is not connected'}), 400
+
+    try:
+        # Access project_manager through current_app
+        project_manager = current_app.config['project_manager']
+        positions = project_manager.get_positions(project_name)
+        if positions is None:
+            return jsonify({'status': 'error', 'message': 'positions.json not found or empty'}), 404
+
+        # Start the auto scan thread
+        executor = current_app.config['executor']
+        stop_event = current_app.config['stop_event']
+        scan_lock = current_app.config['scan_lock']
+        scan_in_progress = current_app.config['scan_in_progress']
+
+        with scan_lock:
+            if scan_in_progress:
+                return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
+            current_app.config['scan_in_progress'] = True
+
+        future = executor.submit(auto_scan_thread, scan_interval, project_name, positions, stop_event)
+        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
+
+        return jsonify({'status': 'success', 'project': project_name}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error starting auto scan: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def auto_scan_thread(scan_interval, project_name, positions, stop_event):
+    """
+    Thread function to perform auto scan.
+    """
+    try:
+        for position in positions:
+            if stop_event.is_set():
+                break
+
+            # Perform movement to the position (add actual movement code here)
+            # move_to_position(position)
+
+            # Start scan
+            pcd = scan_thread(scan_interval, project_name, stop_event)
+            if pcd is None:
+                continue
+
+            # Post-process the scan (add actual post-processing code here)
+            # post_process_scan(pcd)
+
+    except Exception as e:
+        current_app.logger.error(f"Error in auto scan thread: {e}")
+    finally:
+        current_app.config['scan_in_progress'] = False

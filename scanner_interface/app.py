@@ -6,7 +6,7 @@
 #                     It initializes the application, sets up logging, and registers routes.
 #---------------------------------------------------------------------------
 
-from flask import Flask, render_template, request, redirect, url_for, Response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, Response, jsonify, current_app
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -16,10 +16,11 @@ from scanner_interface import ScannerInterface
 from .configurations import Configurations
 from concurrent.futures import ThreadPoolExecutor
 import time
-from .project_manager import ProjectManager  # Import ProjectManager
+from .project_manager import ProjectManager  # Ensure ProjectManager is imported
 import open3d as o3d
+import numpy as np
 
-from .routes import project_bp, scan_bp, config_bp  # Import new Blueprints
+from .routes import project_bp, scan_bp, config_bp, interface_bp  # Import new Blueprint
 
 app = Flask(__name__)
 
@@ -70,15 +71,14 @@ config_manager = None
 scan_in_progress = False
 scan_lock = threading.Lock()  # Lock for scan_in_progress
 sensor_lock = threading.Lock()  # Lock for sensor handle access
-executor = ThreadPoolExecutor(max_workers=5)  # Thread pool executor with a maximum of 5 workers
 connecting_attempt = False  # New flag to track connection attempts
 stop_event = threading.Event()  # New event to signal scan stop
 
 # Add these variables to app.config
 app.config['scan_in_progress'] = scan_in_progress
 app.config['scan_lock'] = scan_lock
+app.config['sensor_lock'] = sensor_lock 
 app.config['stop_event'] = stop_event
-app.config['executor'] = executor
 
 def initialize():
     global scanner, config_manager, connecting_attempt
@@ -121,6 +121,22 @@ def initialize():
         config_manager = Configurations()  # Initialize with default configurations
         app.config['config_manager'] = config_manager  # Add this line
 
+    # Initialize ProjectManager and store it in app config
+    project_manager = ProjectManager(output_directory)
+    app.config['project_manager'] = project_manager
+
+    # Initialize scan-related configurations
+    scan_lock = threading.Lock()
+    app.config['scan_lock'] = scan_lock
+    scan_in_progress = False
+    app.config['scan_in_progress'] = scan_in_progress
+    stop_event = threading.Event()
+    app.config['stop_event'] = stop_event
+
+    # Initialize ThreadPoolExecutor and store it in app config
+    executor = ThreadPoolExecutor(max_workers=5)
+    app.config['executor'] = executor
+
 def disconnect_scanner():
     """
     Disconnect the scanner if it is connected.
@@ -139,6 +155,7 @@ initialize()
 app.register_blueprint(project_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(config_bp)
+app.register_blueprint(interface_bp)  # Register the new interface blueprint
 
 # Route for the home page
 @app.route('/')
@@ -167,17 +184,6 @@ def index():
         logs=logs,
         projects=projects
     )
-
-@app.route('/scanner_status')
-def scanner_status():
-    """
-    Return the current scanner connection status.
-    """
-    status = {
-        'connected': scanner.sensorHandle is not None if scanner else False,
-        'connecting': connecting_attempt
-    }
-    return jsonify(status)
 
 @app.route('/get_logs')
 def get_logs():
@@ -228,6 +234,103 @@ def is_processing():
     Check if a scan is currently in progress.
     """
     return jsonify({'processing': scan_in_progress})
+
+@app.route('/process_point_cloud', methods=['POST'])
+def process_point_cloud():
+    try:
+        # Assume point cloud data is sent as a JSON array of points
+        point_cloud_data = request.json.get('point_cloud')
+        if not point_cloud_data:
+            return jsonify({'status': 'error', 'message': 'No point cloud data provided'}), 400
+
+        # Convert to Open3D point cloud
+        points = np.array(point_cloud_data, dtype=np.float64)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        # Downsample if more than 100,000 points
+        if len(pcd.points) > 100000:
+            pcd = pcd.uniform_down_sample(every_k_points=int(len(pcd.points) / 100000))
+
+        # Convert back to list for JSON response
+        downsampled_points = np.asarray(pcd.points).tolist()
+
+        return jsonify({'status': 'success', 'point_cloud': downsampled_points})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/project/get_full_size_point_cloud', methods=['GET'])
+def get_full_size_point_cloud():
+    """
+    Get the full-size point cloud for the specified project and scan index.
+    Optionally downsample the point cloud to reduce its size.
+    """
+    project_name = request.args.get('projectName')
+    scan_index = request.args.get('scanIndex')
+    downsample = request.args.get('downsample', 'false').lower() == 'true'
+    target_points = int(request.args.get('targetPoints', 100000))  # Set target_points to 100,000
+
+    if not project_name or not scan_index:
+        return jsonify({'status': 'error', 'message': 'Project name and scan index are required'}), 400
+
+    try:
+        scan_index = int(scan_index)
+        project_manager = current_app.config['project_manager']
+        logger.info(f"Fetching full-size point cloud for project: {project_name}, scan index: {scan_index}, downsample: {downsample}, target_points: {target_points}")
+        point_cloud = project_manager.get_full_size_point_cloud(project_name, scan_index, downsample, target_points)
+        logger.info(f"Successfully fetched point cloud with {len(point_cloud['points'])} points.")
+        return jsonify({'status': 'success', 'point_cloud': point_cloud})
+    except Exception as e:
+        current_app.logger.error(f"Error fetching point cloud: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/scan/manual_capture', methods=['POST'])
+def manual_capture():
+    """
+    Start a manual capture scan.
+    """
+    data = request.json
+    scan_interval = data.get('scanInterval')
+    project_name = data.get('selectedProject')
+
+    if not scan_interval or not project_name:
+        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
+
+    try:
+        # Start the scan thread
+        executor = current_app.config['executor']
+        stop_event = current_app.config['stop_event']
+        scan_lock = current_app.config['scan_lock']
+        scan_in_progress = current_app.config['scan_in_progress']
+
+        with scan_lock:
+            if scan_in_progress:
+                return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
+            current_app.config['scan_in_progress'] = True
+
+        future = executor.submit(scan_thread, scan_interval, project_name, stop_event)
+        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
+
+        return jsonify({'status': 'success', 'project': project_name}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error starting manual capture: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
+    """
+    Process an Open3D point cloud by downsampling it if it has more than 100,000 points.
+
+    :param pcd: The original Open3D point cloud.
+    :return: The processed (downsampled) Open3D point cloud.
+    """
+    try:
+        # Downsample if more than 100,000 points
+        if len(pcd.points) > 100000:
+            pcd = pcd.uniform_down_sample(every_k_points=int(len(pcd.points) / 100000))
+        return pcd
+    except Exception as e:
+        logger.error(f"Error processing point cloud: {e}")
+        return None
 
 if __name__ == '__main__':
     try:

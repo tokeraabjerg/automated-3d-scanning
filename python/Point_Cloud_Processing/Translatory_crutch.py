@@ -19,7 +19,8 @@ def compute_centroid(file_path):
     :param file_path: Path to the point cloud file.
     :return: Numpy array of the centroid coordinates.
     """
-    pcd = load_point_cloud(file_path)
+    #pcd = load_point_cloud(file_path)
+    pcd = file_path
     points = np.asarray(pcd.points)
     centroid = points.mean(axis=0)
     print(f"Centroid of point cloud '{file_path}': {centroid}")
@@ -32,8 +33,10 @@ def align_centroids(file_path1, file_path2):
     :param file_path2: File path of the second point cloud (to be aligned).
     :return: Aligned point cloud (from file_path2) translated to match the centroid of file_path1.
     """
-    pcd1 = load_point_cloud(file_path1)
-    pcd2 = load_point_cloud(file_path2)
+    #pcd1 = load_point_cloud(file_path1)
+    #pcd2 = load_point_cloud(file_path2)
+    pcd1 = file_path1
+    pcd2 = file_path2
     
     centroid1 = compute_centroid(file_path1)
     centroid2 = compute_centroid(file_path2)
@@ -61,7 +64,7 @@ def visualize_aligned_point_clouds(file_path1, file_path2):
 if __name__ == "__main__":
     # File paths for the two point clouds
     pc1_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC_rotated.ply"
-    pc2_path = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMergedCropped.ply"
+    pc2_path = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"
 
     # Visualize the aligned point clouds
     visualize_aligned_point_clouds(pc1_path, pc2_path)

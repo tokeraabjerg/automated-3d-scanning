@@ -124,7 +124,7 @@ class Configurations:
             # Only update if the value is different from the current value
             current_value = self.configurations[key]['value']
             if str(current_value) == str(value):
-                logger.info(f"No update needed for '{key}', value is already set to {value}.")
+                logger.debug(f"No update needed for '{key}', value is already set to {value}.")
                 return True
 
             # Validate the input based on the type and range
