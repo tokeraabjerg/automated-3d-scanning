@@ -18,9 +18,10 @@ RUN apt-get update && \
         nano \
         tree \
         && rm -rf /var/lib/apt/lists/*
-
+        
 # Install Python packages without caching
-RUN pip3 install --no-cache-dir numpy open3d flask
+RUN /bin/sh -c pip3 install --no-cache-dir numpy open3d flask
+
 
 # Set LD_LIBRARY_PATH environment variable to point to the SDK library
 ENV LD_LIBRARY_PATH=/workspace/python/Software_ShapeDriveG4_SDK_Linux/Sensor3D/lib:$LD_LIBRARY_PATH
