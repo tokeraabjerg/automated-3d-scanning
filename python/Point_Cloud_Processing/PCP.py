@@ -4,7 +4,7 @@ from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_regi
 from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
 from Misc_functions import remove_points_within_distance_of_pointcloud, compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, sample_adjacent_point_pairs, average_distance_to_nearest_point
 from PP import preprocess_point_cloud
-from python.Point_Cloud_Processing.Calibration_by_fixture import Zero_point_cloud_by_fixture
+from Calibration_by_fixture import Calibration_by_fixture
 
 def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
     """
@@ -27,7 +27,7 @@ def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
     vox_meandist=sample_adjacent_point_pairs(combined_cloud, 100, 0.5)
     print(f"Mean distance between points: {vox_meandist}")
 
-    brk
+    
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis

@@ -1,6 +1,6 @@
 import open3d as o3d
 import numpy as np
-from Normal_space_downsampling import downsample_normal_space
+from Normal_space_downsampling import downsample_normal_space_with_bin_control
 from Misc_functions import sample_adjacent_point_pairs, create_arrow
 
 
@@ -20,7 +20,7 @@ def preprocess_point_cloud(pcd, resolution, std_ratio):
     # Downsample using normal space sampling
     vox_meandist=sample_adjacent_point_pairs(pcd_voxel, 100, 1)
     # print(f"Mean distance between points: {meandist}")
-    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(40000), radius=(vox_meandist*2))
+    pcd_normal = downsample_normal_space_with_bin_control(pcd_voxel, radius=(1))
     # print(pcd_normal.has_normals()) True
     #o3d.visualization.draw_geometries([pcd_normal], window_name="Normal Cloud")
     return pcd_normal, pcd_voxel, vox_meandist
