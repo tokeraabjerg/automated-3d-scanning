@@ -3,7 +3,7 @@ import numpy as np
 #Todo: Include the following metods in the ICP.py file, test them in the PCP.py file
 #https://www.open3d.org/html/python_api/open3d.pipelines.registration.CorrespondenceCheckerBasedOnNormal.html#open3d-pipelines-registration-correspondencecheckerbasedonnormal
 
-def Point_to_Plane(source, target, mcd):
+def Point_to_Plane(source, target, max_correspondence_distance):
     # Point Association using ICP for Open3D v0.18.0
     print("Running ICP...")
 
@@ -17,7 +17,7 @@ def Point_to_Plane(source, target, mcd):
 
     # Perform ICP
     icp_result = o3d.pipelines.registration.registration_icp(
-        target, source, max_correspondence_distance=mcd, 
+        target, source, max_correspondence_distance=max_correspondence_distance, 
         init=np.eye(4),  # Initial transformation (identity matrix)
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
         criteria=criteria
@@ -33,10 +33,10 @@ def Point_to_Plane(source, target, mcd):
     # Return the transformed target point cloud for further use (or visualization)
     return icp_result.transformation, target
 
-def Point_to_Plane_with_Normal_Check(source, target, mcd, normal_threshold):
+def Point_to_Plane_with_Normal_Check(source, target, max_correspondence_distance, normal_threshold):
     # Point Association using ICP for Open3D v0.18.0
     print("Running ICP with normal check...")
-
+    # Broken func. Normal checking is not available in this formulation of the function
     # Initializing convergence criteria (using ICPConvergenceCriteria)
     criteria = o3d.pipelines.registration.ICPConvergenceCriteria(
         relative_fitness=1e-10, 
@@ -51,7 +51,7 @@ def Point_to_Plane_with_Normal_Check(source, target, mcd, normal_threshold):
 
     # Perform ICP
     icp_result = o3d.pipelines.registration.registration_icp(
-        target, source, max_correspondence_distance=mcd, 
+        target, source, max_correspondence_distance=max_correspondence_distance, 
         init=np.eye(4),  # Initial transformation (identity matrix)
         estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
         criteria=criteria,
@@ -103,7 +103,7 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
         print(f"{i+1:<10}{fitness:<10.6f}{inlier_rmse:<15.6f}{delta_transform:<20.6f}")
 
         # Check for convergence (optional)
-        if delta_transform < 1e-10:
+        if delta_transform < 1e-6:
             print("Converged!")
             break
         
@@ -120,14 +120,14 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
 def icp_callback(iteration, fitness, inlier_rmse):
     print(f"Iteration: {iteration}, Fitness: {fitness:.6f}, Inlier RMSE: {inlier_rmse:.6f}")
 
-def t_Point_to_Plane_Log(source, target, mcd):
+def t_Point_to_Plane_Log(source, target, max_correspondence_distance):
     """
     Point-to-plane ICP implementation with iteration logging.
     
     Args:
         source (o3d.geometry.PointCloud): Source point cloud.
         target (o3d.geometry.PointCloud): Target point cloud.
-        mcd (float): Maximum correspondence distance.
+        max_correspondence_distance (float): Maximum correspondence distance.
 
     Returns:
         np.ndarray: Final transformation matrix.
@@ -153,7 +153,7 @@ def t_Point_to_Plane_Log(source, target, mcd):
     result = o3d.t.pipelines.registration.registration_icp(
         target,
         source,
-        max_correspondence_distance=mcd,
+        max_correspondence_distance=max_correspondence_distance,
         init=np.eye(4),  # Initial transformation (identity matrix)
         estimation_method=o3d.t.pipelines.registration.TransformationEstimationPointToPlane(),
         criteria=criteria,

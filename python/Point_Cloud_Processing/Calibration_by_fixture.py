@@ -88,7 +88,7 @@ def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = density_vector_fiks 
     Calibration_transformation=np.dot(translation_matrix, Calibration_transformation)
-    print(Calibration_transformation)
+    #print(Calibration_transformation)
 
     # Lastly, translate the fixture out by the distance to the center of tilt
     tilt_vec=(32.77, 0, 0)
@@ -96,7 +96,7 @@ def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = tilt_vec
     Calibration_transformation=np.dot(translation_matrix, Calibration_transformation)
-    print(Calibration_transformation)
+    #print(Calibration_transformation)
     return Calibration_transformation, Fikstur
     
 def remove_points_in_box(point_cloud, min_bound, max_bound):
@@ -157,11 +157,19 @@ if __name__ == "__main__":
     for arrow in arrows:
         combined_geometry += arrow
 
+    ply_files = [
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply"
+    ]
+    theta_pan = [0, 15, -15]
+    theta_tilt = [0, 0, 0]
+    
     Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\20241127_160500_point_cloud_1.ply")
-    Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(-90))))
-    Norm, Ny_alignment_vox, meandist = preprocess_point_cloud(Ny_alignment, 1, 0.5)
+    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply")
+    Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(0))))
+    Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     
     o3d.visualization.draw_geometries([Ny_alignment_vox, Fikstur, combined_geometry], window_name="Prior to transform")
     Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
@@ -173,7 +181,7 @@ if __name__ == "__main__":
     Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt.transform(Calibration_transformation)
 
-    Norm, Ny_alignment_vox, meandist = preprocess_point_cloud(Ny_alignment, 1, 0.5)
+    Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     Ny_alignment_vox.transform(Calibration_transformation)
     #Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 2)
 
