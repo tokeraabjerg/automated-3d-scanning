@@ -5,6 +5,7 @@ from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Nor
 from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
 from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
 from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+import time
 
 def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size, max_correspondence_distance=4):
     """
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     
     """
     Play with the resulting cloud:
-    
+
     test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\merged_point_cloud_tester1.ply")
     test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
     test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=60, std_ratio=0.5)
@@ -145,7 +146,7 @@ if __name__ == "__main__":
     # Initialize the combined point cloud
     combined_cloud_normal_sample = None
 
-
+    start_timePCP = time.time()
 
     for i in range(0, len(ply_files)):
         print(f"Processing point cloud {i+1}/{len(ply_files)}...")
@@ -177,6 +178,10 @@ if __name__ == "__main__":
     max_bound = (40, 200, 50) 
     combined_cloud_normal_sample = remove_points_in_box(combined_cloud_normal_sample, min_bound, max_bound)
     
+    end_timePCP = time.time()
+    elapsed_timePCP = end_timePCP - start_timePCP
+    print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")   
+
     o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Proccesed Point Clouds")
     # Save the final merged point cloud
     output_ply = "merged_point_cloud_tester1.ply"
