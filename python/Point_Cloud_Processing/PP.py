@@ -1,6 +1,6 @@
 import open3d as o3d
 import numpy as np
-from Normal_space_downsampling import downsample_normal_space_with_bin_control
+from Normal_space_downsampling import normal_space_sampling_with_bin_control, downsample_normal_space
 from Misc_functions import sample_adjacent_point_pairs, create_arrow
 
 
@@ -13,17 +13,20 @@ def preprocess_point_cloud(pcd, resolution, std_ratio):
     # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
     
     # Remove statistical outliers
+    
     print(":: Statistically remove outliers.")
     pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100*resolution), std_ratio=std_ratio, print_progress=True)
     #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
+    
 
     # Downsample using normal space sampling
     vox_meandist=sample_adjacent_point_pairs(pcd_voxel, 100, 1)
     # print(f"Mean distance between points: {meandist}")
-    pcd_normal = downsample_normal_space_with_bin_control(pcd_voxel, radius=(1))
+    pcd_normal = downsample_normal_space(pcd_voxel, num_samples=int(len(pcd_voxel.points)/12), radius=2)
+    #pcd_normal = downsample_normal_space_with_bin_control(pcd_voxel, radius=2, bin_size=360)
     # print(pcd_normal.has_normals()) True
     #o3d.visualization.draw_geometries([pcd_normal], window_name="Normal Cloud")
-    return pcd_normal, pcd_voxel, vox_meandist
+    return pcd_normal, pcd_voxel
 
 """
 We shall develop a more robust preproccesing method.
@@ -33,8 +36,41 @@ Then, we shall consider removing outliers.
 Finally, we shall consider finding normals for the Point to Plane algorithm.
 """
 
+def Preproces_normal_pipeline(pcd, voxel_size, std_ratio):
 
+    print(":: Voxel Downsample with voxel size %.3f." % voxel_size)
+    pcd_voxel=pcd.voxel_down_sample(voxel_size)
+    print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
+    # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
+    numb_samples = int(len(pcd_voxel.points)/12)
+    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=2, bin_size=360)
 
+    # Remove statistical outliers
+    print(":: Statistically remove outliers.")
+    pcd_normal, ind = pcd_normal.remove_statistical_outlier(nb_neighbors=int(100//voxel_size), std_ratio=std_ratio, print_progress=False)
+    #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
+    
+    return pcd_normal
+
+def Preproces_early_outliers_pipeline(pcd, voxel_size, std_ratio):
+
+    """
+    This method cannot accept as many points/low voxel size as the Preproces_normal_pipeline method.
+    """
+    
+    print(":: Voxel Downsample with voxel size %.3f." % voxel_size)
+    pcd_voxel=pcd.voxel_down_sample(voxel_size)
+    print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
+    # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
+    numb_samples = int(len(pcd_voxel.points)/12)
+    # Remove statistical outliers
+    print(":: Statistically remove outliers.")
+    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100//voxel_size), std_ratio=std_ratio, print_progress=True)
+
+    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=2, bin_size=360)
+
+    #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
+    return pcd_normal, pcd_voxel
 
 
 def assign_colors(labels):
@@ -57,6 +93,8 @@ def assign_colors(labels):
         assigned_colors[labels == i] = colors[i % len(colors)]
     return assigned_colors
 
+import time
+
 if __name__ == "__main__":
     # List of .ply files to process
     ply_files = [
@@ -67,7 +105,12 @@ if __name__ == "__main__":
 
     # Load the point cloud
     combined_cloud = o3d.io.read_point_cloud(ply_files[0])
-
+    start_timeb = time.time()
+    pcd = preprocess_point_cloud(combined_cloud, 8, 0.5)
+    end_timeb = time.time()
+    elapsed_timeb = end_timeb - start_timeb
+    print(f"Time taken to preprocess: {elapsed_timeb:.2f} seconds")
+    
     # Create the axis arrows
     arrows = [
         create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis

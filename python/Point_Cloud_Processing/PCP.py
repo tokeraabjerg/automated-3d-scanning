@@ -6,7 +6,7 @@ from Misc_functions import remove_points_within_distance_of_pointcloud, compute_
 from PP import preprocess_point_cloud
 from Calibration_by_fixture import Calibration_by_fixture
 
-def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
+def process_point_clouds(ply_files, rotation_vectors, resolution, max_correspondence_distance):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -112,9 +112,9 @@ def process_point_clouds(ply_files, rotation_vectors, resolution, mcd):
         # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
         # icp_transformation = [None] * len(ply_files)
 
-        icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, mcd)
+        icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, max_correspondence_distance)
         # aligned_target=target_cloud.transform(icp_transformation)
-        # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, mcd)
+        # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, max_correspondence_distance)
 
         # Combine transformations for the i-th transformation
         combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     # zero_transformation = np.eye(4)
     # Process the point clouds
     print("Starting point cloud processing...")
-    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, resolution=1, mcd=4)
+    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, resolution=1, max_correspondence_distance=4)
     extract_transformation_matrices(combined_transformation)    
     # Save the final merged point cloud
     output_file = "merged_point_cloud.ply"
