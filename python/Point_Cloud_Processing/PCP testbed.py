@@ -110,7 +110,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 if __name__ == "__main__":
     # List of .ply files to process
     
-  
+    # Todo: Scaling of the point clouds
     # Play with the resulting cloud:
 
     # test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\merged_point_cloud_tester1.ply")

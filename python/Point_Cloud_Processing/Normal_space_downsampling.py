@@ -94,7 +94,8 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=2, b
     num_theta_bins = bin_size #int(np.sqrt(num_samples)*bin_size)  # Divide angular space evenly
     num_phi_bins = bin_size #int(np.sqrt(num_samples)*bin_size)
     theta_bins = np.linspace(0, np.pi, num_theta_bins + 1)
-    phi_bins = np.linspace(-np.pi, np.pi, num_phi_bins + 1)
+    phi_bins = np.linspace(-np.pi, 0, num_phi_bins + 1) 
+    #TODO: Normally, phi is -pi to pi, but since we flip towards the camera, we can optimize as we have done here
     
     # Map each normal to a bin
     bin_indices = np.vstack([
