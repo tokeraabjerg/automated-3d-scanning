@@ -105,89 +105,6 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 
 
     return combined_cloud_normal_sample #, combined_transformation
-
-# Example Usage, as in Tokes code
-if __name__ == "__main__":
-    # List of .ply files to process
-    
-    # Todo: Scaling of the point clouds
-    # Play with the resulting cloud:
-
-    # test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\merged_point_cloud_tester1.ply")
-    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
-    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=60, std_ratio=0.5)
-    #o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
-    
-
-    Calibration_known = False
-    arrows = [
-    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
-    ]
-    AxisArrow = o3d.geometry.TriangleMesh()
-    for arrow in arrows:
-        AxisArrow += arrow
-    ply_files = [
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
-    ]
-    
-    ShowMe = False
-    theta_pan = [0, 15, -15, -15, 0]
-    theta_tilt = [0, 15, 15, 15, 0]
-    
-    # Initialize combined_transformation as a list of independent identity matrices
-    # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
-    
-    # Initialize the combined point cloud
-    combined_cloud_normal_sample = None
-
-    start_timePCP = time.time()
-
-    for i in range(0, len(ply_files)):
-        print(f"Processing point cloud {i+1}/{len(ply_files)}...")
-        
-        current_cloud = o3d.io.read_point_cloud(ply_files[i])
-        if Calibration_known is False:
-            if theta_pan[i] == 0 and theta_tilt[i] == 0:
-                print("Finding calibration by fixture-based method")
-                Alignment_point_cloud = current_cloud
-                Morm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5) 
-                Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
-                Calibration_transformation, Fikstur = Calibration_by_fixture(Alignment_point_cloud, Fikstur_fil)  
-                print("Calibration transformation found:")
-                print(Calibration_transformation)
-                Calibration_known = True
-            else:
-                raise ValueError("lacking calibration point cloud")
-        
-        if combined_cloud_normal_sample == None:
-            current_cloud.transform(Calibration_transformation)
-            combined_cloud_normal_sample = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
-            if ShowMe is True:
-                o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow, Fikstur])
-        else:
-            combined_cloud_normal_sample = Point_Cloud_Processing(combined_cloud_normal_sample, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.1, max_correspondence_distance=1)
-    
-    combined_cloud_normal_sample = remove_points_within_distance_of_pointcloud(combined_cloud_normal_sample, Fikstur, 2) 
-    min_bound = (-120.0, -200.0, -50)  # Replace with your box's minimum x, y, and z coordinates
-    max_bound = (40, 200, 50) 
-    combined_cloud_normal_sample = remove_points_in_box(combined_cloud_normal_sample, min_bound, max_bound)
-    
-    end_timePCP = time.time()
-    elapsed_timePCP = end_timePCP - start_timePCP
-    print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")   
-
-    o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Proccesed Point Clouds")
-    # Save the final merged point cloud
-    output_ply = "merged_point_cloud_tester1.ply"
-    #     output_trans = "combined_transformation.json"
-    o3d.io.write_point_cloud(output_ply, combined_cloud_normal_sample)
-    #print(f"Final merged point cloud saved to: {output_file}")
     
 
     
@@ -242,7 +159,7 @@ if __name__ == "__main__":
 #     #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
 
 
-def Legacy_process_point_clouds(ply_files, rotation_vectors, zero_transform, voxel_size, max_correspondence_distance):
+def Legacy_process_point_clouds(ply_files, rotation_vectors, theta_pan, theta_tilt, voxel_size, max_correspondence_distance):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -275,7 +192,7 @@ def Legacy_process_point_clouds(ply_files, rotation_vectors, zero_transform, vox
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
     # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
     # combined_cloud.translate(x_axis)
-    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size)
+    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size, 0.5)
     combined_cloud.transform(Calibration_transformation)
 
     # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
@@ -294,40 +211,40 @@ def Legacy_process_point_clouds(ply_files, rotation_vectors, zero_transform, vox
         # Load the next point cloud
         target_cloud = o3d.io.read_point_cloud(ply_files[i])
         target_cloud.transform(Calibration_transformation)
-        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size)
+        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size, 0.5)
         
 
         target_cloud.paint_uniform_color([1, 0.706, 0])
 
         # Step 1: Initial alignment (RANSAC or other coarse alignment)
         # initial_transformation = [None] * len(ply_files) For storing initial transformations.
-        if rotation_vectors[i] == (None):
-            print("Performing RANSAC initial alignment...")
-            initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
-            print("Initial alignment transformation applied:")
-            print(initial_transformation)
-            target_cloud.transform(initial_transformation)
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
-        else:
-            # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
-            initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(rotation_vectors[i][0]), np.radians(rotation_vectors[i][1]), np.radians(rotation_vectors[i][2])))
-            print(initial_rotation)
-            target_cloud.rotate(initial_rotation, center=(0,0,0))
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
-            # target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-            # For now, translation by densitity alignment is not implimented
-            # translation_vector=combined_center-target_center
-            # translation_vector=unrotated_target_center-target_center
-            translation_vector=(0,0,0)
-            target_cloud.translate(translation_vector)
-            #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
-            
-            int_rot_4x4=np.eye(4)
-            int_rot_4x4[:3, :3] = initial_rotation 
-            translation_matrix = np.eye(4)
-            translation_matrix[:3, 3] = translation_vector 
-            initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
+        # if rotation_vectors[i] == (None):
+        #     print("Performing RANSAC initial alignment...")
+        #     initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
+        #     print("Initial alignment transformation applied:")
+        #     print(initial_transformation)
+        #     target_cloud.transform(initial_transformation)
+        #     o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
+    
+        # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+        o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
+        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan[i]), np.radians(theta_tilt[i]), 0))
+        print(initial_rotation)
+        target_cloud.rotate(initial_rotation, center=(0,0,0))
+        o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
+        # target_center = np.mean(np.asarray(target_cloud.points), axis=0)
+        # For now, translation by densitity alignment is not implimented
+        # translation_vector=combined_center-target_center
+        # translation_vector=unrotated_target_center-target_center
+        translation_vector=(0,0,0)
+        target_cloud.translate(translation_vector)
+        #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
+        
+        int_rot_4x4=np.eye(4)
+        int_rot_4x4[:3, :3] = initial_rotation 
+        translation_matrix = np.eye(4)
+        translation_matrix[:3, 3] = translation_vector 
+        initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
 
 
         result=decompose_transformation(initial_transformation)
@@ -381,3 +298,92 @@ def Legacy_process_point_clouds(ply_files, rotation_vectors, zero_transform, vox
         o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
 
     return combined_voxel, combined_transformation
+
+
+# Example Usage, as in Tokes code
+if __name__ == "__main__":
+    # List of .ply files to process
+    
+    # Todo: Scaling of the point clouds
+    # Play with the resulting cloud:
+
+    # test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\merged_point_cloud_tester1.ply")
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=60, std_ratio=0.5)
+    #o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
+    
+
+    Calibration_known = False
+    arrows = [
+    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
+    ]
+    AxisArrow = o3d.geometry.TriangleMesh()
+    for arrow in arrows:
+        AxisArrow += arrow
+    ply_files = [
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
+    ]
+    
+    ShowMe = False
+    legacyMode = True
+
+    theta_pan = [0, 15, -15, -15, 0]
+    theta_tilt = [0, 15, 15, 15, 0]
+    
+    # Initialize combined_transformation as a list of independent identity matrices
+    # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
+    
+    # Initialize the combined point cloud
+    combined_cloud_normal_sample = None
+
+    start_timePCP = time.time()
+
+    for i in range(0, len(ply_files)):
+        print(f"Processing point cloud {i+1}/{len(ply_files)}...")
+        
+        current_cloud = o3d.io.read_point_cloud(ply_files[i])
+        if Calibration_known is False:
+            if theta_pan[i] == 0 and theta_tilt[i] == 0:
+                print("Finding calibration by fixture-based method")
+                Alignment_point_cloud = current_cloud
+                Morm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5) 
+                Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
+                Calibration_transformation, Fikstur = Calibration_by_fixture(Alignment_point_cloud, Fikstur_fil)  
+                print("Calibration transformation found:")
+                print(Calibration_transformation)
+                Calibration_known = True
+            else:
+                raise ValueError("lacking calibration point cloud")
+        
+        if legacyMode is True:
+            combined_cloud_normal_sample, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4)
+        
+        elif combined_cloud_normal_sample == None:
+            current_cloud.transform(Calibration_transformation)
+            combined_cloud_normal_sample = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
+            if ShowMe is True:
+                o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow, Fikstur])
+        else:
+            combined_cloud_normal_sample = Point_Cloud_Processing(combined_cloud_normal_sample, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.1, max_correspondence_distance=1)
+    
+    combined_cloud_normal_sample = remove_points_within_distance_of_pointcloud(combined_cloud_normal_sample, Fikstur, 2) 
+    min_bound = (-120.0, -200.0, -50)  # Replace with your box's minimum x, y, and z coordinates
+    max_bound = (40, 200, 50) 
+    combined_cloud_normal_sample = remove_points_in_box(combined_cloud_normal_sample, min_bound, max_bound)
+    
+    end_timePCP = time.time()
+    elapsed_timePCP = end_timePCP - start_timePCP
+    print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")   
+
+    o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Proccesed Point Clouds")
+    # Save the final merged point cloud
+    output_ply = "merged_point_cloud_tester1.ply"
+    #     output_trans = "combined_transformation.json"
+    o3d.io.write_point_cloud(output_ply, combined_cloud_normal_sample)
+    #print(f"Final merged point cloud saved to: {output_file}")
