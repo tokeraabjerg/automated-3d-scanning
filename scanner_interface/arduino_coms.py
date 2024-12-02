@@ -30,7 +30,7 @@ def send_command(command):
         except socket.error as e:
             return f"Socket error: {e}"
 
-def perform_scan(positions):
+def interpret_command(positions):
     """
     Perform a scan by moving motors to the specified positions.
     """
@@ -64,15 +64,15 @@ def perform_scan(positions):
 
 def test():
     """
-    Test function to send a test position to perform_scan.
+    Test function to send a test position to interpret_command.
     """
-    test_position =     {
+    test_position = {
         "pos_a": 2716,
         "pos_b": 619,
         "deg_a": 0,
         "deg_b": 90
     }
-    perform_scan(test_position)
+    interpret_command(test_position)
 
 def main():
     # Wait for the Arduino to initialize
@@ -96,7 +96,7 @@ def main():
         elif command.upper() == 'TEST':
             test()
         elif command.upper() == 'PERFORM_SCAN':
-            perform_scan()
+            interpret_command()
         elif command.upper() == 'START_HOME_LOOP':
             response = send_command("HOME_LOOP")
             print(f"Response: {response}")

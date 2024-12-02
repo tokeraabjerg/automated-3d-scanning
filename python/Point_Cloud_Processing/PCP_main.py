@@ -7,7 +7,7 @@ from .PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_ear
 from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 import time
 
-def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size, max_correspondence_distance=4):
+def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4):
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -111,11 +111,6 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 
 
     return combined_cloud_normal_sample #, combined_transformation
-
-
-
-
-
 
 
 # Example Usage, as in Tokes code

@@ -450,3 +450,18 @@ button, input[type="submit"] {
     animation: spin 2s linear infinite;
     margin-right: 10px;
 }
+
+/* Run button styling */
+.run-button {
+    background-color: #4CAF50; /* Green */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.run-button:hover {
+    background-color: #45a049; /* Darker green on hover */
+}

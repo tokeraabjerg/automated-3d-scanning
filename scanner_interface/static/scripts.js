@@ -885,6 +885,42 @@ let currentScanIndex = 1;
 let totalScans = 0;
 let lastRequestedScanIndex = null;
 
+function runPreviewScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+
+    // Show loading indicator with "Running preview scan..."
+    showLoadingIndicator('Running preview scan...');
+
+    fetch('/project/preview_scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            projectName: projectName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess(`Preview scan completed for project: ${data.project}`, 'Preview Scan');
+        } else {
+            showError(`Error: ${data.message}`, 'Preview Scan');
+        }
+        hideLoadingIndicator();
+    })
+    .catch(error => {
+        console.error('Error running preview scan:', error);
+        showError('An error occurred while running the preview scan.', 'Preview Scan');
+        hideLoadingIndicator();
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
