@@ -142,6 +142,33 @@ def center_and_filter_point_cloud(point_cloud, radius):
 
     return filtered_point_cloud, centroid
 
+def inverse_center_and_filter_point_cloud(point_cloud, radius):
+    """
+    Centers the point cloud to the global zero point and removes points beyond the specified radius around the x-axis.
+    
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        radius (float): The radius to use for filtering points.
+    
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud.
+        np.ndarray: The centroid of the original point cloud.
+    """
+    # Move the center of the point cloud to the global zero point
+    centroid = np.mean(np.asarray(point_cloud.points), axis=0)
+    point_cloud.translate(-centroid)
+
+    # Filter points within the specified radius around the x-axis
+    def filter_function(point):
+        x, y, z = point
+        distance = np.sqrt(y**2 + z**2)
+        return distance <= radius
+
+    filtered_points = np.asarray(point_cloud.points)[np.apply_along_axis(filter_function, 1, np.asarray(point_cloud.points))]
+    filtered_point_cloud = o3d.geometry.PointCloud()
+    filtered_point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+
+    return filtered_point_cloud
 
 # Eksempel på brug af funktionen:
 if __name__ == "__main__":

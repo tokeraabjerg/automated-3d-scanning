@@ -51,7 +51,7 @@ def color_points_by_density(pcd, radius):
 
     return pcd
 
-def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=2, bin_size=360):
+def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, max_nn=50, bin_size=360):
     """
     Downsamples a point cloud using normal space sampling.
     
@@ -72,7 +72,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=2, b
     if not point_cloud.has_normals():
         print("Estimating normals...")
         start_time = time.time()
-        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn=30), fast_normal_computation=True)
+        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn), fast_normal_computation=True)
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Time taken to estimate normals: {elapsed_time:.2f} seconds")
@@ -170,6 +170,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=2, b
     return downsampled_cloud
 
 from Misc_functions import create_arrow
+from Calibration_by_fixture import center_and_filter_point_cloud, inverse_center_and_filter_point_cloud
 # Example Usage
 if __name__ == "__main__":
     
@@ -185,15 +186,30 @@ if __name__ == "__main__":
     # Load a point cloud
     pcd = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply")
     # o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
-    
     start_timer = time.time()
     print("Point cloud has", len(pcd.points), "points")
-    pcd=pcd.voxel_down_sample(voxel_size=0.001)
+
+    pcd = pcd.voxel_down_sample(voxel_size=0.01)
+    pcd = inverse_center_and_filter_point_cloud(pcd, 150)
+    
     #densi_pcd = color_points_by_density(pcd, radius=2)
     # o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
     print("Point cloud Voxel has", len(pcd.points), "points")
-    # Downsample using normal space sampling
     """
+    # Downsample using normal space sampling
+    if not pcd.has_normals():
+        print("Estimating normals...")
+        start_time = time.time()
+        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(3, max_nn=80), fast_normal_computation=False)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Time taken to estimate normals: {elapsed_time:.2f} seconds")
+        # Orient normals towards the negative z-axis, improves sampling. (normals pointing away from the camera are inverted) 
+        pcd.orient_normals_to_align_with_direction(orientation_reference=([0., 0., -1.]))
+
+    o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud", point_show_normal=True)
+    
+    
     start_time = time.time()
     downsampled_pcd=downsample_normal_space(pcd, num_samples=int(40000), radius=1)
     end_time = time.time()
@@ -202,9 +218,9 @@ if __name__ == "__main__":
     """
 
     
-    downsampled_pcd = normal_space_sampling_with_bin_control(pcd, num_samples=int(len(pcd.points)/12), radius=2, bin_size=360)
+    downsampled_pcd = normal_space_sampling_with_bin_control(pcd, num_samples=int(len(pcd.points)/12), radius=3, max_nn=100, bin_size=360)
     print("Downsampled point cloud has", len(downsampled_pcd.points), "points")
-    downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.5)
+    #downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2)
     print("Outlier removed point cloud has", len(downsampled_pcd.points), "points")
     end_timer = time.time()
     elapsed_time = end_timer - start_timer
@@ -217,7 +233,7 @@ if __name__ == "__main__":
     
     # o3d.visualization.draw_geometries([pcd], window_name=" Point Cloud", point_show_normal=True)
     # Visualize the downsampled point cloud
-    o3d.visualization.draw_geometries([downsampled_pcd], window_name="Downsampled Point Cloud", point_show_normal=False)
+    o3d.visualization.draw_geometries([downsampled_pcd], window_name="Downsampled Point Cloud", point_show_normal=True)
 
 
 

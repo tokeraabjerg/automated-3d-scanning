@@ -43,7 +43,7 @@ def Preproces_normal_pipeline(pcd, voxel_size, std_ratio):
     print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
     # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
     numb_samples = int(len(pcd_voxel.points)/12)
-    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=2, bin_size=360)
+    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=3, max_nn=100, bin_size=360)
 
     # Remove statistical outliers
     print(":: Statistically remove outliers.")
@@ -67,7 +67,7 @@ def Preproces_early_outliers_pipeline(pcd, voxel_size, std_ratio):
     print(":: Statistically remove outliers.")
     pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100//voxel_size), std_ratio=std_ratio, print_progress=True)
 
-    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=2, bin_size=360)
+    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=3, max_nn=100, bin_size=360)
 
     #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
     return pcd_normal, pcd_voxel
