@@ -1,10 +1,19 @@
 
-import open3d as o3d
-import numpy as np
-import time
-from .Misc_functions import create_arrow
-from .Calibration_by_fixture import inverse_center_and_filter_point_cloud
-
+try:
+    module
+except NameError:
+    import open3d as o3d
+    import numpy as np
+    import time
+    from Misc_functions import create_arrow
+    from Calibration_by_fixture import inverse_center_and_filter_point_cloud
+else:
+    if module is True:
+        import open3d as o3d
+        import numpy as np
+        import time
+        from .Misc_functions import create_arrow
+        from .Calibration_by_fixture import inverse_center_and_filter_point_cloud
 
 def compute_point_cloud_density(pcd, radius):
     """
@@ -185,15 +194,14 @@ if __name__ == "__main__":
 
     # Load a point cloud
     pcd = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply")
-    # o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
     start_timer = time.time()
     print("Point cloud has", len(pcd.points), "points")
 
     pcd = pcd.voxel_down_sample(voxel_size=0.01)
-    pcd = inverse_center_and_filter_point_cloud(pcd, 150)
+    pcd = inverse_center_and_filter_point_cloud(pcd, 130)
     
     #densi_pcd = color_points_by_density(pcd, radius=2)
-    # o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
+    o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
     print("Point cloud Voxel has", len(pcd.points), "points")
     """
     # Downsample using normal space sampling
@@ -220,7 +228,7 @@ if __name__ == "__main__":
     
     downsampled_pcd = normal_space_sampling_with_bin_control(pcd, num_samples=int(len(pcd.points)/12), radius=3, max_nn=100, bin_size=360)
     print("Downsampled point cloud has", len(downsampled_pcd.points), "points")
-    #downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2)
+    downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2)
     print("Outlier removed point cloud has", len(downsampled_pcd.points), "points")
     end_timer = time.time()
     elapsed_time = end_timer - start_timer
@@ -233,7 +241,7 @@ if __name__ == "__main__":
     
     # o3d.visualization.draw_geometries([pcd], window_name=" Point Cloud", point_show_normal=True)
     # Visualize the downsampled point cloud
-    o3d.visualization.draw_geometries([downsampled_pcd], window_name="Downsampled Point Cloud", point_show_normal=True)
+    o3d.visualization.draw_geometries([downsampled_pcd], window_name="Downsampled Point Cloud", point_show_normal=False)
 
 
 
