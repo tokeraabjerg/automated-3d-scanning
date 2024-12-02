@@ -1,8 +1,11 @@
 import open3d as o3d
 import numpy as np
+import logging
 from .Normal_space_downsampling import normal_space_sampling_with_bin_control, downsample_normal_space
 from .Misc_functions import sample_adjacent_point_pairs, create_arrow
 
+# Initialize logger
+logger = logging.getLogger(__name__)
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
 def preprocess_point_cloud(pcd, resolution, std_ratio):
@@ -15,7 +18,7 @@ def preprocess_point_cloud(pcd, resolution, std_ratio):
     # Remove statistical outliers
     
     print(":: Statistically remove outliers.")
-    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100*resolution), std_ratio=std_ratio, print_progress=True)
+    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100*resolution), std_ratio=std_ratio)
     #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
     
 
@@ -36,21 +39,37 @@ Then, we shall consider removing outliers.
 Finally, we shall consider finding normals for the Point to Plane algorithm.
 """
 
-def Preproces_normal_pipeline(pcd, voxel_size, std_ratio):
-
-    print(":: Voxel Downsample with voxel size %.3f." % voxel_size)
-    pcd_voxel=pcd.voxel_down_sample(voxel_size)
-    print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
-    # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
-    numb_samples = int(len(pcd_voxel.points)/12)
-    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=3, max_nn=100, bin_size=360)
-
-    # Remove statistical outliers
-    print(":: Statistically remove outliers.")
-    pcd_normal, ind = pcd_normal.remove_statistical_outlier(nb_neighbors=int(100//voxel_size), std_ratio=std_ratio, print_progress=False)
-    #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
+def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
+    """
+    Preprocess the point cloud by downsampling, estimating normals, and removing outliers.
     
-    return pcd_normal
+    Parameters:
+    - pcd: The input point cloud.
+    - voxel_size: Voxel size for downsampling.
+    - std_ratio: Standard deviation ratio for outlier removal.
+    
+    Returns:
+    - pcd: The preprocessed point cloud.
+    """
+    logger.info(f"Starting Preproces_normal_pipeline with voxel_size={voxel_size}, std_ratio={std_ratio}")
+
+    # Voxel downsample
+    logger.info("Starting voxel downsampling")
+    pcd_downsampled = pcd.voxel_down_sample(voxel_size)
+    logger.info(f"Voxel downsampling completed, points count: {len(pcd_downsampled.points)}")
+
+    # Estimate normals
+    logger.info("Starting normal estimation")
+    pcd_downsampled.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
+    logger.info("Normal estimation completed")
+
+    # Remove outliers
+    logger.info("Starting outlier removal")
+    pcd_downsampled, ind = pcd_downsampled.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+    logger.info(f"Outlier removal completed, points count: {len(pcd_downsampled.points)}")
+
+    logger.info("Preproces_normal_pipeline completed")
+    return pcd_downsampled
 
 def Preproces_early_outliers_pipeline(pcd, voxel_size, std_ratio):
 

@@ -13,8 +13,11 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 import open3d as o3d
 import time
+import json
 from scanner_interface.arduino_coms import interpret_command  # Import the interpret_command function
 from python.Point_Cloud_Processing.PCP_main import Point_Cloud_Processing  # Import the Point_Cloud_Processing function
+from python.Point_Cloud_Processing.PP import preprocess_point_cloud
+from python.Point_Cloud_Processing.Calibration_by_fixture import Calibration_by_fixture
 
 scan_bp = Blueprint('scan_bp', __name__, url_prefix='/scan')  # Added url_prefix='/scan'
 logger = logging.getLogger(__name__)
@@ -221,6 +224,8 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                     "rotation": [position['pos_a'], position['pos_b']]
                 }
 
+                logger.info(f"We currently got {len(pcd_dict)} scans")
+
                 # If there are 2 or more point clouds and no post-processing thread is running, start post-processing in a new thread
                 global post_processing_thread_running
                 if len(pcd_dict) >= 2 and not post_processing_thread_running:
@@ -247,60 +252,143 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
     Thread function to handle post-processing of point clouds.
     """
     logger.info("Post-processing thread started.")
-    calibration_transformation = None  # Define in scope
-
+    
     with app.app_context():
         try:
+            # Get saved calibration transformation
+            response = current_app.test_client().get('/calibration/get_saved_calibration')
+            calibration_data = response.get_json()
+
+            if calibration_data['status'] != 'success':
+                logger.error(f"Failed to get saved calibration: {calibration_data['message']}")
+                return
+            
+            matrix = calibration_data['calibrationTransformation']
+            logger.info(f"Using saved calibration transformation: {matrix}")
+
             while True:
+                logger.info(f"Current pcd_dict length: {len(pcd_dict)}")
                 if len(pcd_dict) >= 2:
                     logger.info(f"Post-processing {len(pcd_dict)} point clouds.")
-                    #calibration_transformation = 
-
-                    # Extract point clouds and their rotation information
                     if "scan_main" in pcd_dict:
                         combined_pcd = pcd_dict["scan_main"]["pcd"]
-                        rotation_main = pcd_dict["scan_main"]["rotation"]
-                        # Find the lowest scan_i in the dictionary
-                        lowest_scan_key = min((key for key in pcd_dict if key != "scan_main"), key=lambda k: int(k.split('_')[1]))
+                        lowest_scan_key = min((key for key in pcd_dict if key != "scan_main"), 
+                                           key=lambda k: int(k.split('_')[1]))
                         target_pcd = pcd_dict[lowest_scan_key]["pcd"]
                         target_rotation = pcd_dict[lowest_scan_key]["rotation"]
-                        # Perform post-processing using Point_Cloud_Processing
-                        combined_pcd = Point_Cloud_Processing(combined_pcd, target_pcd, target_rotation[0], target_rotation[1], calibration_transformation)
-                        # Update the dictionary with the combined point cloud
-                        pcd_dict["scan_main"] = {
-                            "pcd": combined_pcd,
-                            "rotation": target_rotation  # Use the rotation of the last processed scan
-                        }
-                        # Remove the processed scan from the dictionary
+                        
+                        logger.info(f"Combining scan_main with {lowest_scan_key}")
+                        combined_pcd = Point_Cloud_Processing(
+                            combined_pcd,
+                            target_pcd,
+                            target_rotation[0],  # pos_a as theta_pan
+                            target_rotation[1],  # pos_b as theta_tilt
+                            matrix
+                        )
+                        
+                        pcd_dict.update({"scan_main": {"pcd": combined_pcd, "rotation": target_rotation}})
                         del pcd_dict[lowest_scan_key]
                     else:
-                        # Perform post-processing using the first two scans
                         pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
                         rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
-                        combined_pcd = Point_Cloud_Processing(pcd_list[0], pcd_list[1], rotation_list[1][0], rotation_list[1][1], calibration_transformation)
-                        # Update the dictionary with the combined point cloud
+                        
+                        logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
+                        combined_pcd = Point_Cloud_Processing(
+                            pcd_list[0],
+                            pcd_list[1],
+                            rotation_list[1][0],  # pos_a as theta_pan
+                            rotation_list[1][1],  # pos_b as theta_tilt
+                            matrix
+                        )
                         pcd_dict = {
                             "scan_main": {
                                 "pcd": combined_pcd,
-                                "rotation": rotation_list[1]  # Use the rotation of the last processed scan
+                                "rotation": rotation_list[1]
                             }
                         }
 
                     # Save the combined point cloud
                     project_manager = current_app.config.get('project_manager')
                     project_manager.save_point_cloud(combined_pcd, project_name)
+                    logger.info("Combined point cloud saved.")
 
-                # Check if there are new scans to process
-                if len(pcd_dict) < 2 and len(pcd_dict) < total_positions:
-                    logger.info("Waiting for new scans to process.")
-                    time.sleep(2)
-                elif len(pcd_dict) < 2 and len(pcd_dict) >= total_positions:
-                    logger.info("No more scans to process. Exiting post-processing thread.")
-                    break
+                if len(pcd_dict) < 2:
+                    if len(pcd_dict) < total_positions:
+                        logger.info("Waiting for new scans to process.")
+                        time.sleep(2)
+                    else:
+                        logger.info("No more scans to process. Exiting post-processing thread.")
+                        break
 
         except Exception as e:
-            current_app.logger.error(f"Error in post-processing thread: {e}")
+            logger.error(f"Error in post-processing thread: {e}")
         finally:
-            logger.info("Post-processing thread completed.")
             global post_processing_thread_running
             post_processing_thread_running = False
+            logger.info("Post-processing thread completed.")
+
+@scan_bp.route('/calibration_scan', methods=['POST'])
+def calibration_scan():
+    """Start a calibration scan at the zero position (0,0)."""
+    try:
+        logger.info("Starting calibration scan...")
+
+        # Check if scanner is connected
+        scanner = current_app.config.get('scanner')
+        if not scanner or not scanner.connected:
+            logger.error("Scanner not connected")
+            return jsonify({'status': 'error', 'message': 'Scanner not connected'}), 400
+
+        # Ensure we're at position (0,0)
+        zero_position = {"home": True}
+        response = interpret_command(zero_position)
+        if "success" not in response.lower():
+            logger.error("Failed to move to zero position")
+            return jsonify({'status': 'error', 'message': 'Failed to move to zero position'}), 500
+
+        logger.info("Moved to zero position successfully")
+        time.sleep(1)  # Wait for motors to settle
+
+        # Perform the calibration scan
+        pcd = scanner.perform_scan(scan_interval=1, stop_event=current_app.config.get('stop_event'))
+        if pcd is None:
+            logger.error("Scan failed")
+            return jsonify({'status': 'error', 'message': 'Scan failed'}), 500
+
+        # Preprocess the point cloud
+        logger.info("Preprocessing point cloud...")
+        preprocessed_cloud_normal, preprocessed_cloud = preprocess_point_cloud(pcd, resolution=1, std_ratio=0.5)
+        logger.info("Point cloud preprocessed successfully")
+
+        # Get base directory from app config
+        base_dir = current_app.config.get('base_dir')
+        calibration_dir = os.path.join(base_dir, '..', 'calibration')
+        fixture_path = os.path.join(calibration_dir, 'ref.ply')
+
+        # Get fixture path and perform calibration
+        if not os.path.exists(fixture_path):
+            logger.error("Fixture file not found")
+            return jsonify({'status': 'error', 'message': 'Reference file not found'}), 404
+
+        logger.info("Fixture file found, performing calibration...")
+        # Calculate calibration
+        calibration_matrix, fixture = Calibration_by_fixture(preprocessed_cloud, fixture_path)
+        logger.info("Calibration performed successfully")
+
+        # Save calibration matrix
+        os.makedirs(calibration_dir, exist_ok=True)
+        config_json_path = os.path.join(calibration_dir, 'calibration.json')
+
+        with open(config_json_path, 'w') as f:
+            json.dump({'calibration_transformation': calibration_matrix.tolist()}, f)
+
+        logger.info("Calibration completed and saved successfully")
+        return jsonify({
+            'status': 'success',
+            'message': 'Calibration completed',
+            'calibrationTransformation': calibration_matrix.tolist()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error in calibration scan: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500

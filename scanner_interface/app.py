@@ -19,13 +19,19 @@ import time
 from .project_manager import ProjectManager  # Ensure ProjectManager is imported
 import open3d as o3d
 import numpy as np
+import psutil  # Add psutil import
 
-from .routes import project_bp, scan_bp, config_bp, interface_bp  # Import new Blueprint
+from scanner_interface.routes.project_routes import project_bp
+from scanner_interface.routes.scan_routes import scan_bp
+from scanner_interface.routes.config_routes import config_bp
+from scanner_interface.routes.interface_routes import interface_bp
+from scanner_interface.routes.calibration_routes import calibration_bp
 
 app = Flask(__name__)
 
 # Determine the base directory where app.py is located
 base_dir = os.path.dirname(os.path.abspath(__file__))
+app.config['base_dir'] = base_dir  # Add base_dir to app config
 
 # Set up the output directory relative to base_dir
 output_directory = os.path.join(base_dir, "output")
@@ -50,12 +56,12 @@ rotating_handler.setFormatter(formatter)
 root_logger = logging.getLogger()
 root_logger.handlers = []  # Remove existing handlers
 root_logger.addHandler(rotating_handler)
-root_logger.setLevel(logging.INFO)  # Set to DEBUG level
+root_logger.setLevel(logging.DEBUG)  # Set to DEBUG level
 
 # Configure Flask app's logger
 app.logger.handlers = []
 app.logger.addHandler(rotating_handler)
-app.logger.setLevel(logging.INFO)  # Set to DEBUG level
+app.logger.setLevel(logging.DEBUG)  # Set to DEBUG level
 
 # Disable Werkzeug logging to reduce clutter
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -64,6 +70,11 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 logger.info("Flask application has started.")
+
+# Log memory information
+memory_info = psutil.virtual_memory()
+logger.info(f"Total memory: {memory_info.total / (1024 ** 3):.2f} GB")
+logger.info(f"Available memory: {memory_info.available / (1024 ** 3):.2f} GB")
 
 # Global variables
 scanner = None
@@ -134,7 +145,7 @@ def initialize():
     app.config['stop_event'] = stop_event
 
     # Initialize ThreadPoolExecutor and store it in app config
-    executor = ThreadPoolExecutor(max_workers=5)
+    executor = ThreadPoolExecutor(max_workers=10)
     app.config['executor'] = executor
 
 def disconnect_scanner():
@@ -155,7 +166,8 @@ initialize()
 app.register_blueprint(project_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(config_bp)
-app.register_blueprint(interface_bp)  # Register the new interface blueprint
+app.register_blueprint(interface_bp)
+app.register_blueprint(calibration_bp)
 
 # Route for the home page
 @app.route('/')

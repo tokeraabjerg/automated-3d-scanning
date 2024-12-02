@@ -39,6 +39,14 @@ def interpret_command(positions):
             positions = [positions]  # Ensure positions is a list
 
         for entry in positions:
+            if 'home' in entry and entry['home']:
+                response_home = send_command("HOME")
+                print(f"Homing: {response_home}")
+                if "success" not in response_home.lower():
+                    print("Error homing. Aborting scan.")
+                    return "Error homing"
+                continue  # Skip to the next entry after homing
+
             pos_a = entry['pos_a']
             pos_b = entry['pos_b']
             command_a = f"MOVE_ABS A {pos_a}"
@@ -56,7 +64,7 @@ def interpret_command(positions):
                 print("Error moving Motor B. Aborting scan.")
                 return "Error moving Motor B"
             
-            time.sleep(1)  # Wait for 1 second between positions
+            time.sleep(0.5)  # Wait for 0.5 seconds between positions
         return "success"
     except Exception as e:
         print(f"Error during scan: {e}")
