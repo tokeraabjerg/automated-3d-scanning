@@ -257,7 +257,6 @@ def Legacy_process_point_clouds(ply_files, rotation_vectors, theta_pan, theta_ti
 
 # Example Usage, as in Tokes code
 if __name__ == "__main__":
-    # List of .ply files to process
     
     # Todo: Scaling of the point clouds
     # Play with the resulting cloud:

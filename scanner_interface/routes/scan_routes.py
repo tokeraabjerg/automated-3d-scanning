@@ -252,7 +252,6 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
     Thread function to handle post-processing of point clouds.
     """
     logger.info("Post-processing thread started.")
-    
     with app.app_context():
         try:
             # Get saved calibration transformation
