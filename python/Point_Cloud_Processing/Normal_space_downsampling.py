@@ -2,6 +2,7 @@
 import open3d as o3d
 import numpy as np
 import time
+from .Misc_functions import create_arrow
 
 
 def compute_point_cloud_density(pcd, radius):
@@ -169,8 +170,6 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     
     return downsampled_cloud
 
-from Misc_functions import create_arrow
-from Calibration_by_fixture import center_and_filter_point_cloud, inverse_center_and_filter_point_cloud
 # Example Usage
 if __name__ == "__main__":
     

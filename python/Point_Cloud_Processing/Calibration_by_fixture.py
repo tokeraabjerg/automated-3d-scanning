@@ -5,7 +5,7 @@
 
 import open3d as o3d
 import numpy as np
-from ICP import Point_to_Plane
+from .ICP import Point_to_Plane
 
 def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     """

@@ -14,6 +14,8 @@ from concurrent.futures import ThreadPoolExecutor
 import open3d as o3d
 import time
 from scanner_interface.arduino_coms import perform_scan  # Import the perform_scan function
+from python.Point_Cloud_Processing.PCP_main import Point_Cloud_Processing as PCP # Import the Point_Cloud_Processing function
+
 
 scan_bp = Blueprint('scan_bp', __name__, url_prefix='/scan')  # Added url_prefix='/scan'
 logger = logging.getLogger(__name__)
@@ -174,11 +176,29 @@ def auto_scan():
         current_app.logger.error(f"Error starting auto scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+def post_process_thread(app, combined_pcd, new_pcd, project_name, result_container):
+    """
+    Thread function to handle post-processing of point clouds.
+    """
+    with app.app_context():
+        try:
+            # Call the Point_Cloud_Processing function
+            processed_pcd = PCP(combined_pcd, new_pcd)
+            # Save the processed point cloud
+            project_manager = current_app.config.get('project_manager')
+            project_manager.save_point_cloud(processed_pcd, project_name, pcd_secondary=new_pcd)
+            # Store the result in the container
+            result_container['processed_pcd'] = processed_pcd
+        except Exception as e:
+            current_app.logger.error(f"Error in post-processing thread: {e}")
+
 def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
     """
     Thread function to perform auto scan.
     """
-    scans = []  # Array to store scans
+    combined_pcd = None  # Initialize combined point cloud
+    result_container = {}  # Container to store the result from the post-processing thread
+
     try:
         with app.app_context():
             for index, position in enumerate(positions):
@@ -205,20 +225,26 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                 # Start scan
                 logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
                 scanner = current_app.config.get('scanner')
-                pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=stop_event)
-                if pcd is None:
+                new_pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=stop_event)
+                if new_pcd is None:
                     logger.warning(f"Scan {index + 1} failed or was stopped.")
                     continue
 
-                # Append the scan to the array
-                scans.append(pcd)
+                # If combined_pcd is None, initialize it with the first scan
+                if combined_pcd is None:
+                    combined_pcd = new_pcd
+                    project_manager = current_app.config.get('project_manager')
+                    project_manager.save_point_cloud(combined_pcd, project_name)
+                else:
+                    # Wait for the previous post-processing to complete before starting a new one
+                    if post_processing_future:
+                        post_processing_future.result()
+                        # Update combined_pcd with the processed point cloud from the previous post-processing
+                        if 'processed_pcd' in result_container:
+                            combined_pcd = result_container['processed_pcd']
 
-                # Replace direct saving with ProjectManager's save_point_cloud method
-                project_manager = current_app.config.get('project_manager')
-                project_manager.save_point_cloud(pcd, project_name)
-
-                # Post-process the scan (add actual post-processing code here)
-                # post_process_scan(pcd)
+                    # Submit post-processing task to the executor
+                    post_processing_future = executor.submit(post_process_thread, app, combined_pcd, new_pcd, project_name, result_container)
 
     except Exception as e:
         current_app.logger.error(f"Error in auto scan thread: {e}")
@@ -227,8 +253,8 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
             current_app.config['scan_in_progress'] = False
 
             # Print the total amount of scans and the number of points in each scan
-            total_scans = len(scans)
+            total_scans = len(positions)
             current_app.logger.info(f"Total scans completed: {total_scans}, expected {len(positions)}")
-            for i, scan in enumerate(scans):
-                num_points = len(scan.points)
-                current_app.logger.info(f"Scan {i + 1}: {num_points} points")
+            if combined_pcd:
+                num_points = len(combined_pcd.points)
+                current_app.logger.info(f"Combined scan: {num_points} points")
