@@ -316,6 +316,7 @@ class ProjectManager:
         """
         Retrieve the contents of positions.json for the specified project.
         """
+        self.logger.debug(f"get_positions called for project: {project_name}")
         project_path = os.path.join(self.output_dir, project_name)
         positions_file = os.path.join(project_path, 'positions.json')
 
@@ -326,7 +327,7 @@ class ProjectManager:
         try:
             with open(positions_file, 'r') as file:
                 positions = json.load(file)
-                self.logger.info(f"Retrieved positions for project '{project_name}': {positions}")
+                self.logger.info(f"Retrieved {len(positions)} positions for project '{project_name}'.")
                 return positions
         except Exception as e:
             self.logger.error(f"Error reading positions.json for project '{project_name}': {e}")
