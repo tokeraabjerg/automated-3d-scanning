@@ -137,6 +137,10 @@ def initialize():
     executor = ThreadPoolExecutor(max_workers=5)
     app.config['executor'] = executor
 
+    # Initialize ThreadPoolExecutor for post-processing and store it in app config
+    post_processing_executor = ThreadPoolExecutor(max_workers=2)
+    app.config['post_processing_executor'] = post_processing_executor
+
 def disconnect_scanner():
     """
     Disconnect the scanner if it is connected.

@@ -1,10 +1,10 @@
 import open3d as o3d
 import numpy as np
-from IA import RANSAC_initial_alignment
-from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
-from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
-from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
-from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+from .IA import RANSAC_initial_alignment
+from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
+from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
+from .PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 import time
 
 def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size, max_correspondence_distance=4):
@@ -111,148 +111,11 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 
 
     return combined_cloud_normal_sample #, combined_transformation
-    
 
 
-def Legacy_process_point_clouds(ply_files, rotation_vectors, theta_pan, theta_tilt, voxel_size, max_correspondence_distance):
-    """
-    Process a list of point clouds by registering and merging them iteratively.
-    
-    Parameters:
-    - ply_files: List of paths to the point cloud files.
-    - voxel_size: Voxel size for downsampling.
-    - max_correspondence_distance: Max distance for point correspondence during ICP.
-
-    Returns:
-    - combined_cloud: The final merged point cloud.
-    """
-    if len(ply_files) < 2:
-        raise ValueError("At least two point cloud files are required for registration.")
-    
-    # Load the first point cloud as the initial source
-    combined_cloud = o3d.io.read_point_cloud(ply_files[0])
-
-    arrows = [
-    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
-    ]
-    AxisArrow = o3d.geometry.TriangleMesh()
-    for arrow in arrows:
-        AxisArrow += arrow
-
-    # Visualize
-    # o3d.visualization.draw_geometries([AxisArrow])
-
-    # Preproces: Downsize, Remove outliers, Find normals, Find features:
-    # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    # combined_cloud.translate(x_axis)
-    combined_cloud, combined_voxel = preprocess_point_cloud(combined_cloud, voxel_size, 0.5)
-    combined_cloud.transform(Calibration_transformation)
-
-    # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
-
-    # Visualize the downsampled point cloud
-    
-    o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
-    # Beregn bounding box, størrelse af pooint cloud
-
-    #    combined_cloud = remove_small_clusters(combined_cloud, 1000/voxel_size, eps=0.1e-100)
-    #    o3d.visualization.draw_geometries([combined_cloud], window_name="Clusters removed")
-
-    for i in range(1, len(ply_files)):
-        print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
-
-        # Load the next point cloud
-        target_cloud = o3d.io.read_point_cloud(ply_files[i])
-        target_cloud.transform(Calibration_transformation)
-        target_cloud, target_voxel = preprocess_point_cloud(target_cloud, voxel_size, 0.5)
-        
-
-        target_cloud.paint_uniform_color([1, 0.706, 0])
-
-        # Step 1: Initial alignment (RANSAC or other coarse alignment)
-        # initial_transformation = [None] * len(ply_files) For storing initial transformations.
-        # if rotation_vectors[i] == (None):
-        #     print("Performing RANSAC initial alignment...")
-        #     initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
-        #     print("Initial alignment transformation applied:")
-        #     print(initial_transformation)
-        #     target_cloud.transform(initial_transformation)
-        #     o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
-    
-        # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-        o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
-        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan[i]), np.radians(theta_tilt[i]), 0))
-        print(initial_rotation)
-        target_cloud.rotate(initial_rotation, center=(0,0,0))
-        o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
-        # target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-        # For now, translation by densitity alignment is not implimented
-        # translation_vector=combined_center-target_center
-        # translation_vector=unrotated_target_center-target_center
-        translation_vector=(0,0,0)
-        target_cloud.translate(translation_vector)
-        #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
-        
-        int_rot_4x4=np.eye(4)
-        int_rot_4x4[:3, :3] = initial_rotation 
-        translation_matrix = np.eye(4)
-        translation_matrix[:3, 3] = translation_vector 
-        initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
 
 
-        result=decompose_transformation(initial_transformation)
-        print("Translation (x, y, z):", result["translation"])
-        print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
 
-        # Step 2: Point-to-Plane ICP
-        # Estimating normals for source and target point clouds, som brugt i point to plane
-        radius_normal = 2*voxel_size  # Radius til normal estimering
-        combined_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
-        target_cloud.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
-        
-        print("Performing ICP registration...")
-        # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
-        # icp_transformation = [None] * len(ply_files)
-
-        icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, max_correspondence_distance)
-        # aligned_target=target_cloud.transform(icp_transformation)
-        # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, max_correspondence_distance)
-
-        # Initialize combined_transformation as a list of independent identity matrices
-        combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
-
-        # Combine transformations for the i-th transformation
-        # TODO: Add zero transformation to the combined transformation
-        combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
-        # Decompose the transformation and print results
-        result = decompose_transformation(combined_transformation[i])
-        print(f"PC nr {i} was transformed by:")
-        print("Translation (x, y, z):", result["translation"])
-        print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-
-
-        combined_cloud += aligned_target
-
-        # Anvend den samlede transformation på den højere opløsnings punktsky
-        aligned_voxel = target_voxel.transform(combined_transformation[i])
-        combined_voxel += aligned_voxel
-        
-        # R=combined_transformation[i][:3, :3]
-        # print('LOOK HERE')
-        # print(R)
-        # axis, angle = extract_rotation_axis_and_angle(R)
-        # print("Rotation Axis:", axis)
-        # print("Rotation Angle (degrees):", np.degrees(angle))
-
-        # Optional: Visualize the current merged cloud
-        o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
-        o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
-
-    return combined_voxel, combined_transformation
 
 
 # Example Usage, as in Tokes code

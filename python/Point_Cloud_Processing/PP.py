@@ -1,7 +1,7 @@
 import open3d as o3d
 import numpy as np
-from Normal_space_downsampling import normal_space_sampling_with_bin_control, downsample_normal_space
-from Misc_functions import sample_adjacent_point_pairs, create_arrow
+from .Normal_space_downsampling import normal_space_sampling_with_bin_control, downsample_normal_space
+from .Misc_functions import sample_adjacent_point_pairs, create_arrow
 
 
     # Preproces: Downsize, Remove outliers, Find normals, Find features:
