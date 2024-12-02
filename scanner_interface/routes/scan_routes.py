@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 import open3d as o3d
 import time
 from scanner_interface.arduino_coms import perform_scan  # Import the perform_scan function
+from scanner_interface.Point_Cloud_Processing import PCP_main as PCP
 
 scan_bp = Blueprint('scan_bp', __name__, url_prefix='/scan')  # Added url_prefix='/scan'
 logger = logging.getLogger(__name__)

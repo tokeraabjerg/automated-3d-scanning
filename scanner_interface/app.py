@@ -50,7 +50,7 @@ rotating_handler.setFormatter(formatter)
 root_logger = logging.getLogger()
 root_logger.handlers = []  # Remove existing handlers
 root_logger.addHandler(rotating_handler)
-root_logger.setLevel(logging.DEBUG)  # Set to DEBUG level
+root_logger.setLevel(logging.INFO)  # Set to DEBUG level
 
 # Configure Flask app's logger
 app.logger.handlers = []
@@ -191,10 +191,10 @@ def get_logs():
     Get the application logs.
     """
     try:
-        with open(log_file_path, 'r') as log_file:
+        with open(log_file_path, 'rb') as log_file:
             logs = log_file.read()
-        # Optional: Sanitize logs by removing null bytes
-        sanitized_logs = logs.replace('\x00', '')
+        # Sanitize logs by removing null bytes and decoding to utf-8
+        sanitized_logs = logs.replace(b'\x00', b'').decode('utf-8', errors='ignore')
         response = Response(sanitized_logs, mimetype='text/plain; charset=utf-8')
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
