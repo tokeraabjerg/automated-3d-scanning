@@ -40,3 +40,7 @@ Test Poisson vs almen Voxel
 Logger
 
 Function til Ola, alignment af STL
+
+Ideas for outlier removal:
+Thickness requirement (Kill zero-thickness points)
+(Ask gpt)

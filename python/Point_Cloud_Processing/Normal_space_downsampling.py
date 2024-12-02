@@ -15,6 +15,8 @@ else:
         from .Misc_functions import create_arrow
         from .Calibration_by_fixture import inverse_center_and_filter_point_cloud
 
+
+
 def compute_point_cloud_density(pcd, radius):
     """
     Computes the density of points in a point cloud based on the number of neighbors within a specified radius.
