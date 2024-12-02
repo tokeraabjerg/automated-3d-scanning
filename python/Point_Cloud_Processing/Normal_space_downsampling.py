@@ -94,8 +94,9 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=2, b
     num_theta_bins = bin_size #int(np.sqrt(num_samples)*bin_size)  # Divide angular space evenly
     num_phi_bins = bin_size #int(np.sqrt(num_samples)*bin_size)
     theta_bins = np.linspace(0, np.pi, num_theta_bins + 1)
-    phi_bins = np.linspace(-np.pi, 0, num_phi_bins + 1) 
+    phi_bins = np.linspace(-np.pi, np.pi, num_phi_bins + 1) 
     #TODO: Normally, phi is -pi to pi, but since we flip towards the camera, we can optimize as we have done here
+    # ERROR: Some point clouds REALLY dont like this.
     
     # Map each normal to a bin
     bin_indices = np.vstack([
@@ -183,11 +184,13 @@ if __name__ == "__main__":
 
     # Load a point cloud
     pcd = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply")
+    # o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
+    
     start_timer = time.time()
     print("Point cloud has", len(pcd.points), "points")
-    pcd=pcd.voxel_down_sample(voxel_size=0.01)
+    pcd=pcd.voxel_down_sample(voxel_size=0.001)
     #densi_pcd = color_points_by_density(pcd, radius=2)
-    #o3d.visualization.draw_geometries([densi_pcd], window_name="Downsampled Point Cloud")
+    # o3d.visualization.draw_geometries([pcd], window_name="Downsampled Point Cloud")
     print("Point cloud Voxel has", len(pcd.points), "points")
     # Downsample using normal space sampling
     """
@@ -201,7 +204,7 @@ if __name__ == "__main__":
     
     downsampled_pcd = normal_space_sampling_with_bin_control(pcd, num_samples=int(len(pcd.points)/12), radius=2, bin_size=360)
     print("Downsampled point cloud has", len(downsampled_pcd.points), "points")
-    downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1)
+    downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=0.5)
     print("Outlier removed point cloud has", len(downsampled_pcd.points), "points")
     end_timer = time.time()
     elapsed_time = end_timer - start_timer

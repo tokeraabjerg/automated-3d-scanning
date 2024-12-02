@@ -23,6 +23,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     Returns:
     - combined_cloud: The final merged point cloud.
     """
+    SkipICP = False
 
     # Visual aide for the axis of rotation
 
@@ -75,8 +76,13 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
         initial_transformation=int_rot_4x4
     
     # Step 2: Point-to-Plane ICP
-    print("Performing ICP registration...")
-    icp_transformation, aligned_target=Point_to_Plane(combined_cloud_normal_sample, target_cloud_normal_sample, max_correspondence_distance=1)
+    if SkipICP is True:
+        print("Skipping ICP")
+        icp_transformation = np.eye(4)
+        aligned_target = target_cloud_normal_sample
+    else:
+        print("Performing ICP registration...")
+        icp_transformation, aligned_target=Point_to_Plane(combined_cloud_normal_sample, target_cloud_normal_sample, max_correspondence_distance=1)
 
     """
     # TODO: Add Calibration transformation to the combined transformation?
@@ -106,57 +112,6 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 
     return combined_cloud_normal_sample #, combined_transformation
     
-
-    
-
-# if __name__ == "__main__":
-#     # List of .ply files to process
-#     ply_files = [
-#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
-#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
-#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
-#     ]
-
-#     # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
-#     rotation_vectors = [
-#     #(None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
-#     (0, 0, 0),     # Ingen rotation identificere en point cloud som værende velegnet til zeroing.
-#     (15, 0, 0),     # Rotation omkring en vilkårlig akse
-#     (45, 0, 0)    # 90 grader omkring y-aksen
-#     ]
-
-#     # Translation vectors to move from global to local coords. Must find a method of locating the motors axis of rotation.
-#     # Hard coded translation for the first axis of rotation (Not perfect, since data appears inconsistent)
-#     # Calculated x_axis=(143.31,24.85,-318.16)
-    
-#     # Working x_axis=(143.31, 15,-340.16)
-#     # x_axis=(143.31, 15,-345)
-
-#     # Obtain zeroing transformation
-#     Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
-
-#     if rotation_vectors[0] == (0,0,0):
-#         print("Zeroing point clouds by fixture-based method")
-#         Alignment_point_cloud = o3d.io.read_point_cloud(ply_files[0])
-#     else:
-#         raise ValueError("lacking zeroing point cloud")
-    
-#     Calibration_transformation, Fikstur=Zero_point_cloud_by_fixture(Alignment_point_cloud, Fikstur_fil)
-#     Calibration_transformation = np.eye(4)
-#     # Process the point clouds
-#     print("Starting point cloud processing...")
-#     final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, Calibration_transformation, voxel_size=1.5, max_correspondence_distance=4)
-#     print(combined_transformation.shape)
-#     final_cloud_minus_fixture = remove_points_within_distance_of_pointcloud(Fikstur, final_cloud, 10)
-
-#     # Save the final merged point cloud
-#     output_ply = "merged_point_cloud.ply"
-#     output_trans = "combined_transformation.json"
-#     #o3d.io.write_point_cloud(output_file, final_cloud)
-#     #print(f"Final merged point cloud saved to: {output_file}")
-
-#     # Visualize the final result
-#     #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
 
 
 def Legacy_process_point_clouds(ply_files, rotation_vectors, theta_pan, theta_tilt, voxel_size, max_correspondence_distance):
@@ -331,7 +286,8 @@ if __name__ == "__main__":
     ]
     
     ShowMe = False
-    legacyMode = True
+    legacyMode = False
+    
 
     theta_pan = [0, 15, -15, -15, 0]
     theta_tilt = [0, 15, 15, 15, 0]
@@ -387,3 +343,55 @@ if __name__ == "__main__":
     #     output_trans = "combined_transformation.json"
     o3d.io.write_point_cloud(output_ply, combined_cloud_normal_sample)
     #print(f"Final merged point cloud saved to: {output_file}")
+
+
+    
+
+# if __name__ == "__main__":
+#     # List of .ply files to process
+#     ply_files = [
+#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
+#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
+#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
+#     ]
+
+#     # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
+#     rotation_vectors = [
+#     #(None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
+#     (0, 0, 0),     # Ingen rotation identificere en point cloud som værende velegnet til zeroing.
+#     (15, 0, 0),     # Rotation omkring en vilkårlig akse
+#     (45, 0, 0)    # 90 grader omkring y-aksen
+#     ]
+
+#     # Translation vectors to move from global to local coords. Must find a method of locating the motors axis of rotation.
+#     # Hard coded translation for the first axis of rotation (Not perfect, since data appears inconsistent)
+#     # Calculated x_axis=(143.31,24.85,-318.16)
+    
+#     # Working x_axis=(143.31, 15,-340.16)
+#     # x_axis=(143.31, 15,-345)
+
+#     # Obtain zeroing transformation
+#     Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
+
+#     if rotation_vectors[0] == (0,0,0):
+#         print("Zeroing point clouds by fixture-based method")
+#         Alignment_point_cloud = o3d.io.read_point_cloud(ply_files[0])
+#     else:
+#         raise ValueError("lacking zeroing point cloud")
+    
+#     Calibration_transformation, Fikstur=Zero_point_cloud_by_fixture(Alignment_point_cloud, Fikstur_fil)
+#     Calibration_transformation = np.eye(4)
+#     # Process the point clouds
+#     print("Starting point cloud processing...")
+#     final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, Calibration_transformation, voxel_size=1.5, max_correspondence_distance=4)
+#     print(combined_transformation.shape)
+#     final_cloud_minus_fixture = remove_points_within_distance_of_pointcloud(Fikstur, final_cloud, 10)
+
+#     # Save the final merged point cloud
+#     output_ply = "merged_point_cloud.ply"
+#     output_trans = "combined_transformation.json"
+#     #o3d.io.write_point_cloud(output_file, final_cloud)
+#     #print(f"Final merged point cloud saved to: {output_file}")
+
+#     # Visualize the final result
+#     #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
