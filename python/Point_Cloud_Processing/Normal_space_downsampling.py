@@ -3,6 +3,7 @@ import open3d as o3d
 import numpy as np
 import time
 from .Misc_functions import create_arrow
+from .Calibration_by_fixture import inverse_center_and_filter_point_cloud
 
 
 def compute_point_cloud_density(pcd, radius):
