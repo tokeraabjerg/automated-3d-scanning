@@ -12,6 +12,7 @@ import logging
 
 # Use relative import instead of absolute import
 from ..project_manager import ProjectManager  # Updated to relative import
+from scanner_interface.arduino_coms import interpret_command  # Import the interpret_command function
 
 # Initialize Blueprint with URL prefix
 project_bp = Blueprint('project_bp', __name__, url_prefix='/project')  # Added url_prefix='/project'
@@ -178,3 +179,39 @@ def get_positions():
         return jsonify({'status': 'error', 'message': 'positions.json not found or empty'}), 404
 
     return jsonify({'status': 'success', 'positions': positions})
+
+@project_bp.route('/preview_scan', methods=['POST'])
+def preview_scan():
+    """
+    Preview the movement path by sending all positions to the Arduino.
+    Expects JSON data with 'projectName'.
+    """
+    data = request.json
+    project_name = data.get('projectName')
+
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
+
+    try:
+        project_manager = current_app.config.get('project_manager')
+        if not project_manager:
+            logger.error("Project manager is not available.")
+            return jsonify({'status': 'error', 'message': 'Project manager is not available'}), 500
+
+        positions = project_manager.get_positions(project_name)
+        if not positions:
+            return jsonify({'status': 'error', 'message': 'No positions found for the project.'}), 404
+
+        # Send positions to Arduino for preview
+        response = interpret_command(positions)
+        if response.lower() == "success":
+            logger.debug(f"Preview scan for '{project_name}' completed successfully.")
+            return jsonify({'status': 'success', 'project': project_name, 'message': 'Preview scan completed successfully.'}), 200
+        else:
+            logger.error(f"Preview scan failed: {response}")
+            return jsonify({'status': 'error', 'message': f'Preview scan failed: {response}'}), 500
+
+    except Exception as e:
+        logger.error(f"Error during preview scan for '{project_name}': {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+

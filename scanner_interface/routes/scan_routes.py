@@ -13,9 +13,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 import open3d as o3d
 import time
-from scanner_interface.arduino_coms import perform_scan  # Import the perform_scan function
-from python.Point_Cloud_Processing.PCP_main import Point_Cloud_Processing as PCP # Import the Point_Cloud_Processing function
-
+from scanner_interface.arduino_coms import interpret_command  # Import the interpret_command function
+from python.Point_Cloud_Processing.PCP_main import Point_Cloud_Processing  # Import the Point_Cloud_Processing function
 
 scan_bp = Blueprint('scan_bp', __name__, url_prefix='/scan')  # Added url_prefix='/scan'
 logger = logging.getLogger(__name__)
@@ -176,28 +175,14 @@ def auto_scan():
         current_app.logger.error(f"Error starting auto scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def post_process_thread(app, combined_pcd, new_pcd, project_name, result_container):
-    """
-    Thread function to handle post-processing of point clouds.
-    """
-    with app.app_context():
-        try:
-            # Call the Point_Cloud_Processing function
-            processed_pcd = PCP(combined_pcd, new_pcd)
-            # Save the processed point cloud
-            project_manager = current_app.config.get('project_manager')
-            project_manager.save_point_cloud(processed_pcd, project_name, pcd_secondary=new_pcd)
-            # Store the result in the container
-            result_container['processed_pcd'] = processed_pcd
-        except Exception as e:
-            current_app.logger.error(f"Error in post-processing thread: {e}")
+# Add a flag to track the post-processing thread status
+post_processing_thread_running = False
 
 def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
     """
     Thread function to perform auto scan.
     """
-    combined_pcd = None  # Initialize combined point cloud
-    result_container = {}  # Container to store the result from the post-processing thread
+    pcd_dict = {}  # Dictionary to store individual point clouds and their rotation information
 
     try:
         with app.app_context():
@@ -208,7 +193,7 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
 
                 # Perform movement to the position
                 logger.info(f"Moving to position {index + 1}/{len(positions)}: {position}")
-                response = perform_scan(position)  # Call the perform_scan function with the current position
+                response = interpret_command(position)  # Call the interpret_command function with the current position
 
                 # Log the response from the motor movement
                 logger.info(f"Motor movement response: {response}")
@@ -220,7 +205,7 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
 
                 # Wait for the motor to stop before starting the scan
                 logger.info(f"Waiting for motor to stop before starting scan {index + 1}/{len(positions)}.")
-                time.sleep(2)  # Adjust the sleep duration as needed
+                time.sleep(0.5)  # Adjust the sleep duration as needed
 
                 # Start scan
                 logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
@@ -230,21 +215,19 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                     logger.warning(f"Scan {index + 1} failed or was stopped.")
                     continue
 
-                # If combined_pcd is None, initialize it with the first scan
-                if combined_pcd is None:
-                    combined_pcd = new_pcd
-                    project_manager = current_app.config.get('project_manager')
-                    project_manager.save_point_cloud(combined_pcd, project_name)
-                else:
-                    # Wait for the previous post-processing to complete before starting a new one
-                    if post_processing_future:
-                        post_processing_future.result()
-                        # Update combined_pcd with the processed point cloud from the previous post-processing
-                        if 'processed_pcd' in result_container:
-                            combined_pcd = result_container['processed_pcd']
+                # Add the new point cloud and its rotation information to the dictionary
+                pcd_dict[f"scan_{index + 1}"] = {
+                    "pcd": new_pcd,
+                    "rotation": [position['pos_a'], position['pos_b']]
+                }
 
-                    # Submit post-processing task to the executor
-                    post_processing_future = executor.submit(post_process_thread, app, combined_pcd, new_pcd, project_name, result_container)
+                # If there are 2 or more point clouds and no post-processing thread is running, start post-processing in a new thread
+                global post_processing_thread_running
+                if len(pcd_dict) >= 2 and not post_processing_thread_running:
+                    logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
+                    post_processing_thread_running = True
+                    post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
+                    post_processing_thread.start()
 
     except Exception as e:
         current_app.logger.error(f"Error in auto scan thread: {e}")
@@ -255,6 +238,69 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
             # Print the total amount of scans and the number of points in each scan
             total_scans = len(positions)
             current_app.logger.info(f"Total scans completed: {total_scans}, expected {len(positions)}")
-            if combined_pcd:
-                num_points = len(combined_pcd.points)
+            if "scan_main" in pcd_dict:
+                num_points = len(pcd_dict["scan_main"]["pcd"].points)
                 current_app.logger.info(f"Combined scan: {num_points} points")
+
+def post_process_thread(app, pcd_dict, project_name, total_positions):
+    """
+    Thread function to handle post-processing of point clouds.
+    """
+    logger.info("Post-processing thread started.")
+    calibration_transformation = None  # Define in scope
+
+    with app.app_context():
+        try:
+            while True:
+                if len(pcd_dict) >= 2:
+                    logger.info(f"Post-processing {len(pcd_dict)} point clouds.")
+                    #calibration_transformation = 
+
+                    # Extract point clouds and their rotation information
+                    if "scan_main" in pcd_dict:
+                        combined_pcd = pcd_dict["scan_main"]["pcd"]
+                        rotation_main = pcd_dict["scan_main"]["rotation"]
+                        # Find the lowest scan_i in the dictionary
+                        lowest_scan_key = min((key for key in pcd_dict if key != "scan_main"), key=lambda k: int(k.split('_')[1]))
+                        target_pcd = pcd_dict[lowest_scan_key]["pcd"]
+                        target_rotation = pcd_dict[lowest_scan_key]["rotation"]
+                        # Perform post-processing using Point_Cloud_Processing
+                        combined_pcd = Point_Cloud_Processing(combined_pcd, target_pcd, target_rotation[0], target_rotation[1], calibration_transformation)
+                        # Update the dictionary with the combined point cloud
+                        pcd_dict["scan_main"] = {
+                            "pcd": combined_pcd,
+                            "rotation": target_rotation  # Use the rotation of the last processed scan
+                        }
+                        # Remove the processed scan from the dictionary
+                        del pcd_dict[lowest_scan_key]
+                    else:
+                        # Perform post-processing using the first two scans
+                        pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
+                        rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
+                        combined_pcd = Point_Cloud_Processing(pcd_list[0], pcd_list[1], rotation_list[1][0], rotation_list[1][1], calibration_transformation)
+                        # Update the dictionary with the combined point cloud
+                        pcd_dict = {
+                            "scan_main": {
+                                "pcd": combined_pcd,
+                                "rotation": rotation_list[1]  # Use the rotation of the last processed scan
+                            }
+                        }
+
+                    # Save the combined point cloud
+                    project_manager = current_app.config.get('project_manager')
+                    project_manager.save_point_cloud(combined_pcd, project_name)
+
+                # Check if there are new scans to process
+                if len(pcd_dict) < 2 and len(pcd_dict) < total_positions:
+                    logger.info("Waiting for new scans to process.")
+                    time.sleep(2)
+                elif len(pcd_dict) < 2 and len(pcd_dict) >= total_positions:
+                    logger.info("No more scans to process. Exiting post-processing thread.")
+                    break
+
+        except Exception as e:
+            current_app.logger.error(f"Error in post-processing thread: {e}")
+        finally:
+            logger.info("Post-processing thread completed.")
+            global post_processing_thread_running
+            post_processing_thread_running = False
