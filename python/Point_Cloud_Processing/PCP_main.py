@@ -1,5 +1,6 @@
 import open3d as o3d
 import numpy as np
+import logging  # Add logging import
 from .IA import RANSAC_initial_alignment
 from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
 from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
@@ -7,6 +8,20 @@ from .PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_ear
 from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 import time
 
+#define global variables in global scope, tsk tsk.
+ShowMe = False
+legacyMode = False
+
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+"""
+    Ændringer by Toke, for MDP:
+        - Funktionen antager at input er en normal, 
+        jeg har tilføjet et tjek så jeg ikke behøver at gøre det i min ende.
+        - Defineret variabler globalt.
+
+"""
 def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4):
     """
     Process a list of point clouds by registering and merging them iteratively.
@@ -23,6 +38,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     Returns:
     - combined_cloud: The final merged point cloud.
     """
+    logger.info("Starting Point_Cloud_Processing")
     SkipICP = False
 
     # Visual aide for the axis of rotation
@@ -38,77 +54,67 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 
     # Paint the target cloud
     target_cloud.paint_uniform_color([1, 0.706, 0])
-    # if ShowMe is True:
-    #    o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud, AxisArrow], window_name="untouched Point Cloud")
-    
+    logger.info("Target cloud painted")
+
     # Apply Calibration transformation to the target cloud
     target_cloud.transform(Calibration_transformation)
+    logger.info("Applied calibration transformation to target cloud")
     if ShowMe is True:
         o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud, AxisArrow], window_name="Calibrated Point Cloud")
     
     # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
+    logger.info("Starting Preproces_normal_pipeline")
     target_cloud_normal_sample = Preproces_normal_pipeline(target_cloud, voxel_size=0.1, std_ratio=2.0)
+    logger.info("Completed Preproces_normal_pipeline")
+
+    # Ensure normals are computed for both point clouds (Toke)
+    if not combined_cloud_normal_sample.has_normals():
+        logger.info("Estimating normals for combined_cloud_normal_sample")
+        combined_cloud_normal_sample.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
+    logger.info("Normals estimated for combined_cloud_normal_sample")
+
+    if not target_cloud_normal_sample.has_normals():
+        logger.info("Estimating normals for target_cloud_normal_sample")
+        target_cloud_normal_sample.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
+    logger.info("Normals estimated for target_cloud_normal_sample")
 
     # Initial alignment based on known rotations
     if theta_pan == 0 and theta_tilt == 0:
-        print("No alignement needed")
-        initial_transformation=np.eye(4)
+        logger.info("No alignment needed")
+        initial_transformation = np.eye(4)
     else:
-        # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
         initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(0)))
-        print(initial_rotation)
-        target_cloud_normal_sample.rotate(initial_rotation, center=(0,0,0))
+        logger.info(f"Initial rotation matrix: {initial_rotation}")
+        target_cloud_normal_sample.rotate(initial_rotation, center=(0, 0, 0))
+        logger.info("Rotated target cloud")
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
         
-        # translation_vector=(0,0,0)
-        # target_cloud.translate(translation_vector)
-        #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
-        
-        # Saving the initial transformation, based on known rotations:
-        int_rot_4x4=np.eye(4)
-        int_rot_4x4[:3, :3] = initial_rotation 
-        # translation_matrix = np.eye(4)
-        # translation_matrix[:3, 3] = translation_vector 
-        # initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
-        initial_transformation=int_rot_4x4
+        int_rot_4x4 = np.eye(4)
+        int_rot_4x4[:3, :3] = initial_rotation
+        initial_transformation = int_rot_4x4
+        logger.info(f"Initial transformation matrix: {initial_transformation}")
     
     # Step 2: Point-to-Plane ICP
     if SkipICP is True:
-        print("Skipping ICP")
+        logger.info("Skipping ICP")
         icp_transformation = np.eye(4)
         aligned_target = target_cloud_normal_sample
     else:
-        print("Performing ICP registration...")
-        icp_transformation, aligned_target=Point_to_Plane(combined_cloud_normal_sample, target_cloud_normal_sample, max_correspondence_distance=1)
-
-    """
-    # TODO: Add Calibration transformation to the combined transformation?
-
-            result = decompose_transformation(initial_transformation)
-        print("Translation (x, y, z):", result["translation"])
-        print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-
-    combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
-    # Decompose the transformation and print results
-    result = decompose_transformation(combined_transformation[i])
-    print(f"PC nr {i} was transformed by:")
-    print("Translation (x, y, z):", result["translation"])
-    print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-    """
+        logger.info("Performing ICP registration...")
+        icp_transformation, aligned_target = Point_to_Plane(combined_cloud_normal_sample, target_cloud_normal_sample, max_correspondence_distance=1)
+        logger.info(f"ICP transformation matrix: {icp_transformation}")
 
     combined_cloud_normal_sample += aligned_target
-    # meandist = sample_adjacent_point_pairs(combined_cloud_normal_sample, 100, voxel_size*5)
-    # combined_cloud_normal_sample = remove_points_within_distance_of_pointcloud(target_cloud_normal_sample, combined_cloud_normal_sample, voxel_size/10)
-    #target_voxel.transform(combined_transformation)
-    #combined_cloud += target_voxel
-    
+    logger.info("ICP registration completed")
+
     # Optional: Visualize the current merged cloud
     if ShowMe is True:
         o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Current cloud merged")
 
+    logger.info("Point_Cloud_Processing completed")
 
     return combined_cloud_normal_sample #, combined_transformation
 

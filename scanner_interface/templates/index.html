@@ -170,9 +170,13 @@
             <br>
 
             <h2>Server Controls</h2>
-            <form action="{{ url_for('restart') }}" method="post" onsubmit="return confirmRestart(event);">
-                <input type="submit" value="Restart Flask Server" class="restart-button">
-            </form>
+            <div class="button-group">
+                <form action="{{ url_for('restart') }}" method="post" onsubmit="return confirmRestart(event);">
+                    <input type="submit" value="Restart Flask Server" class="restart-button">
+                </form>
+                <button onclick="runCalibration()" class="calibration-button">Run Calibration</button>
+            </div>
+
         </div>
         <div id="right-panel">
             <div style="display: flex; align-items: center;">

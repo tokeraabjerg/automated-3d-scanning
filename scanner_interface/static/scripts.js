@@ -922,6 +922,35 @@ function runPreviewScan() {
     });
 }
 
+function runCalibration() {
+    showLoadingIndicator('Running calibration scan...');
+    fetch('/scan/calibration_scan', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        hideLoadingIndicator();
+        if (data.status === 'success') {
+            showSuccess('Calibration completed successfully');
+        } else {
+            showError(`Calibration failed: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        hideLoadingIndicator();
+        console.error('Calibration error:', error);
+        showError('Failed to run calibration. Check the console for details.');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
     const autoRefreshCheckbox = document.getElementById('auto-refresh-checkbox');

@@ -465,3 +465,18 @@ button, input[type="submit"] {
 .run-button:hover {
     background-color: #45a049; /* Darker green on hover */
 }
+
+/* Calibration button styling */
+.calibration-button {
+    background-color: #9c27b0; /* Purple color */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.calibration-button:hover {
+    background-color: #7b1fa2; /* Darker purple on hover */
+}
