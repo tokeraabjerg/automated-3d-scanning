@@ -43,19 +43,19 @@ log_file_path = os.path.join(base_dir, 'app.log')
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 rotating_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
-rotating_handler.setLevel(logging.INFO)
+rotating_handler.setLevel(logging.DEBUG)  # Set to DEBUG level
 rotating_handler.setFormatter(formatter)
 
 # Configure root logger
 root_logger = logging.getLogger()
 root_logger.handlers = []  # Remove existing handlers
 root_logger.addHandler(rotating_handler)
-root_logger.setLevel(logging.INFO)
+root_logger.setLevel(logging.DEBUG)  # Set to DEBUG level
 
 # Configure Flask app's logger
 app.logger.handlers = []
 app.logger.addHandler(rotating_handler)
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.INFO)  # Set to DEBUG level
 
 # Disable Werkzeug logging to reduce clutter
 logging.getLogger('werkzeug').setLevel(logging.ERROR)

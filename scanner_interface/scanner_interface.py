@@ -91,6 +91,8 @@ class ScannerInterface:
         self.connected = False  # Initialize the connected attribute
         self.last_ping_failed_log_time = 0  # Initialize the last log time for ping failure
         self.ping_log_interval = 60  # Set the log interval to 60 seconds
+        self.last_ping_success_log_time = 0  # Initialize the last log time for ping success
+        self.ping_log_interval = 60  # Set the log interval to 60 seconds
 
         self._configure_library_functions()
 
@@ -449,10 +451,16 @@ class ScannerInterface:
             result = self.lib.Sensor3D_GetSensorStatus(self.sensorHandle, byref(status))
 
             if result == SENSOR3D_OK:
-                logger.debug("Ping successful: Sensor is connected.")
+                current_time = time.time()
+                if current_time - self.last_ping_success_log_time > self.ping_log_interval:
+                    logger.info("Ping successful: Sensor is connected.")
+                    self.last_ping_success_log_time = current_time
                 self.connected = True  # Update connection status
                 return True
             else:
-                logger.warning(f"Ping failed: Sensor status result code {result}, status value {status.value}.")
+                current_time = time.time()
+                if current_time - self.last_ping_failed_log_time > self.ping_log_interval:
+                    logger.warning(f"Ping failed: Sensor status result code {result}, status value {status.value}.")
+                    self.last_ping_failed_log_time = current_time
                 self.connected = False  # Update connection status
                 return False

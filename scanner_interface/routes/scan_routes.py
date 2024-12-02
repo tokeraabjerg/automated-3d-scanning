@@ -12,6 +12,8 @@ import threading
 import os
 from concurrent.futures import ThreadPoolExecutor
 import open3d as o3d
+import time
+from scanner_interface.arduino_coms import perform_scan  # Import the perform_scan function
 
 scan_bp = Blueprint('scan_bp', __name__, url_prefix='/scan')  # Added url_prefix='/scan'
 logger = logging.getLogger(__name__)
@@ -21,11 +23,13 @@ def manual_capture():
     """
     Start a manual capture scan.
     """
+    logger.debug("manual_capture route called.")
     data = request.json
     scan_interval = data.get('scanInterval')
     project_name = data.get('selectedProject')
 
     if not scan_interval or not project_name:
+        logger.debug("Invalid data provided for manual capture.")
         return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
 
     try:
@@ -37,21 +41,25 @@ def manual_capture():
 
         with scan_lock:
             if scan_in_progress:
+                logger.debug("A scan is already in progress.")
                 return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
             current_app.config['scan_in_progress'] = True
 
-        future = executor.submit(scan_thread, scan_interval, project_name, stop_event)
-        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
+        app = current_app._get_current_object()
+        future = executor.submit(scan_thread, app, scan_interval, project_name, stop_event)
+        future.add_done_callback(lambda x: app.app_context().push() or app.config.update(scan_in_progress=False))
 
+        logger.debug("Manual capture scan started successfully.")
         return jsonify({'status': 'success', 'project': project_name}), 200
     except Exception as e:
         current_app.logger.error(f"Error starting manual capture: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def scan_thread(app, scan_interval, project_name):
+def scan_thread(app, scan_interval, project_name, stop_event):
     """
     Thread function to handle the scanning process.
     """
+    logger.debug("scan_thread function called.")
     logger.info("Scan thread started.")
     
     with app.app_context():
@@ -59,19 +67,19 @@ def scan_thread(app, scan_interval, project_name):
             scan_lock = current_app.config.get('scan_lock')
             if scan_lock is None:
                 logger.error("scan_lock is None. Exiting scan thread.")
-                return
+                return None
 
             scanner = current_app.config.get('scanner')
             if scanner is None:
                 logger.error("scanner is None. Exiting scan thread.")
-                return
+                return None
 
             output_directory = current_app.config.get('output_directory')
 
             pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=current_app.config.get('stop_event'))
             if pcd is None:
                 logger.error("Failed to perform scan. Exiting scan thread.")
-                return
+                return None
 
             # Replace direct saving with ProjectManager's save_point_cloud method
             project_manager = current_app.config.get('project_manager')
@@ -79,8 +87,11 @@ def scan_thread(app, scan_interval, project_name):
 
             #call icp function
             
+            return pcd
+            
         except Exception as e:
             logger.exception(f"An error occurred during scanning: {e}")
+            return None
         finally:
             with scan_lock:
                 current_app.config['scan_in_progress'] = False
@@ -154,46 +165,70 @@ def auto_scan():
                 return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
             current_app.config['scan_in_progress'] = True
 
-        future = executor.submit(auto_scan_thread, scan_interval, project_name, positions, stop_event)
-        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
+        app = current_app._get_current_object()
+        future = executor.submit(auto_scan_thread, app, scan_interval, project_name, positions, stop_event)
+        future.add_done_callback(lambda x: app.app_context().push() or app.config.update(scan_in_progress=False))
 
         return jsonify({'status': 'success', 'project': project_name}), 200
     except Exception as e:
         current_app.logger.error(f"Error starting auto scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def auto_scan_thread(scan_interval, project_name, positions, stop_event):
+def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
     """
     Thread function to perform auto scan.
     """
     scans = []  # Array to store scans
     try:
-        for position in positions:
-            if stop_event.is_set():
-                break
+        with app.app_context():
+            for index, position in enumerate(positions):
+                if stop_event.is_set():
+                    logger.info("Scan stopped by stop event.")
+                    break
 
-            # Perform movement to the position (add actual movement code here)
-            # move_to_position(position)
+                # Perform movement to the position
+                logger.info(f"Moving to position {index + 1}/{len(positions)}: {position}")
+                response = perform_scan(position)  # Call the perform_scan function with the current position
 
-            # Start scan
-            pcd = scan_thread(scan_interval, project_name, stop_event)
-            if pcd is None:
-                continue
+                # Log the response from the motor movement
+                logger.info(f"Motor movement response: {response}")
 
-            # Append the scan to the array
-            scans.append(pcd)
+                # Check if the movement was successful
+                if "success" not in response.lower():
+                    logger.error(f"Error moving to position {index + 1}. Aborting auto scan.")
+                    break
 
-            # Post-process the scan (add actual post-processing code here)
-            # post_process_scan(pcd)
+                # Wait for the motor to stop before starting the scan
+                logger.info(f"Waiting for motor to stop before starting scan {index + 1}/{len(positions)}.")
+                time.sleep(2)  # Adjust the sleep duration as needed
+
+                # Start scan
+                logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
+                scanner = current_app.config.get('scanner')
+                pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=stop_event)
+                if pcd is None:
+                    logger.warning(f"Scan {index + 1} failed or was stopped.")
+                    continue
+
+                # Append the scan to the array
+                scans.append(pcd)
+
+                # Replace direct saving with ProjectManager's save_point_cloud method
+                project_manager = current_app.config.get('project_manager')
+                project_manager.save_point_cloud(pcd, project_name)
+
+                # Post-process the scan (add actual post-processing code here)
+                # post_process_scan(pcd)
 
     except Exception as e:
         current_app.logger.error(f"Error in auto scan thread: {e}")
     finally:
-        current_app.config['scan_in_progress'] = False
+        with app.app_context():
+            current_app.config['scan_in_progress'] = False
 
-        # Print the total amount of scans and the number of points in each scan
-        total_scans = len(scans)
-        current_app.logger.info(f"Total scans completed: {total_scans}")
-        for i, scan in enumerate(scans):
-            num_points = len(scan.points)
-            current_app.logger.info(f"Scan {i + 1}: {num_points} points")
+            # Print the total amount of scans and the number of points in each scan
+            total_scans = len(scans)
+            current_app.logger.info(f"Total scans completed: {total_scans}, expected {len(positions)}")
+            for i, scan in enumerate(scans):
+                num_points = len(scan.points)
+                current_app.logger.info(f"Scan {i + 1}: {num_points} points")
