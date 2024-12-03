@@ -279,6 +279,7 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         logger.info(f"Combining scan_main with {lowest_scan_key}")
                         
                         
+
                         combined_pcd = Point_Cloud_Processing(
                             combined_pcd,
                             target_pcd,

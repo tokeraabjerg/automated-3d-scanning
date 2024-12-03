@@ -122,7 +122,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
         o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Current cloud merged")
 
 
-    return combined_cloud_normal_sample #, combined_transformation
+    return combined_cloud_normal_sample, icp_transformation
     
 
 
