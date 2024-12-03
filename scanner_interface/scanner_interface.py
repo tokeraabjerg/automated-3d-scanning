@@ -349,8 +349,15 @@ class ScannerInterface:
 
             for idx in range(number_of_points.value):
                 point = scanBuffer.point[idx]
+                if point.x == 0 and point.y == 0 and point.z == 0:
+                    continue  # Skip points at the origin
                 points_np[idx, :] = [point.x, point.y, point.z]
                 intensities_np[idx] = scanBuffer.intensity[idx]
+
+            # Remove points at the origin
+            valid_indices = np.any(points_np != 0, axis=1)
+            points_np = points_np[valid_indices]
+            intensities_np = intensities_np[valid_indices]
 
             # Create Open3D point cloud
             pcd = o3d.geometry.PointCloud()
