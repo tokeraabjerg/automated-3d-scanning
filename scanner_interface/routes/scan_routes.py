@@ -311,13 +311,16 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         
                         
 
-                        combined_pcd = Point_Cloud_Processing(
+                        combined_pcd, icp_transform = Point_Cloud_Processing(
                             combined_pcd,
                             target_pcd,
                             target_rotation[0],  # pos_a as theta_pan
                             target_rotation[1],  # pos_b as theta_tilt
                             matrix
                         )
+                        logger.info(f"ICP transform: {icp_transform}")
+                        # PRINT ICP TRANFORM TO positions.json
+
                         pcd_dict.update({"scan_main": {"pcd": combined_pcd, "rotation": target_rotation}})
                         del pcd_dict[lowest_scan_key]
                     else:

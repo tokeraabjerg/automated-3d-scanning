@@ -2,17 +2,23 @@
 # Then, based on an stl of the fixture, it find the transformation which aligns the fixture with the global axis.
 # This transformation than may be applied to all subsequent scans, such that initial rotation of future scans are correctly rotated.
 # Scan assumes that the fixture is at a set position (Vertical, with the flat side)
-try:
-    module=True
-except NameError:
-    import open3d as o3d
-    import numpy as np
+import getpass
+import open3d as o3d
+import numpy as np
+import time
+import logging
+
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
     from ICP import Point_to_Plane
 else:
-    if module is True:
-        import open3d as o3d
-        import numpy as np
-        from .ICP import Point_to_Plane
+    print("The code is not being run with modules")
+    from .ICP import Point_to_Plane
+
 
 def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     """

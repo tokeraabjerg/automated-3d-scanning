@@ -1,12 +1,27 @@
 import open3d as o3d
 import numpy as np
 import logging  # Add logging import
-from .IA import RANSAC_initial_alignment
-from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
-from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
-from .PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
-from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 import time
+import getpass
+
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
+    from IA import RANSAC_initial_alignment
+    from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
+    from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
+    from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+    from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+else:
+    print("The code is not being run with modules")
+    from .IA import RANSAC_initial_alignment
+    from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
+    from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
+    from .PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+    from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 
 #define global variables in global scope, tsk tsk.
 ShowMe = False
@@ -22,7 +37,7 @@ logger = logging.getLogger(__name__)
         - Defineret variabler globalt.
 
 """
-def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4):
+def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.1, max_correspondence_distance=4):
     logger.info("Starting Point_Cloud_Processing")
 
     """
@@ -44,7 +59,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     SkipICP = False
 
     # Visual aide for the axis of rotation
-
+    """
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
@@ -53,7 +68,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     AxisArrow = o3d.geometry.TriangleMesh()
     for arrow in arrows:
         AxisArrow += arrow
-
+    """
     # Paint the target cloud
     target_cloud.paint_uniform_color([1, 0.706, 0])
     logger.info("Target cloud painted")
@@ -61,20 +76,18 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     # Apply Calibration transformation to the target cloud
     target_cloud.transform(Calibration_transformation)
     logger.info("Applied calibration transformation to target cloud")
-    if ShowMe is True:
-        o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud, AxisArrow], window_name="Calibrated Point Cloud")
     
     # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
     logger.info("Starting Preproces_normal_pipeline")
-    target_cloud_normal_sample = Preproces_normal_pipeline(target_cloud, voxel_size=0.1, std_ratio=2.0)
+    target_cloud_normal_sample = Preproces_normal_pipeline(target_cloud, voxel_size, std_ratio=2.0)
     logger.info("Completed Preproces_normal_pipeline")
 
 
-    # Ensure normals are computed for both point clouds (Toke)
-    if not combined_cloud_normal_sample.has_normals():
+    # Ensure normals are computed for the combined cloud (Toke)
+    if not combined_cloud.has_normals():
         logger.info("Estimating normals for combined_cloud_normal_sample")
-        combined_cloud_normal_sample.transform(Calibration_transformation)
-        combined_cloud_normal_sample = Preproces_normal_pipeline(combined_cloud_normal_sample, voxel_size=0.1, std_ratio=2) 
+        combined_cloud.transform(Calibration_transformation)
+        combined_cloud_normal_sample = Preproces_normal_pipeline(combined_cloud, voxel_size, std_ratio=2.0) 
 
     
     logger.info("Normals estimated for combined_cloud_normal_sample")
@@ -118,7 +131,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
 
     logger.info("Point_Cloud_Processing completed")
 
-    return combined_cloud_normal_sample #, combined_transformation
+    return combined_cloud_normal_sample, icp_transformation
 
 # Example Usage, as in Tokes code
 if __name__ == "__main__":
@@ -191,7 +204,7 @@ if __name__ == "__main__":
             if ShowMe is True:
                 o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow, Fikstur])
         else:
-            combined_cloud_normal_sample = Point_Cloud_Processing(combined_cloud_normal_sample, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.1, max_correspondence_distance=1)
+            combined_cloud_normal_sample, ICP_transform = Point_Cloud_Processing(combined_cloud_normal_sample, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.01, max_correspondence_distance=1)
     
     combined_cloud_normal_sample = remove_points_within_distance_of_pointcloud(combined_cloud_normal_sample, Fikstur, 2) 
     min_bound = (-120.0, -200.0, -50)  # Replace with your box's minimum x, y, and z coordinates
