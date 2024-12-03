@@ -1,5 +1,10 @@
 import open3d as o3d
 import numpy as np
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def global_imports(modulename,shortname = None, asfunction = False):
     if shortname is None: 
@@ -410,7 +415,60 @@ def get_xyz_euler(roll, pitch, yaw):
 
     return R
 
+def remove_noise_based_on_normals(point_cloud, radius=0.05, min_neighbors=10, consistency_threshold=0.9):
+    """
+    Remove noisy points from a point cloud based on the consistency of normals in local neighborhoods.
 
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        radius (float, optional): The radius for the neighborhood search. Defaults to 0.05.
+        min_neighbors (int, optional): The minimum number of neighbors required to compute a normal. Defaults to 10.
+        consistency_threshold (float, optional): The threshold for normal consistency (0 to 1). Defaults to 0.9.
+
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud with noise removed.
+    """
+    # Ensure the point cloud has normals
+    if not point_cloud.has_normals():
+        logger.info("Computing normals for the point cloud...")
+        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=min_neighbors))
+        point_cloud.normalize_normals()
+
+    # Build a KD-tree for neighborhood search
+    kd_tree = o3d.geometry.KDTreeFlann(point_cloud)
+
+    # Initialize a list to keep track of points to keep
+    points_to_keep = []
+
+    logger.info("Starting noise removal based on normal consistency...")
+
+    for i, normal in enumerate(point_cloud.normals):
+        # Search for neighbors within the radius
+        [_, idx, _] = kd_tree.search_radius_vector_3d(point_cloud.points[i], radius)
+
+        # Ignore points with insufficient neighbors
+        if len(idx) < min_neighbors:
+            continue
+
+        # Calculate the average normal of the neighbors
+        neighbor_normals = np.asarray(point_cloud.normals)[idx]
+        avg_normal = neighbor_normals.mean(axis=0)
+        avg_normal /= np.linalg.norm(avg_normal)
+
+        # Compute the cosine of the angle between the current normal and the average normal
+        cosine_angle = np.dot(normal, avg_normal)
+
+        # Check if the consistency is above the threshold
+        if cosine_angle >= consistency_threshold:
+            points_to_keep.append(i)
+
+    logger.info(f"Filtered out {len(point_cloud.points) - len(points_to_keep)} noisy points.")
+
+    # Select the points to keep
+    filtered_pcd = point_cloud.select_by_index(points_to_keep)
+    filtered_pcd.remove_non_finite_points()
+
+    return filtered_pcd
 
 if __name__ == "__main__":
     x = 45

@@ -30,6 +30,8 @@ Ny func til 2 pcd, ikke fil dest.
 
 KD tree mean value
 
+Test decompose transformation, incorporate into scan-func - POSTPONED - for now, use the norm of the ICP transform
+
 MDP AKTIV:
 
 Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår DBSCAN
@@ -42,4 +44,6 @@ Ideas for outlier removal:
 Thickness requirement (Kill zero-thickness points)
 (Ask gpt)
 
-Test decompose transformation, incorporate into scan-func
+Docker
+
+Test rotations

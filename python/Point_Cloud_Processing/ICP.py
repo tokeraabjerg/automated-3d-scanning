@@ -33,10 +33,11 @@ def Point_to_Plane(source, target, max_correspondence_distance):
     # Return the transformed target point cloud for further use (or visualization)
     return icp_result.transformation, target
 
+# Broken func. Normal checking is not available in this formulation of the function
 def Point_to_Plane_with_Normal_Check(source, target, max_correspondence_distance, normal_threshold):
     # Point Association using ICP for Open3D v0.18.0
     print("Running ICP with normal check...")
-    # Broken func. Normal checking is not available in this formulation of the function
+    
     # Initializing convergence criteria (using ICPConvergenceCriteria)
     criteria = o3d.pipelines.registration.ICPConvergenceCriteria(
         relative_fitness=1e-10, 
