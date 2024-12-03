@@ -349,7 +349,7 @@ class ScannerInterface:
 
             for idx in range(number_of_points.value):
                 point = scanBuffer.point[idx]
-                if point.x == 0 and point.y == 0 and point.z == 0:
+                if point.x == 0 and point.y == 0 and point.z == -1:
                     continue  # Skip points at the origin
                 points_np[idx, :] = [point.x, point.y, point.z]
                 intensities_np[idx] = scanBuffer.intensity[idx]
