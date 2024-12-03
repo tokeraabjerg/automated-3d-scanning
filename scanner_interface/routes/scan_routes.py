@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 import open3d as o3d
 import time
 import json
+import numpy as np
 from scanner_interface.arduino_coms import interpret_command  # Import the interpret_command function
 from python.Point_Cloud_Processing.PCP_main import Point_Cloud_Processing  # Import the Point_Cloud_Processing function
 from python.Point_Cloud_Processing.PP import preprocess_point_cloud
@@ -129,7 +130,7 @@ def stop_scan():
 # Ensure the stop event is reset after the scan is stopped
 def reset_stop_event():
     stop_event = current_app.config.get('stop_event')
-    if stop_event:
+    if (stop_event):
         stop_event.clear()
         logger.info("Stop event reset.")
 
@@ -366,6 +367,84 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
             post_processing_thread_running = False
             logger.info("Post-processing thread completed.")
 
+def calculate_average_intensity(pcd):
+    """
+    Calculate the average intensity of the point cloud.
+
+    :param pcd: The Open3D point cloud object.
+    :return: The average intensity value.
+    """
+    intensities = np.asarray(pcd.colors)[:, 0]  # Assuming intensity is stored in the colors attribute
+    average_intensity = np.mean(intensities)
+    return average_intensity
+
+def increase_exposure_time(scanner, increment):
+    """
+    Increase the exposure time by a set value.
+
+    :param scanner: The scanner interface instance.
+    :param increment: The value to increase the exposure time by.
+    :return: True if the exposure time was increased successfully, False otherwise.
+    """
+    try:
+        # Read the current exposure time
+        current_exposure_str = scanner.read_parameter("GetExposureTime")
+        if current_exposure_str is None:
+            logger.error("Failed to read current exposure time.")
+            return False
+
+        current_exposure = int(current_exposure_str)
+        new_exposure = current_exposure + increment
+
+        # Update the exposure time
+        if scanner.update_configuration("ExposureTime", new_exposure):
+            logger.info(f"Exposure time increased from {current_exposure} to {new_exposure}.")
+            return True
+        else:
+            logger.error("Failed to update exposure time.")
+            return False
+    except Exception as e:
+        logger.error(f"Exception while increasing exposure time: {e}")
+        return False
+    
+
+def increase_led_power(scanner, increment):
+    """
+    Increase the LED power by a set value within the limits of 10 and 100.
+
+    :param scanner: The scanner interface instance.
+    :param increment: The value to increase the LED power by.
+    :return: True if the LED power was increased successfully, False otherwise.
+    """
+    try:
+        # Read the current LED power
+        current_led_power_str = scanner.read_parameter("GetLEDPower")
+        if current_led_power_str is None:
+            logger.error("Failed to read current LED power.")
+            return False
+
+        current_led_power = int(current_led_power_str)
+        new_led_power = current_led_power + increment
+
+        # Ensure the new LED power is within the limits
+        if new_led_power < 10:
+            logger.error("Minimum LED power reached. Defaulting to 10.")
+            new_led_power = 10
+        elif new_led_power > 100:
+            logger.error("Maximum LED power reached. Defaulting to 100")
+            new_led_power = 100
+
+        # Update the LED power
+        if scanner.update_configuration("LEDPower", new_led_power):
+            logger.info(f"LED power increased from {current_led_power} to {new_led_power}.")
+            return True
+        else:
+            logger.error("Failed to update LED power.")
+            return False
+    except Exception as e:
+        logger.error(f"Exception while increasing LED power: {e}")
+        return False
+
 @scan_bp.route('/exposure_calibration_scan', methods=['POST'])
 def exposure_calibration_scan():
     """Start an Ex. calibration scan at the zero position (0,0)."""
@@ -408,23 +487,25 @@ def exposure_calibration_scan():
             # print(":: Statistically remove outliers.")
             pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100/voxel_size), std_ratio=1)
 
+            # Check if intensity is too low
+            average_intensity = calculate_average_intensity(pcd_voxel)
+            logger.info(f"Average intensity of the point cloud: {average_intensity}")
+
+            # If the number of outliers is less than 10% of the total points, calibration is successful
             logger.info(f"Point cloud preprocessed successfully, removed {len(ind)} outliers")
             if len(ind) < 0.1*len(pcd_voxel.points):
                 logger.info("Calibration completed successfully")
                 calibrated = True
+            else:
+                logger.info("Calibration failed, reducing LED power")
+
+                scanner = current_app.config.get('scanner')
+                if scanner:
+                    increase_led_power(scanner, -10)  # Decrease LED power by 10 units
+                else:
+                    logger.error("Scanner instance is None. Cannot decrease LED power.")
 
             n_scans += 1
-
-        # Get base directory from app config
-        base_dir = current_app.config.get('base_dir')
-        calibration_dir = os.path.join(base_dir, '..', 'calibration')
-        fixture_path = os.path.join(calibration_dir, 'ref.ply')
-
-        # Get fixture path and perform calibration
-        if not os.path.exists(fixture_path):
-            logger.error("Fixture file not found")
-            return jsonify({'status': 'error', 'message': 'Reference file not found'}), 404
-        logger.info("Calibration completed and saved successfully")
         
         return jsonify({
             'status': 'success',
@@ -432,7 +513,7 @@ def exposure_calibration_scan():
         }), 200
 
     except Exception as e:
-        logger.error(f"Error in calibration scan: {e}")
+        logger.error(f"Error in exposure calibration scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @scan_bp.route('/calibration_scan', methods=['POST'])

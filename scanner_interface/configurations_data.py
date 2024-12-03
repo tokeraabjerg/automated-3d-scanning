@@ -1,4 +1,5 @@
 # configurations_data.py
+# This is .py is ONLY for documentation purposes. It is never called nor edited 
 
 configurations_info = {
     'Current Acquisition Time (µs)': {

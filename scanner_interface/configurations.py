@@ -114,6 +114,7 @@ class Configurations:
         Update the configuration value on the scanner.
         If the scanner is not connected, update the local configuration only.
         """
+        
         with self.lock:
             # Get the configuration information for the provided key
             info = self.configurations_info.get(key)
