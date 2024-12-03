@@ -22,6 +22,7 @@ Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust. - Done, 
 Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  - Done, new func has logging
 
 Fix Testbed/update to zero transform scheme - Done!
+Function til Ola, alignment af STL - Done!
 
 Combined transformation som json - Toke*
 
@@ -33,14 +34,12 @@ MDP AKTIV:
 
 Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår DBSCAN
 
-Skalering - Pending
+Skalering - Pending - Ola kigger på det?
 
 Test Poisson vs almen Voxel
-
-Logger
-
-Function til Ola, alignment af STL
 
 Ideas for outlier removal:
 Thickness requirement (Kill zero-thickness points)
 (Ask gpt)
+
+Test decompose transformation, incorporate into scan-func

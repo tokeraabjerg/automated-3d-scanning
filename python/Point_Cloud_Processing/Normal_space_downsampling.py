@@ -4,7 +4,7 @@ import numpy as np
 import time
 import logging
 
-# Define your username
+# Define usernames which run from python, and not docker
 your_username = "mikke"
 
 # Check if the current user is you

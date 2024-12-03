@@ -36,7 +36,7 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     - combined_cloud: The final merged point cloud.
     """
     SkipICP = False
-
+    ShowMe = True
     # Visual aide for the axis of rotation
 
     arrows = [

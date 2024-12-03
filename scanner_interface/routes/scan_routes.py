@@ -321,6 +321,8 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         )
                         logger.info(f"ICP transform: {icp_transform}")
                         # PRINT ICP TRANFORM TO positions.json
+                        # SAVE ALSO THE NORM, A MEASUREMENT OF SIZE/HOW CLOSE THE INITIAL TRANSFORMATION WAS
+                        # trans_Norm = np.linalg.norm(icp_transformation)
 
                         pcd_dict.update({"scan_main": {"pcd": combined_pcd, "rotation": target_rotation}})
                         del pcd_dict[lowest_scan_key]
@@ -406,7 +408,6 @@ def increase_exposure_time(scanner, increment):
     except Exception as e:
         logger.error(f"Exception while increasing exposure time: {e}")
         return False
-    
 
 def increase_led_power(scanner, increment):
     """
@@ -446,7 +447,7 @@ def increase_led_power(scanner, increment):
         return False
 
 @scan_bp.route('/Scanner_calibration_scan', methods=['POST'])
-def exposure_calibration_scan():
+def Scanner_calibration_scan():
     """Start an scanner calibration scan at the zero position (0,0)."""
     try:
         logger.info("Starting Scanner calibration scan...")

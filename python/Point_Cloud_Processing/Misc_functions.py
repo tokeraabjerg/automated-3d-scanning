@@ -246,7 +246,7 @@ def decompose_transformation(transformation):
     # Udtræk rotationsdelen (de første tre rækker og kolonner)
     rotation_matrix = transformation[:3, :3]
 
-    # Beregn Euler-vinkler fra rotationsmatrixen (roll, pitch, yaw)
+    # Beregn Euler-vinkler fra rotationsmatrixen (roll, pitch, yaw) assuming fixed angles XYZ order
     sy = np.sqrt(rotation_matrix[0, 0]**2 + rotation_matrix[1, 0]**2)
 
     singular = sy < 1e-6  # Tjek for singularitet
@@ -265,10 +265,7 @@ def decompose_transformation(transformation):
     pitch = np.degrees(pitch)
     yaw = np.degrees(yaw)
 
-    return {
-        "translation": tuple(translation),
-        "rotation": (roll, pitch, yaw),
-    }
+    return rotation_matrix, translation, roll, pitch, yaw
 
 def calculate_error(source, target):
     # Compute the point-to-point distance (RMSE)
@@ -360,8 +357,83 @@ def average_distance_to_nearest_point(pcd):
 
     return average_distance
 
+def get_xyz_euler(roll, pitch, yaw):
+    """
+    Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
+    If no Euler angles exist for the index, no rotation is applied.
+
+    Args:
+        target (o3d.geometry.PointCloud): The target point cloud to process.
+        euler_angles (list[tuple]): List of Euler angles (roll, pitch, yaw) in degrees.
+        index (int): Index in the Euler angles list to use for rotation.
+
+    Returns:
+        o3d.geometry.PointCloud: The rotated point cloud.
+        np.ndarray: The 4x4 transformation matrix used for the rotation.
+    """
+
+    # Retrieve the Euler angles at the specified index
+    roll, pitch, yaw
+
+    # Convert angles from degrees to radians
+    roll = np.radians(roll)
+    pitch = np.radians(pitch)
+    yaw = np.radians(yaw)
+
+    # Rotation matrices for each axis
+    R_x = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll), np.cos(roll)]
+    ])
+
+    R_y = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    R_z = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1]
+    ])
+
+    # Combine the rotations (R = Rz * Ry * Rx)
+    R = R_x @ R_y @ R_z
+
+    # Create a 4x4 transformation matrix
+    R_4x4 = np.eye(4)
+    R_4x4[:3, :3] = R
+
+    print(f"Point cloud rotated by Euler angles (roll={np.degrees(roll):.2f}°, pitch={np.degrees(pitch):.2f}°, yaw={np.degrees(yaw):.2f}°).")
+
+    return R
+
+
 
 if __name__ == "__main__":
-    steps, true_angle= compute_nearest_degree(15)
-    print(f"number of steps to reach 15 degrees: {steps}")
-    print(f"true angle: {true_angle}")
+    x = 45
+    y = 25
+    z = 5
+    #Fixed rotation:
+    initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(x), np.radians(y), np.radians(z)))
+    translation_vector=(10,0,5)
+    print(initial_rotation)
+
+    #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
+    
+    int_rot_4x4=np.eye(4)
+    int_rot_4x4[:3, :3] = initial_rotation 
+    translation_matrix = np.eye(4)
+    translation_matrix[:3, 3] = translation_vector 
+    initial_transformation=np.dot(translation_matrix, int_rot_4x4)  
+
+    # Test the decompose_transformation function
+    rotation_matrix, translation, roll, pitch, yaw = (decompose_transformation(initial_transformation))
+
+    print(f"Rotation matrix:\n{rotation_matrix}")
+    print(f"Translation vector: {translation}")
+    print(f"Roll: {roll:.2f}°")
+    print(f"Pitch: {pitch:.2f}°")
+    print(f"Yaw: {yaw:.2f}°")
