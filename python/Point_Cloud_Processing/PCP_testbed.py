@@ -1,11 +1,23 @@
+import getpass
 import open3d as o3d
 import numpy as np
-from IA import RANSAC_initial_alignment
-from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
-from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
-from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
-from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 import time
+
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
+    from IA import RANSAC_initial_alignment
+    from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
+    from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
+    from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+    from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+else:
+    print("The code is not being run with modules")
+
+
 
 def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size, max_correspondence_distance=4):
     """
@@ -321,7 +333,7 @@ if __name__ == "__main__":
         
         elif combined_cloud_normal_sample == None:
             current_cloud.transform(Calibration_transformation)
-            combined_cloud_normal_sample = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
+            combined_cloud_normal_sample = Preproces_normal_pipeline(current_cloud, voxel_size=0.1, std_ratio=2)
             if ShowMe is True:
                 o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow, Fikstur])
         else:

@@ -210,6 +210,10 @@ if __name__ == "__main__":
     Calibration_transformation, Fikstur=Calibration_by_fixture(Ny_alignment_vox, Fikstur_fil)
     o3d.visualization.draw_geometries([Ny_alignment_vox, Fikstur, combined_geometry], window_name="Post func transform")
 
+    # Save calibration transformation to Calibration.json
+    import json
+    with open("Calibration.json", "w") as f:
+        json.dump(Calibration_transformation.tolist(), f)
 
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")

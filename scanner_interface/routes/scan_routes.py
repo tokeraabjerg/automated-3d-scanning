@@ -277,6 +277,8 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         target_rotation = pcd_dict[lowest_scan_key]["rotation"]
                         
                         logger.info(f"Combining scan_main with {lowest_scan_key}")
+                        
+                        
                         combined_pcd = Point_Cloud_Processing(
                             combined_pcd,
                             target_pcd,
@@ -325,6 +327,75 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
             global post_processing_thread_running
             post_processing_thread_running = False
             logger.info("Post-processing thread completed.")
+
+@scan_bp.route('/exposure_calibration_scan', methods=['POST'])
+def exposure_calibration_scan():
+    """Start an Ex. calibration scan at the zero position (0,0)."""
+    try:
+        logger.info("Starting Ex. calibration scan...")
+
+        # Check if scanner is connected
+        scanner = current_app.config.get('scanner')
+        if not scanner or not scanner.connected:
+            logger.error("Scanner not connected")
+            return jsonify({'status': 'error', 'message': 'Scanner not connected'}), 400
+
+        # Ensure we're at position (0,0)
+        zero_position = {"home": True}
+        response = interpret_command(zero_position)
+        if "success" not in response.lower():
+            logger.error("Failed to move to zero position")
+            return jsonify({'status': 'error', 'message': 'Failed to move to zero position'}), 500
+
+        logger.info("Moved to zero position successfully")
+        time.sleep(1)  # Wait for motors to settle
+
+        calibrated = False
+        max_exposure_scans = 10
+        n_scans = 0
+        # Perform the calibration scan
+        while calibrated == False and n_scans < max_exposure_scans:
+            pcd = scanner.perform_scan(scan_interval=1, stop_event=current_app.config.get('stop_event'))
+            if pcd is None:
+                logger.error("Scan failed")
+                return jsonify({'status': 'error', 'message': 'Scan failed'}), 500
+
+            # Preprocess the point cloud
+            logger.info("Preprocessing point cloud...")
+            voxel_size = 1
+            pcd_voxel=pcd.voxel_down_sample(voxel_size)
+            # print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
+            
+            # Remove statistical outliers
+            # print(":: Statistically remove outliers.")
+            pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100/voxel_size), std_ratio=1)
+
+            logger.info(f"Point cloud preprocessed successfully, removed {len(ind)} outliers")
+            if len(ind) < 0.1*len(pcd_voxel.points):
+                logger.info("Calibration completed successfully")
+                calibrated = True
+
+            n_scans += 1
+
+        # Get base directory from app config
+        base_dir = current_app.config.get('base_dir')
+        calibration_dir = os.path.join(base_dir, '..', 'calibration')
+        fixture_path = os.path.join(calibration_dir, 'ref.ply')
+
+        # Get fixture path and perform calibration
+        if not os.path.exists(fixture_path):
+            logger.error("Fixture file not found")
+            return jsonify({'status': 'error', 'message': 'Reference file not found'}), 404
+        logger.info("Calibration completed and saved successfully")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Calibration completed'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error in calibration scan: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @scan_bp.route('/calibration_scan', methods=['POST'])
 def calibration_scan():

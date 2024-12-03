@@ -1,6 +1,14 @@
 import open3d as o3d
 import numpy as np
 
+def global_imports(modulename,shortname = None, asfunction = False):
+    if shortname is None: 
+        shortname = modulename
+    if asfunction is False:
+        globals()[shortname] = __import__(modulename)
+    else:        
+        globals()[shortname] = eval(modulename + "." + shortname)
+
 def compute_bounding_box(point_cloud):
     """
     Beregn bounding box for en point cloud.

@@ -1,19 +1,21 @@
+import getpass
+import open3d as o3d
+import numpy as np
+import time
+import logging
 
-try:
-    module
-except NameError:
-    import open3d as o3d
-    import numpy as np
-    import time
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
     from Misc_functions import create_arrow
     from Calibration_by_fixture import inverse_center_and_filter_point_cloud
 else:
-    if module is True:
-        import open3d as o3d
-        import numpy as np
-        import time
-        from .Misc_functions import create_arrow
-        from .Calibration_by_fixture import inverse_center_and_filter_point_cloud
+    print("The code is not being run with Toke modules")
+    from python.Point_Cloud_Processing.Misc_functions import create_arrow
+    from python.Point_Cloud_Processing.Calibration_by_fixture import inverse_center_and_filter_point_cloud
 
 
 
@@ -109,7 +111,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     theta_bins = np.linspace(0, np.pi, num_theta_bins + 1)
     phi_bins = np.linspace(-np.pi, np.pi, num_phi_bins + 1) 
     #TODO: Normally, phi is -pi to pi, but since we flip towards the camera, we can optimize as we have done here
-    # ERROR: Some point clouds REALLY dont like this.
+    #ERROR: Some point clouds REALLY dont like this.
     
     # Map each normal to a bin
     bin_indices = np.vstack([
@@ -137,7 +139,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
             bin_dict[bin_tuple] = []
         bin_dict[bin_tuple].append(idx)
 
-    
+    print("Randomly sampling points from each bin...")
     # Random scheme:
     sampled_indices = set()
     bin_keys = list(bin_dict.keys())  # Ensure bin_keys is a 1-dimensional list
@@ -199,7 +201,7 @@ if __name__ == "__main__":
     start_timer = time.time()
     print("Point cloud has", len(pcd.points), "points")
 
-    pcd = pcd.voxel_down_sample(voxel_size=0.01)
+    pcd = pcd.voxel_down_sample(voxel_size=0.1)
     pcd = inverse_center_and_filter_point_cloud(pcd, 130)
     
     #densi_pcd = color_points_by_density(pcd, radius=2)
@@ -227,11 +229,11 @@ if __name__ == "__main__":
     print(f"Time taken by old scheme: {elapsed_time:.2f} seconds")   
     """
 
-    
+    # downsampled_pcd = Preprocessed_normal_pipeline(pcd, 0.1, 2.0)
     downsampled_pcd = normal_space_sampling_with_bin_control(pcd, num_samples=int(len(pcd.points)/12), radius=3, max_nn=100, bin_size=360)
     print("Downsampled point cloud has", len(downsampled_pcd.points), "points")
-    downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2)
-    print("Outlier removed point cloud has", len(downsampled_pcd.points), "points")
+    # downsampled_pcd, ind = downsampled_pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2)
+    # print("Outlier removed point cloud has", len(downsampled_pcd.points), "points")
     end_timer = time.time()
     elapsed_time = end_timer - start_timer
     print(f"Time taken by new scheme: {elapsed_time:.2f} seconds")   
@@ -261,7 +263,7 @@ def downsample_normal_space(point_cloud, num_samples, radius):
     # Compute normals for the point cloud
     print("Estimating normals...")
     if not point_cloud.has_normals():
-        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn=30), fast_normal_computation=False)
+        point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn=50), fast_normal_computation=False)
     normals = np.asarray(point_cloud.normals)
     print("picking normals...")
     # Convert normals to spherical coordinates (theta, phi)
@@ -294,3 +296,4 @@ def downsample_normal_space(point_cloud, num_samples, radius):
     downsampled_cloud = point_cloud.select_by_index(sampled_indices)
 
     return downsampled_cloud
+
