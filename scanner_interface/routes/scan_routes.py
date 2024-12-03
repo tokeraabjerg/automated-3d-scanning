@@ -304,6 +304,9 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         target_pcd = pcd_dict[lowest_scan_key]["pcd"]
                         target_rotation = pcd_dict[lowest_scan_key]["rotation"]
                         
+                        logger.info(f"---- rotation {target_rotation}")
+
+
                         logger.info(f"Combining scan_main with {lowest_scan_key}")
                         
                         
@@ -315,13 +318,15 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                             target_rotation[1],  # pos_b as theta_tilt
                             matrix
                         )
-                        
                         pcd_dict.update({"scan_main": {"pcd": combined_pcd, "rotation": target_rotation}})
                         del pcd_dict[lowest_scan_key]
                     else:
                         pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
                         rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
                         
+                        logger.info(f"---- rotation {rotation_list}")
+
+
                         logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
                         combined_pcd = Point_Cloud_Processing(
                             pcd_list[0],

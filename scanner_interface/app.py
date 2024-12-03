@@ -57,12 +57,12 @@ rotating_handler.setFormatter(formatter)
 root_logger = logging.getLogger()
 root_logger.handlers = []  # Remove existing handlers
 root_logger.addHandler(rotating_handler)
-root_logger.setLevel(logging.DEBUG)  # Set to DEBUG level
+root_logger.setLevel(logging.INFO)  # Set to DEBUG level
 
 # Configure Flask app's logger
 app.logger.handlers = []
 app.logger.addHandler(rotating_handler)
-app.logger.setLevel(logging.DEBUG)  # Set to DEBUG level
+app.logger.setLevel(logging.INFO)  # Set to DEBUG level
 
 # Disable Werkzeug logging to reduce clutter
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
