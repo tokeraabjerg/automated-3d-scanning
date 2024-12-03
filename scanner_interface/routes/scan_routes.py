@@ -88,10 +88,8 @@ def scan_thread(app, scan_interval, project_name, stop_event):
 
             # Replace direct saving with ProjectManager's save_point_cloud method
             project_manager = current_app.config.get('project_manager')
-            project_manager.save_point_cloud(pcd, project_name)
+            project_manager.save_point_cloud(pcd, project_name, pcd_secondary=pcd)
 
-            #call icp function
-            
             return pcd
             
         except Exception as e:
@@ -318,8 +316,6 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         
                         logger.info(f"Combining scan_main with {lowest_scan_key}")
                         
-                        
-
                         combined_pcd, icp_transform = Point_Cloud_Processing(
                             combined_pcd,
                             target_pcd,
@@ -344,13 +340,16 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         
                         logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
                         logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={theta_pan_diff}, theta_tilt_diff={theta_tilt_diff}")
-                        combined_pcd = Point_Cloud_Processing(
+                        combined_pcd, icp_transform = Point_Cloud_Processing(
                             pcd_list[0],
                             pcd_list[1],
                             theta_pan_diff,  # Difference in deg_a as theta_pan
                             theta_tilt_diff,  # Difference in deg_b as theta_tilt
                             matrix
                         )
+                        
+                        logger.info(f"ICP transform: {icp_transform}")
+
                         pcd_dict = {
                             "scan_main": {
                                 "pcd": combined_pcd,
@@ -364,7 +363,7 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                     logger.info("Combined point cloud saved.")
 
                 if len(pcd_dict) < 2:
-                    if len(pcd_dict) < total_positions:
+                    if len(pcd_dict) < total_positions and total_positions > 2:
                         logger.info("Waiting for new scans to process.")
                         time.sleep(2)
                     else:

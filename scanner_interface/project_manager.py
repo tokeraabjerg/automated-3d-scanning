@@ -227,32 +227,18 @@ class ProjectManager:
         project_path = os.path.join(self.output_dir, project_name)
         os.makedirs(project_path, exist_ok=True)
     
-        existing_files = [f for f in os.listdir(project_path) if f.startswith("scan_") and f.endswith(".ply")]
-        scan_numbers = [int(f.split('_')[1].split('.ply')[0]) for f in existing_files if f.split('_')[1].split('.ply')[0].isdigit()]
-        next_scan_number = max(scan_numbers, default=0) + 1
-    
         output_filename_main = os.path.join(project_path, "scan_main.ply")
-        output_filename = os.path.join(project_path, f"scan_{next_scan_number}.ply")
     
         try:
             # Save the main point cloud
             o3d.io.write_point_cloud(output_filename_main, pcd)
             self.logger.info(f"Saved main point cloud to {output_filename_main}")
     
-            # Save the point cloud with incremental filename
-            o3d.io.write_point_cloud(output_filename, pcd)
-            self.logger.info(f"Saved point cloud to {output_filename}")
-    
             # If a secondary point cloud is provided, save it
             if pcd_secondary:
-                output_filename_secondary = os.path.join(project_path, f"scan_{next_scan_number}.ply")
+                output_filename_secondary = os.path.join(project_path, "scan_secondary.ply")
                 o3d.io.write_point_cloud(output_filename_secondary, pcd_secondary)
                 self.logger.info(f"Saved secondary point cloud to {output_filename_secondary}")
-    
-                # If next_scan_number is 1, also save the secondary point cloud as scan_main.ply
-                if next_scan_number == 1:
-                    o3d.io.write_point_cloud(output_filename_main, pcd_secondary)
-                    self.logger.info(f"Saved secondary point cloud as main to {output_filename_main}")
     
         except Exception as e:
             self.logger.error(f"Failed to save point cloud: {e}")

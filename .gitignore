@@ -1,4 +1,8 @@
-scanner_interface/output/
+# Ignore everything in the output directory
+scanner_interface/output/*
+
+# Except for the specific file
+!scanner_interface/output/example/positions.json
 
 # Ignore Python cache directories
 __pycache__/

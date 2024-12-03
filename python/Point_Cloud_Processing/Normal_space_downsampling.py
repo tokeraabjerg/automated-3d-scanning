@@ -86,8 +86,8 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         o3d.geometry.PointCloud: The downsampled point cloud.
     """
 
-    logger.info("num_samples: %d", num_samples)
-    logger.info("bin_size: %d", bin_size)
+    logger.debug("num_samples: %d", num_samples)
+    logger.debug("bin_size: %d", bin_size)
     # Compute normals for the point cloud
     if not point_cloud.has_normals():
         logger.info("Estimating normals...")
@@ -156,10 +156,10 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         if random_point not in sampled_indices:
             sampled_indices.add(random_point)
         if len(sampled_indices) % 1000 == 0:
-            logger.info("Progress: %d/%d points sampled", len(sampled_indices), num_samples)
+            logger.debug("Progress: %d/%d points sampled", len(sampled_indices), num_samples)
     sampled_indices = list(sampled_indices)
-    logger.info("Number of bins: %d", len(bin_dict))
-    logger.info("Number of sampled points: %d", len(sampled_indices))
+    logger.debug("Number of bins: %d", len(bin_dict))
+    logger.debug("Number of sampled points: %d", len(sampled_indices))
     """
     # Uniform scheme:
     # The scheme below can run faster, yet does not actually randomly sample.
