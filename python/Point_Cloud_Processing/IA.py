@@ -1,7 +1,19 @@
 import open3d as o3d
 import numpy as np
 import itertools
-from ICP import Point_to_Plane
+import getpass
+
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
+    from ICP import Point_to_Plane
+else:
+    print("The code is not being run with modules")
+    from .ICP import Point_to_Plane
+
 
 def RANSAC_initial_alignment(source, target):
     # Simple initial alignment using downsampling and FPFH (Fast Point Feature Histograms)
