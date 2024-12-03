@@ -53,6 +53,7 @@ Finally, we shall consider finding normals for the Point to Plane algorithm.
 """
 
 def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
+    
     """
     Preprocess the point cloud by downsampling, estimating normals, and removing outliers.
     

@@ -16,6 +16,7 @@ import open3d as o3d
 import os
 import sys
 from typing import Optional
+import psutil  # Add this import
 
 logger = logging.getLogger(__name__)
 

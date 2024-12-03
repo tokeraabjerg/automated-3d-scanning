@@ -20,6 +20,7 @@ from .project_manager import ProjectManager  # Ensure ProjectManager is imported
 import open3d as o3d
 import numpy as np
 import psutil  # Add psutil import
+import subprocess  # Add this import
 
 from scanner_interface.routes.project_routes import project_bp
 from scanner_interface.routes.scan_routes import scan_bp
@@ -93,6 +94,8 @@ app.config['stop_event'] = stop_event
 
 def initialize():
     global scanner, config_manager, connecting_attempt
+    logger.info("Initializing application.")
+
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
@@ -147,6 +150,16 @@ def initialize():
     # Initialize ThreadPoolExecutor and store it in app config
     executor = ThreadPoolExecutor(max_workers=10)
     app.config['executor'] = executor
+
+    logger.info("Initialization completed.")
+
+def log_resource_usage(context: str):
+    """
+    Log the current CPU and memory usage.
+    """
+    cpu_usage = psutil.cpu_percent(interval=1)
+    memory_info = psutil.virtual_memory()
+    logger.info(f"{context} - CPU usage: {cpu_usage}%, Memory usage: {memory_info.percent}%")
 
 def disconnect_scanner():
     """
@@ -214,22 +227,6 @@ def get_logs():
         logger.error(f"Error reading log file: {e}")
         return "Error reading logs.", 500
 
-@app.route('/restart', methods=['POST'])
-def restart():
-    """
-    Restart the Flask application.
-    """
-    logger.info("Application restart initiated.")
-    try:
-        disconnect_scanner()
-        logger.info("Scanner disconnected for restart.")
-        # Restart the current process
-        python = sys.executable
-        os.execl(python, python, * sys.argv)
-    except Exception as e:
-        logger.error(f"Failed to restart the application: {e}")
-        return 'Application restart failed.', 500
-
 @app.route('/get_reduced_point_cloud')
 def get_reduced_point_cloud():
     """
@@ -296,6 +293,19 @@ def get_full_size_point_cloud():
         current_app.logger.error(f"Error fetching point cloud: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/restart_app', methods=['POST'])
+def restart_app():
+    """
+    Restart the Flask application.
+    """
+    logger.info("Flask application restart initiated.")
+    try:
+        # Restart the application as a module
+        os.execv(sys.executable, ['python3', '-m', 'scanner_interface.app'])
+    except Exception as e:
+        logger.error(f"Exception occurred while restarting Flask application: {e}")
+        return jsonify({'status': 'error', 'message': f"Exception occurred while restarting Flask application: {e}"}), 500
+
 def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
     """
     Process an Open3D point cloud by downsampling it if it has more than 100,000 points.
@@ -314,9 +324,8 @@ def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointC
 
 if __name__ == '__main__':
     try:
-        # Run the Flask application
+        logger.info("Starting Flask application.")
         app.run(host='0.0.0.0', port=5001, debug=True)
     finally:
-        # Ensure the scanner is disconnected on application shutdown
         disconnect_scanner()
         logger.info("Scanner disconnected on application shutdown.")

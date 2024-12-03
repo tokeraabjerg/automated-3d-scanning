@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 """
 def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4):
+    logger.info("Starting Point_Cloud_Processing")
+
     """
     Process a list of point clouds by registering and merging them iteratively.
     
@@ -67,16 +69,16 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     target_cloud_normal_sample = Preproces_normal_pipeline(target_cloud, voxel_size=0.1, std_ratio=2.0)
     logger.info("Completed Preproces_normal_pipeline")
 
+
     # Ensure normals are computed for both point clouds (Toke)
     if not combined_cloud_normal_sample.has_normals():
         logger.info("Estimating normals for combined_cloud_normal_sample")
-        combined_cloud_normal_sample.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
+        combined_cloud_normal_sample.transform(Calibration_transformation)
+        combined_cloud_normal_sample = Preproces_normal_pipeline(combined_cloud_normal_sample, voxel_size=0.1, std_ratio=2) 
+
+    
     logger.info("Normals estimated for combined_cloud_normal_sample")
 
-    if not target_cloud_normal_sample.has_normals():
-        logger.info("Estimating normals for target_cloud_normal_sample")
-        target_cloud_normal_sample.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size * 2, max_nn=30))
-    logger.info("Normals estimated for target_cloud_normal_sample")
 
     # Initial alignment based on known rotations
     if theta_pan == 0 and theta_tilt == 0:
@@ -117,7 +119,6 @@ def Point_Cloud_Processing(combined_cloud_normal_sample, target_cloud, theta_pan
     logger.info("Point_Cloud_Processing completed")
 
     return combined_cloud_normal_sample #, combined_transformation
-
 
 # Example Usage, as in Tokes code
 if __name__ == "__main__":

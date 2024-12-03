@@ -9,10 +9,14 @@
 
 from flask import Blueprint, request, jsonify, current_app  # Import current_app instead of project_manager directly
 import logging
-
+import threading
+import open3d as o3d
+import numpy as np
+import os  # Import os module
 # Use relative import instead of absolute import
 from ..project_manager import ProjectManager  # Updated to relative import
 from scanner_interface.arduino_coms import interpret_command  # Import the interpret_command function
+from scanner_interface.routes.scan_routes import post_process_thread  # Import post_process_thread
 
 # Initialize Blueprint with URL prefix
 project_bp = Blueprint('project_bp', __name__, url_prefix='/project')  # Added url_prefix='/project'
@@ -109,6 +113,31 @@ def delete_project():
         logger.error(f"Error deleting project: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to delete project.'}), 500
 
+@project_bp.route('/delete_scan_files', methods=['POST'])
+def delete_scan_files():
+    """
+    Handle the delete scan files action.
+    Expects JSON data with 'projectName'.
+    """
+    data = request.get_json()
+    project_name = data.get('projectName')
+
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name not provided.'}), 400
+
+    try:
+        # Access project_manager through current_app
+        project_manager: ProjectManager = current_app.config['project_manager']
+        project_manager.delete_scan_files(project_name)
+        logger.info(f"Deleted scan files in project: {project_name}")
+        return jsonify({'status': 'success'}), 200
+    except FileNotFoundError as e:
+        logger.error(e)
+        return jsonify({'status': 'error', 'message': str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error deleting scan files in project '{project_name}': {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to delete scan files.'}), 500
+
 @project_bp.route('/get_scan_count', methods=['GET'])
 def get_scan_count():
     """
@@ -135,23 +164,20 @@ def get_scan_count():
 def get_scan_preview():
     """
     Get a downsampled preview of the specified scan in the project.
-    Expects query parameters 'projectName' and 'scanIndex'.
+    Expects query parameters 'projectName' and 'scanFile'.
     """
     project_name = request.args.get('projectName')
-    scan_index = request.args.get('scanIndex')
+    scan_file = request.args.get('scanFile')
 
-    if not project_name or not scan_index:
-        return jsonify({'status': 'error', 'message': 'Project name or scan index not provided.'}), 400
-
-    try:
-        scan_index = int(scan_index)
-    except ValueError:
-        return jsonify({'status': 'error', 'message': 'Invalid scan index provided.'}), 400
+    if not project_name or not scan_file:
+        return jsonify({'status': 'error', 'message': 'Project name or scan file not provided.'}), 400
 
     try:
         # Access project_manager through current_app
         project_manager: ProjectManager = current_app.config['project_manager']
-        scan_preview = project_manager.get_scan_preview(project_name, scan_index)
+        scan_preview = project_manager.get_scan_preview(project_name, scan_file)
+        if scan_preview is None:
+            return jsonify({'status': 'success', 'scanPreview': None}), 200  # Return success with None if no scan files exist
         return jsonify({'status': 'success', 'scanPreview': scan_preview}), 200
     except FileNotFoundError as e:
         logger.error(e)
@@ -214,4 +240,54 @@ def preview_scan():
     except Exception as e:
         logger.error(f"Error during preview scan for '{project_name}': {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@project_bp.route('/manual_pcp', methods=['POST'])
+def manual_pcp():
+    """
+    Manually process point clouds for the specified project.
+    Expects JSON data with 'projectName'.
+    """
+    data = request.json
+    project_name = data.get('projectName')
+
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
+
+    try:
+        project_manager = current_app.config.get('project_manager')
+        if not project_manager:
+            logger.error("Project manager is not available.")
+            return jsonify({'status': 'error', 'message': 'Project manager is not available'}), 500
+
+        positions = project_manager.get_positions(project_name)
+        if not positions:
+            return jsonify({'status': 'error', 'message': 'No positions found for the project.'}), 404
+
+        # Fetch full-size point clouds
+        pcd_dict = {}
+        for index, position in enumerate(positions):
+            scan_index = index + 1
+            scan_filename = f"scan_{scan_index}.ply"
+            scan_filepath = os.path.join(project_manager.output_dir, project_name, scan_filename)
+            if os.path.exists(scan_filepath):
+                pcd = o3d.io.read_point_cloud(scan_filepath)
+                pcd_dict[f"scan_{scan_index}"] = {
+                    "pcd": pcd,
+                    "rotation": [position['pos_a'], position['pos_b']]  # Rotation determined from positions.json
+                }
+
+        if not pcd_dict:
+            return jsonify({'status': 'error', 'message': 'No point clouds found for the project.'}), 404
+
+        # Start post-processing thread
+        app = current_app._get_current_object()
+        post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
+        post_processing_thread.start()
+
+        return jsonify({'status': 'success', 'message': 'Manual point cloud processing started.'}), 200
+
+    except Exception as e:
+        logger.error(f"Error during manual point cloud processing for '{project_name}': {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 

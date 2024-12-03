@@ -272,7 +272,7 @@ class ProjectManager:
         ]
         return len(scan_files)
 
-    def get_scan_preview(self, project_name, scan_index):
+    def get_scan_preview(self, project_name, scan_file):
         """
         Get a downsampled preview of the specified scan in the project.
         """
@@ -281,11 +281,10 @@ class ProjectManager:
             self.logger.error(f"Project '{project_name}' does not exist.")
             raise FileNotFoundError(f"Project '{project_name}' does not exist.")
 
-        scan_filename = f"scan_{scan_index}.ply"
-        scan_filepath = os.path.join(project_path, scan_filename)
+        scan_filepath = os.path.join(project_path, f"{scan_file}.ply")
         if not os.path.exists(scan_filepath):
-            self.logger.error(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
-            raise FileNotFoundError(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
+            self.logger.warning(f"Scan file '{scan_file}.ply' does not exist in project '{project_name}'.")
+            return None  # Return None instead of raising an error
 
         try:
             # Load the point cloud
@@ -295,10 +294,10 @@ class ProjectManager:
             # Convert the downsampled point cloud to a format suitable for JSON response
             downsampled_points = np.asarray(downsampled_pcd.points).tolist()
             downsampled_intensities = np.asarray(downsampled_pcd.colors)[:, 0].tolist()  # Assuming intensity is stored in colors
-            self.logger.info(f"Returning reduced point cloud for scan '{scan_filename}' with {len(downsampled_points)} points.")
+            self.logger.info(f"Returning reduced point cloud for scan '{scan_file}.ply' with {len(downsampled_points)} points.")
             return {'points': downsampled_points, 'intensities': downsampled_intensities}
         except Exception as e:
-            self.logger.error(f"Error getting scan preview for '{scan_filename}': {e}")
+            self.logger.error(f"Error getting scan preview for '{scan_file}.ply': {e}")
             raise e
 
     def get_full_size_point_cloud(self, project_name, scan_index, downsample=False, target_points=100000):
@@ -311,7 +310,8 @@ class ProjectManager:
             self.logger.error(f"Project '{project_name}' does not exist.")
             raise FileNotFoundError(f"Project '{project_name}' does not exist.")
 
-        scan_filename = f"scan_{scan_index}.ply"
+        # Handle scan_main for index 0
+        scan_filename = "scan_main.ply" if scan_index == 0 else f"scan_{scan_index}.ply"
         scan_filepath = os.path.join(project_path, scan_filename)
         if not os.path.exists(scan_filepath):
             self.logger.error(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
@@ -354,4 +354,23 @@ class ProjectManager:
         except Exception as e:
             self.logger.error(f"Error reading positions.json for project '{project_name}': {e}")
             return None
+
+    def delete_scan_files(self, project_name):
+        """
+        Delete only scan files (scan_main and scan_i) in the specified project directory.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        if not os.path.exists(project_path):
+            self.logger.error(f"Project '{project_name}' does not exist.")
+            raise FileNotFoundError(f"Project '{project_name}' does not exist.")
+
+        try:
+            for file_name in os.listdir(project_path):
+                if file_name.startswith("scan_") and file_name.endswith(".ply"):
+                    file_path = os.path.join(project_path, file_name)
+                    os.remove(file_path)
+                    self.logger.info(f"Deleted scan file: {file_path}")
+        except Exception as e:
+            self.logger.error(f"Error deleting scan files in project '{project_name}': {e}")
+            raise e
 

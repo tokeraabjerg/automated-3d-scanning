@@ -65,7 +65,7 @@ def scan_thread(app, scan_interval, project_name, stop_event):
     """
     logger.debug("scan_thread function called.")
     logger.info("Scan thread started.")
-    
+
     with app.app_context():
         try:
             scan_lock = current_app.config.get('scan_lock')
@@ -126,12 +126,22 @@ def stop_scan():
         logger.warning("Attempted to stop scan, but scanner instance is None.")
         return jsonify({"status": "error", "message": "Scanner is not connected."}), 400
 
+# Ensure the stop event is reset after the scan is stopped
+def reset_stop_event():
+    stop_event = current_app.config.get('stop_event')
+    if stop_event:
+        stop_event.clear()
+        logger.info("Stop event reset.")
+
+# Call reset_stop_event after the scan is stopped
 @scan_bp.route('/is_processing', methods=['GET'])
 def is_processing():
     """
     Check if a scan is currently in progress.
     """
     scan_in_progress = current_app.config.get('scan_in_progress', False)
+    if not scan_in_progress:
+        reset_stop_event()
     return jsonify({'processing': scan_in_progress})
 
 @scan_bp.route('/auto_scan', methods=['POST'])
@@ -157,6 +167,14 @@ def auto_scan():
         positions = project_manager.get_positions(project_name)
         if positions is None:
             return jsonify({'status': 'error', 'message': 'positions.json not found or empty'}), 404
+
+        # Check for existing scans in the project directory
+        existing_scans = project_manager.get_scan_count(project_name)
+        if existing_scans > 0:
+            return jsonify({
+                'status': 'warning',
+                'message': 'Existing scans found. Do you want to overwrite them? You can run post-processing without capturing new scans by running manual PCP.'
+            }), 200
 
         # Start the auto scan thread
         executor = current_app.config['executor']
@@ -226,13 +244,22 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
 
                 logger.info(f"We currently got {len(pcd_dict)} scans")
 
+                # Save the combined point cloud
+                project_manager = current_app.config.get('project_manager')
+                project_manager.save_point_cloud(new_pcd, project_name)
+                logger.info("Point cloud saved.")
+
                 # If there are 2 or more point clouds and no post-processing thread is running, start post-processing in a new thread
                 global post_processing_thread_running
                 if len(pcd_dict) >= 2 and not post_processing_thread_running:
                     logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
                     post_processing_thread_running = True
-                    post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
-                    post_processing_thread.start()
+                    # post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
+                    # post_processing_thread.start()
+
+            # Send success message after completing all scans
+            logger.info(f"Auto scan completed successfully for project: {project_name}")
+            return jsonify({'status': 'success', 'message': 'Auto scan completed successfully', 'project': project_name}), 200
 
     except Exception as e:
         current_app.logger.error(f"Error in auto scan thread: {e}")
@@ -252,6 +279,7 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
     Thread function to handle post-processing of point clouds.
     """
     logger.info("Post-processing thread started.")
+
     with app.app_context():
         try:
             # Get saved calibration transformation
@@ -322,6 +350,7 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         logger.info("No more scans to process. Exiting post-processing thread.")
                         break
 
+            logger.info("Post-processing thread completed.")
         except Exception as e:
             logger.error(f"Error in post-processing thread: {e}")
         finally:

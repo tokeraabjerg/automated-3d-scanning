@@ -66,6 +66,10 @@ def color_points_by_density(pcd, radius):
 
     return pcd
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, max_nn=50, bin_size=360):
     """
     Downsamples a point cloud using normal space sampling.
@@ -81,22 +85,23 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     Returns:
         o3d.geometry.PointCloud: The downsampled point cloud.
     """
-    print("num_samples:", num_samples)
-    print("bin_size:", bin_size)
+
+    logger.info("num_samples: %d", num_samples)
+    logger.info("bin_size: %d", bin_size)
     # Compute normals for the point cloud
     if not point_cloud.has_normals():
-        print("Estimating normals...")
+        logger.info("Estimating normals...")
         start_time = time.time()
         point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn), fast_normal_computation=True)
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"Time taken to estimate normals: {elapsed_time:.2f} seconds")
+        logger.info("Time taken to estimate normals: %.2f seconds", elapsed_time)
         # Orient normals towards the negative z-axis, improves sampling. (normals pointing away from the camera are inverted) 
         point_cloud.orient_normals_to_align_with_direction(orientation_reference=([0., 0., -1.]))
 
     
     normals = np.asarray(point_cloud.normals)
-    print("Picking normals...")
+    logger.info("Picking normals...")
     start_time = time.time()
     # Normalize the normal vectors
     normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
@@ -118,6 +123,8 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         np.digitize(theta, theta_bins) - 1,
         np.digitize(phi, phi_bins) - 1
     ]).T
+
+    logger.info("Binning normals into %d theta bins and %d phi bins", num_theta_bins, num_phi_bins)
 
     """
     OG scheme - This is SLOW for large sets of points
@@ -148,10 +155,11 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         random_point = np.random.choice(bin_dict[random_bin])
         if random_point not in sampled_indices:
             sampled_indices.add(random_point)
+        if len(sampled_indices) % 1000 == 0:
+            logger.info("Progress: %d/%d points sampled", len(sampled_indices), num_samples)
     sampled_indices = list(sampled_indices)
-    print("Number of bins:", len(bin_dict))
-    print("Number of sampled points:", len(sampled_indices))
-    
+    logger.info("Number of bins: %d", len(bin_dict))
+    logger.info("Number of sampled points: %d", len(sampled_indices))
     """
     # Uniform scheme:
     # The scheme below can run faster, yet does not actually randomly sample.
@@ -160,11 +168,11 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     sampled_indices = []
     for bin_points in bin_dict.values():
         sampled_indices.append(np.random.choice(bin_points))
-    print("Number of bins:", len(bin_dict))
-    print("Number of sampled points:", len(sampled_indices))
+    logger.info("Number of bins: %d", len(bin_dict))
+    logger.info("Number of sampled points: %d", len(sampled_indices))
     
     num_samples=int(len(bin_dict))
-    print("Number of points to sample:", num_samples)
+    logger.info("Number of points to sample: %d", num_samples)
     # Ensure we have exactly num_samples points
     sampled_indices = np.array(sampled_indices)
     if len(sampled_indices) > num_samples:
@@ -172,7 +180,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     elif len(sampled_indices) < num_samples:
         additional_indices = np.random.choice(sampled_indices, num_samples - len(sampled_indices), replace=True)
         sampled_indices = np.concatenate([sampled_indices, additional_indices])
-    print("Number of sampled points after check:", len(sampled_indices))
+    logger.info("Number of sampled points after check: %d", len(sampled_indices))
     """
 
     # Create the downsampled point cloud
@@ -180,9 +188,10 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     end_time = time.time()
 
     elapsed_time = end_time - start_time
-    print(f"Time taken to bin and pick normals: {elapsed_time:.2f} seconds")
-    
+    logger.info("Time taken to bin and pick normals: %.2f seconds", elapsed_time)
+
     return downsampled_cloud
+
 
 # Example Usage
 if __name__ == "__main__":

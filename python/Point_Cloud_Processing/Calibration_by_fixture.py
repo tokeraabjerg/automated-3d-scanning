@@ -3,7 +3,7 @@
 # This transformation than may be applied to all subsequent scans, such that initial rotation of future scans are correctly rotated.
 # Scan assumes that the fixture is at a set position (Vertical, with the flat side)
 try:
-    module
+    module=True
 except NameError:
     import open3d as o3d
     import numpy as np
