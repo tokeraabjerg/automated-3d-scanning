@@ -259,7 +259,8 @@ def manual_pcp():
             logger.error("Project manager is not available.")
             return jsonify({'status': 'error', 'message': 'Project manager is not available'}), 500
 
-        positions = project_manager.get_positions(project_name)
+        # Update positions with relative angles
+        positions = project_manager.update_positions_with_relative_angles(project_name)
         if not positions:
             return jsonify({'status': 'error', 'message': 'No positions found for the project.'}), 404
 
@@ -271,9 +272,11 @@ def manual_pcp():
             scan_filepath = os.path.join(project_manager.output_dir, project_name, scan_filename)
             if os.path.exists(scan_filepath):
                 pcd = o3d.io.read_point_cloud(scan_filepath)
+                rotation = [position['deg_a'], position['deg_b']]
+                logger.info(f"Angles for scan_{scan_index}: theta_pan={rotation[0]}, theta_tilt={rotation[1]}")
                 pcd_dict[f"scan_{scan_index}"] = {
                     "pcd": pcd,
-                    "rotation": [position['pos_a'], position['pos_b']]  # Rotation determined from positions.json
+                    "rotation": rotation  # Rotation determined from positions.json
                 }
 
         if not pcd_dict:

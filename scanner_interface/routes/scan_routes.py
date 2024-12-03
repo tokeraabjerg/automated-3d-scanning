@@ -208,6 +208,13 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
 
     try:
         with app.app_context():
+            # Update positions with relative angles
+            project_manager = current_app.config.get('project_manager')
+            positions = project_manager.update_positions_with_relative_angles(project_name)
+            if not positions:
+                logger.error(f"No positions found for the project '{project_name}'.")
+                return None
+
             for index, position in enumerate(positions):
                 if stop_event.is_set():
                     logger.info("Scan stopped by stop event.")
@@ -246,7 +253,6 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                 logger.info(f"We currently got {len(pcd_dict)} scans")
 
                 # Save the combined point cloud
-                project_manager = current_app.config.get('project_manager')
                 project_manager.save_point_cloud(new_pcd, project_name)
                 logger.info("Point cloud saved.")
 
@@ -304,10 +310,12 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                                            key=lambda k: int(k.split('_')[1]))
                         target_pcd = pcd_dict[lowest_scan_key]["pcd"]
                         target_rotation = pcd_dict[lowest_scan_key]["rotation"]
+                        main_rotation = pcd_dict["scan_main"]["rotation"]
                         
-                        logger.info(f"---- rotation {target_rotation}")
-
-
+                        # Calculate the difference in angles
+                        theta_pan_diff = target_rotation[0] - main_rotation[0]
+                        theta_tilt_diff = target_rotation[1] - main_rotation[1]
+                        
                         logger.info(f"Combining scan_main with {lowest_scan_key}")
                         
                         
@@ -315,8 +323,8 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         combined_pcd, icp_transform = Point_Cloud_Processing(
                             combined_pcd,
                             target_pcd,
-                            target_rotation[0],  # pos_a as theta_pan
-                            target_rotation[1],  # pos_b as theta_tilt
+                            theta_pan_diff,  # Difference in deg_a as theta_pan
+                            theta_tilt_diff,  # Difference in deg_b as theta_tilt
                             matrix
                         )
                         logger.info(f"ICP transform: {icp_transform}")
@@ -330,15 +338,17 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
                         rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
                         
-                        logger.info(f"---- rotation {rotation_list}")
-
-
+                        # Calculate the difference in angles
+                        theta_pan_diff = rotation_list[1][0] - rotation_list[0][0]
+                        theta_tilt_diff = rotation_list[1][1] - rotation_list[0][1]
+                        
                         logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
+                        logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={theta_pan_diff}, theta_tilt_diff={theta_tilt_diff}")
                         combined_pcd = Point_Cloud_Processing(
                             pcd_list[0],
                             pcd_list[1],
-                            rotation_list[1][0],  # pos_a as theta_pan
-                            rotation_list[1][1],  # pos_b as theta_tilt
+                            theta_pan_diff,  # Difference in deg_a as theta_pan
+                            theta_tilt_diff,  # Difference in deg_b as theta_tilt
                             matrix
                         )
                         pcd_dict = {
