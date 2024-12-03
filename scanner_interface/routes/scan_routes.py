@@ -428,10 +428,10 @@ def increase_led_power(scanner, increment):
 
         # Ensure the new LED power is within the limits
         if new_led_power < 10:
-            logger.error("Minimum LED power reached. Defaulting to 10.")
+            logger.info("Minimum LED power reached. Defaulting to 10.")
             new_led_power = 10
         elif new_led_power > 100:
-            logger.error("Maximum LED power reached. Defaulting to 100")
+            logger.info("Maximum LED power reached. Defaulting to 100.")
             new_led_power = 100
 
         # Update the LED power
@@ -445,11 +445,11 @@ def increase_led_power(scanner, increment):
         logger.error(f"Exception while increasing LED power: {e}")
         return False
 
-@scan_bp.route('/exposure_calibration_scan', methods=['POST'])
+@scan_bp.route('/Scanner_calibration_scan', methods=['POST'])
 def exposure_calibration_scan():
-    """Start an Ex. calibration scan at the zero position (0,0)."""
+    """Start an scanner calibration scan at the zero position (0,0)."""
     try:
-        logger.info("Starting Ex. calibration scan...")
+        logger.info("Starting Scanner calibration scan...")
 
         # Check if scanner is connected
         scanner = current_app.config.get('scanner')
@@ -490,6 +490,7 @@ def exposure_calibration_scan():
             # Check if intensity is too low
             average_intensity = calculate_average_intensity(pcd_voxel)
             logger.info(f"Average intensity of the point cloud: {average_intensity}")
+            # TODO: Consider adding intensity check here/logic to adjust LED power
 
             # If the number of outliers is less than 10% of the total points, calibration is successful
             logger.info(f"Point cloud preprocessed successfully, removed {len(ind)} outliers")

@@ -1,6 +1,7 @@
-
 import open3d as o3d
 import numpy as np
+import itertools
+from ICP import Point_to_Plane
 
 def RANSAC_initial_alignment(source, target):
     # Simple initial alignment using downsampling and FPFH (Fast Point Feature Histograms)
@@ -163,6 +164,59 @@ def execute_global_registration(source_down, target_down, source_fpfh,
                 distance_threshold)
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(1000, 0.99))
     return result
+
+
+def align_point_clouds(scan, stl_point_cloud):
+    """
+    Align the point cloud generated from an STL file with the final scan.
+    
+    Args:
+        scan (o3d.geometry.PointCloud): The scanned point cloud.
+        stl_point_cloud (o3d.geometry.PointCloud): The point cloud generated from the STL file.
+    
+    Returns:
+        o3d.geometry.PointCloud: The aligned scanned point cloud.
+    """
+    # Center both point clouds by density
+    scan_center = np.mean(np.asarray(scan.points), axis=0)
+    stl_center = np.mean(np.asarray(stl_point_cloud.points), axis=0)
+    scan.translate(-scan_center)
+    stl_point_cloud.translate(-stl_center)
+
+    # Define all possible 90 degree rotations
+    rotations = [
+        (0, 0, 0), (90, 0, 0), (180, 0, 0), (270, 0, 0),
+        (0, 90, 0), (0, 180, 0), (0, 270, 0),
+        (0, 0, 90), (0, 0, 180), (0, 0, 270),
+        (90, 90, 0), (90, 180, 0), (90, 270, 0),
+        (180, 90, 0), (180, 180, 0), (180, 270, 0),
+        (270, 90, 0), (270, 180, 0), (270, 270, 0)
+    ]
+
+    best_fitness = float('inf')
+    best_transformation = None
+
+    for rotation in rotations:
+        # Apply rotation
+        rotated_scan = scan.clone()
+        R = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz(np.radians(rotation))
+        rotated_scan.rotate(R, center=(0, 0, 0))
+
+        # Run Point-To-Plane ICP
+        result = o3d.pipelines.registration.registration_icp(
+            rotated_scan, stl_point_cloud, max_correspondence_distance=0.05,
+            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane()
+        )
+
+        if result.fitness < best_fitness:
+            best_fitness = result.fitness
+            best_transformation = result.transformation
+
+    # Apply the best transformation to the original scan
+    aligned_scan = scan.clone()
+    aligned_scan.transform(best_transformation)
+
+    return aligned_scan
 
 
 # def select_points(point_cloud):

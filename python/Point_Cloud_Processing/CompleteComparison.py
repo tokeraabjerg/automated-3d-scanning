@@ -3,7 +3,7 @@ import os
 import open3d as o3d
 from ICP import Point_to_Plane
 import numpy as np
-
+from IA import align_point_clouds
 
 # Dynamically add the parent of the current directory to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -13,7 +13,7 @@ sys.path.append(parent_dir)
 from Diverse_scripts.STLtoPC import stl_to_point_cloud
 from Comparison import compare_point_clouds
 from Translatory_crutch import align_centroids
-
+from IA import align_point_clouds
 
 
 def complete_comparison(design_STL, scanned_pc):
@@ -34,11 +34,14 @@ def complete_comparison(design_STL, scanned_pc):
     print("Running ICP on pointclouds.")
     Point_to_Plane(pcd1, pcd2, mcd=4)
 
+    print("Aligning point clouds using optimal initial alignment and ICP.")
+    aligned_scan = align_point_clouds(scanned_pc, design_pointcloud)
+
     print("Visualizing aligned point clouds.")
-    o3d.visualization.draw_geometries([pcd1,pcd2],window_name="Aligned with ICP")
+    o3d.visualization.draw_geometries([design_pointcloud, aligned_scan], window_name="Aligned Point Clouds")
 
     print("Initializing point cloud comparison script.")
-    compare_point_clouds(pcd1, pcd2, 0)
+    compare_point_clouds(design_pointcloud, aligned_scan, 0)
     return
 
 
