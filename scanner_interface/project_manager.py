@@ -374,3 +374,43 @@ class ProjectManager:
             self.logger.error(f"Error deleting scan files in project '{project_name}': {e}")
             raise e
 
+    def update_positions_with_relative_angles(self, project_name):
+        """
+        Update positions.json with relative angle changes for each entry compared to the first entry.
+        Append the values under each entry as deg_a and deg_b.
+        """
+        positions_file = os.path.join(self.output_dir, project_name, 'positions.json')
+        if not os.path.exists(positions_file):
+            self.logger.error(f"positions.json not found for project '{project_name}'.")
+            raise FileNotFoundError(f"positions.json not found for project '{project_name}'.")
+
+        try:
+            with open(positions_file, 'r') as file:
+                positions = json.load(file)
+
+            if not positions:
+                self.logger.error(f"No positions found in positions.json for project '{project_name}'.")
+                raise ValueError(f"No positions found in positions.json for project '{project_name}'.")
+
+            # Calculate relative angle changes
+            base_pos_a = positions[0]['pos_a']
+            base_pos_b = positions[0]['pos_b']
+            steps_per_degree = 19.5
+
+            for position in positions:
+                relative_deg_a = (position['pos_a'] - base_pos_a) / steps_per_degree
+                relative_deg_b = (position['pos_b'] - base_pos_b) / steps_per_degree
+                position['deg_a'] = relative_deg_a
+                position['deg_b'] = relative_deg_b
+
+            # Save the updated positions back to positions.json
+            with open(positions_file, 'w') as file:
+                json.dump(positions, file, indent=4)
+
+            self.logger.info(f"Updated positions.json with relative angles for project '{project_name}'.")
+
+            return positions
+        except Exception as e:
+            self.logger.error(f"Error updating positions.json for project '{project_name}': {e}")
+            raise e
+
