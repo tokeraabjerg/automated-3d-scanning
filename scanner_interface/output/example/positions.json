@@ -1,0 +1,17 @@
+[
+    {
+        "pos_a": 3000,
+        "pos_b": 619,
+        "deg_a": 0,
+        "deg_b": 0,
+        "home": true,
+        "ignore": "ignore",
+        "icp_transformation": []
+    },
+    {
+        "pos_a": 2000,
+        "pos_b": 619,
+        "deg_a": 0,
+        "deg_b": 0
+    }
+]
