@@ -8,6 +8,7 @@ import re
 import open3d as o3d
 import numpy as np
 import json
+from typing import Optional
 
 class ProjectManager:
     def __init__(self, output_dir):
@@ -213,27 +214,48 @@ class ProjectManager:
         except Exception as e:
             self.logger.error(f"Error reducing point cloud: {e}")
             raise e
-
-    def save_point_cloud(self, pcd: o3d.geometry.PointCloud, project_name: str):
+    
+    def save_point_cloud(self, pcd: o3d.geometry.PointCloud, project_name: str, pcd_secondary: Optional[o3d.geometry.PointCloud] = None):
         """
         Save the point cloud to the specified project's folder with an incremental filename.
+        If a secondary point cloud is provided, save it with a different naming convention.
         
         :param pcd: The Open3D point cloud to save.
         :param project_name: The name of the current project.
+        :param pcd_secondary: An optional secondary Open3D point cloud to save.
         """
         project_path = os.path.join(self.output_dir, project_name)
         os.makedirs(project_path, exist_ok=True)
-
+    
         existing_files = [f for f in os.listdir(project_path) if f.startswith("scan_") and f.endswith(".ply")]
         scan_numbers = [int(f.split('_')[1].split('.ply')[0]) for f in existing_files if f.split('_')[1].split('.ply')[0].isdigit()]
         next_scan_number = max(scan_numbers, default=0) + 1
-
+    
+        output_filename_main = os.path.join(project_path, "scan_main.ply")
         output_filename = os.path.join(project_path, f"scan_{next_scan_number}.ply")
+    
         try:
+            # Save the main point cloud
+            o3d.io.write_point_cloud(output_filename_main, pcd)
+            self.logger.info(f"Saved main point cloud to {output_filename_main}")
+    
+            # Save the point cloud with incremental filename
             o3d.io.write_point_cloud(output_filename, pcd)
             self.logger.info(f"Saved point cloud to {output_filename}")
+    
+            # If a secondary point cloud is provided, save it
+            if pcd_secondary:
+                output_filename_secondary = os.path.join(project_path, f"scan_{next_scan_number}.ply")
+                o3d.io.write_point_cloud(output_filename_secondary, pcd_secondary)
+                self.logger.info(f"Saved secondary point cloud to {output_filename_secondary}")
+    
+                # If next_scan_number is 1, also save the secondary point cloud as scan_main.ply
+                if next_scan_number == 1:
+                    o3d.io.write_point_cloud(output_filename_main, pcd_secondary)
+                    self.logger.info(f"Saved secondary point cloud as main to {output_filename_main}")
+    
         except Exception as e:
-            self.logger.error(f"Failed to save point cloud to {output_filename}: {e}")
+            self.logger.error(f"Failed to save point cloud: {e}")
 
     def get_scan_count(self, project_name):
         """
@@ -250,7 +272,7 @@ class ProjectManager:
         ]
         return len(scan_files)
 
-    def get_scan_preview(self, project_name, scan_index):
+    def get_scan_preview(self, project_name, scan_file):
         """
         Get a downsampled preview of the specified scan in the project.
         """
@@ -259,11 +281,10 @@ class ProjectManager:
             self.logger.error(f"Project '{project_name}' does not exist.")
             raise FileNotFoundError(f"Project '{project_name}' does not exist.")
 
-        scan_filename = f"scan_{scan_index}.ply"
-        scan_filepath = os.path.join(project_path, scan_filename)
+        scan_filepath = os.path.join(project_path, f"{scan_file}.ply")
         if not os.path.exists(scan_filepath):
-            self.logger.error(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
-            raise FileNotFoundError(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
+            self.logger.warning(f"Scan file '{scan_file}.ply' does not exist in project '{project_name}'.")
+            return None  # Return None instead of raising an error
 
         try:
             # Load the point cloud
@@ -273,10 +294,10 @@ class ProjectManager:
             # Convert the downsampled point cloud to a format suitable for JSON response
             downsampled_points = np.asarray(downsampled_pcd.points).tolist()
             downsampled_intensities = np.asarray(downsampled_pcd.colors)[:, 0].tolist()  # Assuming intensity is stored in colors
-            self.logger.info(f"Returning reduced point cloud for scan '{scan_filename}' with {len(downsampled_points)} points.")
+            self.logger.info(f"Returning reduced point cloud for scan '{scan_file}.ply' with {len(downsampled_points)} points.")
             return {'points': downsampled_points, 'intensities': downsampled_intensities}
         except Exception as e:
-            self.logger.error(f"Error getting scan preview for '{scan_filename}': {e}")
+            self.logger.error(f"Error getting scan preview for '{scan_file}.ply': {e}")
             raise e
 
     def get_full_size_point_cloud(self, project_name, scan_index, downsample=False, target_points=100000):
@@ -289,7 +310,8 @@ class ProjectManager:
             self.logger.error(f"Project '{project_name}' does not exist.")
             raise FileNotFoundError(f"Project '{project_name}' does not exist.")
 
-        scan_filename = f"scan_{scan_index}.ply"
+        # Handle scan_main for index 0
+        scan_filename = "scan_main.ply" if scan_index == 0 else f"scan_{scan_index}.ply"
         scan_filepath = os.path.join(project_path, scan_filename)
         if not os.path.exists(scan_filepath):
             self.logger.error(f"Scan file '{scan_filename}' does not exist in project '{project_name}'.")
@@ -316,6 +338,7 @@ class ProjectManager:
         """
         Retrieve the contents of positions.json for the specified project.
         """
+        self.logger.debug(f"get_positions called for project: {project_name}")
         project_path = os.path.join(self.output_dir, project_name)
         positions_file = os.path.join(project_path, 'positions.json')
 
@@ -326,9 +349,28 @@ class ProjectManager:
         try:
             with open(positions_file, 'r') as file:
                 positions = json.load(file)
-                self.logger.info(f"Retrieved positions for project '{project_name}': {positions}")
+                self.logger.info(f"Retrieved {len(positions)} positions for project '{project_name}'.")
                 return positions
         except Exception as e:
             self.logger.error(f"Error reading positions.json for project '{project_name}': {e}")
             return None
+
+    def delete_scan_files(self, project_name):
+        """
+        Delete only scan files (scan_main and scan_i) in the specified project directory.
+        """
+        project_path = os.path.join(self.output_dir, project_name)
+        if not os.path.exists(project_path):
+            self.logger.error(f"Project '{project_name}' does not exist.")
+            raise FileNotFoundError(f"Project '{project_name}' does not exist.")
+
+        try:
+            for file_name in os.listdir(project_path):
+                if file_name.startswith("scan_") and file_name.endswith(".ply"):
+                    file_path = os.path.join(project_path, file_name)
+                    os.remove(file_path)
+                    self.logger.info(f"Deleted scan file: {file_path}")
+        except Exception as e:
+            self.logger.error(f"Error deleting scan files in project '{project_name}': {e}")
+            raise e
 

@@ -19,13 +19,20 @@ import time
 from .project_manager import ProjectManager  # Ensure ProjectManager is imported
 import open3d as o3d
 import numpy as np
+import psutil  # Add psutil import
+import subprocess  # Add this import
 
-from .routes import project_bp, scan_bp, config_bp, interface_bp  # Import new Blueprint
+from scanner_interface.routes.project_routes import project_bp
+from scanner_interface.routes.scan_routes import scan_bp
+from scanner_interface.routes.config_routes import config_bp
+from scanner_interface.routes.interface_routes import interface_bp
+from scanner_interface.routes.calibration_routes import calibration_bp
 
 app = Flask(__name__)
 
 # Determine the base directory where app.py is located
 base_dir = os.path.dirname(os.path.abspath(__file__))
+app.config['base_dir'] = base_dir  # Add base_dir to app config
 
 # Set up the output directory relative to base_dir
 output_directory = os.path.join(base_dir, "output")
@@ -43,19 +50,19 @@ log_file_path = os.path.join(base_dir, 'app.log')
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 rotating_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
-rotating_handler.setLevel(logging.INFO)
+rotating_handler.setLevel(logging.DEBUG)  # Set to DEBUG level
 rotating_handler.setFormatter(formatter)
 
 # Configure root logger
 root_logger = logging.getLogger()
 root_logger.handlers = []  # Remove existing handlers
 root_logger.addHandler(rotating_handler)
-root_logger.setLevel(logging.INFO)
+root_logger.setLevel(logging.INFO)  # Set to DEBUG level
 
 # Configure Flask app's logger
 app.logger.handlers = []
 app.logger.addHandler(rotating_handler)
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.INFO)  # Set to DEBUG level
 
 # Disable Werkzeug logging to reduce clutter
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -64,6 +71,11 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 logger.info("Flask application has started.")
+
+# Log memory information
+memory_info = psutil.virtual_memory()
+logger.info(f"Total memory: {memory_info.total / (1024 ** 3):.2f} GB")
+logger.info(f"Available memory: {memory_info.available / (1024 ** 3):.2f} GB")
 
 # Global variables
 scanner = None
@@ -82,6 +94,8 @@ app.config['stop_event'] = stop_event
 
 def initialize():
     global scanner, config_manager, connecting_attempt
+    logger.info("Initializing application.")
+
     # Determine the SDK library path based on the operating system
     if sys.platform.startswith('win'):
         lib_relative_path = os.path.join("Software_ShapeDriveG4_SDK_Windows", "Sensor3D", "Sensor3d.dll")
@@ -134,8 +148,18 @@ def initialize():
     app.config['stop_event'] = stop_event
 
     # Initialize ThreadPoolExecutor and store it in app config
-    executor = ThreadPoolExecutor(max_workers=5)
+    executor = ThreadPoolExecutor(max_workers=10)
     app.config['executor'] = executor
+
+    logger.info("Initialization completed.")
+
+def log_resource_usage(context: str):
+    """
+    Log the current CPU and memory usage.
+    """
+    cpu_usage = psutil.cpu_percent(interval=1)
+    memory_info = psutil.virtual_memory()
+    logger.info(f"{context} - CPU usage: {cpu_usage}%, Memory usage: {memory_info.percent}%")
 
 def disconnect_scanner():
     """
@@ -155,7 +179,8 @@ initialize()
 app.register_blueprint(project_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(config_bp)
-app.register_blueprint(interface_bp)  # Register the new interface blueprint
+app.register_blueprint(interface_bp)
+app.register_blueprint(calibration_bp)
 
 # Route for the home page
 @app.route('/')
@@ -191,32 +216,16 @@ def get_logs():
     Get the application logs.
     """
     try:
-        with open(log_file_path, 'r') as log_file:
+        with open(log_file_path, 'rb') as log_file:
             logs = log_file.read()
-        # Optional: Sanitize logs by removing null bytes
-        sanitized_logs = logs.replace('\x00', '')
+        # Sanitize logs by removing null bytes and decoding to utf-8
+        sanitized_logs = logs.replace(b'\x00', b'').decode('utf-8', errors='ignore')
         response = Response(sanitized_logs, mimetype='text/plain; charset=utf-8')
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     except Exception as e:
         logger.error(f"Error reading log file: {e}")
         return "Error reading logs.", 500
-
-@app.route('/restart', methods=['POST'])
-def restart():
-    """
-    Restart the Flask application.
-    """
-    logger.info("Application restart initiated.")
-    try:
-        disconnect_scanner()
-        logger.info("Scanner disconnected for restart.")
-        # Restart the current process
-        python = sys.executable
-        os.execl(python, python, * sys.argv)
-    except Exception as e:
-        logger.error(f"Failed to restart the application: {e}")
-        return 'Application restart failed.', 500
 
 @app.route('/get_reduced_point_cloud')
 def get_reduced_point_cloud():
@@ -284,37 +293,18 @@ def get_full_size_point_cloud():
         current_app.logger.error(f"Error fetching point cloud: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/scan/manual_capture', methods=['POST'])
-def manual_capture():
+@app.route('/restart_app', methods=['POST'])
+def restart_app():
     """
-    Start a manual capture scan.
+    Restart the Flask application.
     """
-    data = request.json
-    scan_interval = data.get('scanInterval')
-    project_name = data.get('selectedProject')
-
-    if not scan_interval or not project_name:
-        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
-
+    logger.info("Flask application restart initiated.")
     try:
-        # Start the scan thread
-        executor = current_app.config['executor']
-        stop_event = current_app.config['stop_event']
-        scan_lock = current_app.config['scan_lock']
-        scan_in_progress = current_app.config['scan_in_progress']
-
-        with scan_lock:
-            if scan_in_progress:
-                return jsonify({'status': 'error', 'message': 'A scan is already in progress'}), 400
-            current_app.config['scan_in_progress'] = True
-
-        future = executor.submit(scan_thread, scan_interval, project_name, stop_event)
-        future.add_done_callback(lambda x: current_app.config.update(scan_in_progress=False))
-
-        return jsonify({'status': 'success', 'project': project_name}), 200
+        # Restart the application as a module
+        os.execv(sys.executable, ['python3', '-m', 'scanner_interface.app'])
     except Exception as e:
-        current_app.logger.error(f"Error starting manual capture: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.error(f"Exception occurred while restarting Flask application: {e}")
+        return jsonify({'status': 'error', 'message': f"Exception occurred while restarting Flask application: {e}"}), 500
 
 def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
     """
@@ -334,9 +324,8 @@ def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointC
 
 if __name__ == '__main__':
     try:
-        # Run the Flask application
+        logger.info("Starting Flask application.")
         app.run(host='0.0.0.0', port=5001, debug=True)
     finally:
-        # Ensure the scanner is disconnected on application shutdown
         disconnect_scanner()
         logger.info("Scanner disconnected on application shutdown.")

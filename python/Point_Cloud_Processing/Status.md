@@ -21,25 +21,26 @@ Tilføj Normal correspondeces til ICP. Burde gøre metoden mere robust. - Done, 
 
 Bedre indsigt i ICP. Lige nu er der f.eks. ingen data på hvor mange iterationer etc det tog...  - Done, new func has logging
 
+Fix Testbed/update to zero transform scheme - Done!
+
+Combined transformation som json - Toke*
+
+Ny func til 2 pcd, ikke fil dest.
+
+KD tree mean value
+
 MDP AKTIV:
-
-Fix forsøgs opstilling - pending
-
-Fix Testbed/update to zero transform scheme - Pending
 
 Bedre outlier removal. Der er noget støj tilbage på meshen. - Toke foreslår DBSCAN
 
 Skalering - Pending
 
-Combined transformation som json - Pending
-
 Test Poisson vs almen Voxel
-
-Ny func til 2 pcd, ikke fil dest.
-Evt. bedre behandling mht. 
-
-KD tree mean value
 
 Logger
 
 Function til Ola, alignment af STL
+
+Ideas for outlier removal:
+Thickness requirement (Kill zero-thickness points)
+(Ask gpt)

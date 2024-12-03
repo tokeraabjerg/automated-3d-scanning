@@ -450,6 +450,67 @@ function handleAutoScan(event) {
         return;
     }
 
+    // Check for existing scans
+    fetch(`/project/get_scan_count?projectName=${project}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success' && data.scanCount > 0) {
+                Swal.fire({
+                    title: 'Existing Scans Found',
+                    text: 'Do you want to overwrite the existing scans? You can run post-processing without capturing new scans by running manual PCP.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, overwrite',
+                    cancelButtonText: 'No, cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Delete existing scans and start auto scan
+                        deleteExistingScansAndStartAutoScan(scanInterval, project);
+                    } else {
+                        // Re-enable the Auto Scan button if the user cancels
+                        document.getElementById('auto-scan-button').disabled = false;
+                    }
+                });
+            } else {
+                // No existing scans, start auto scan directly
+                startAutoScan(scanInterval, project);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking existing scans:', error);
+            showError('An error occurred while checking existing scans.', 'Scan Validation');
+            // Re-enable the Auto Scan button on error
+            document.getElementById('auto-scan-button').disabled = false;
+        });
+}
+
+function deleteExistingScansAndStartAutoScan(scanInterval, project) {
+    fetch('/project/delete_scan_files', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ projectName: project })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            startAutoScan(scanInterval, project);
+        } else {
+            showError(`Error: ${data.message}`, 'Scan Validation');
+            // Re-enable the Auto Scan button on error
+            document.getElementById('auto-scan-button').disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting existing scans:', error);
+        showError('An error occurred while deleting existing scans.', 'Scan Validation');
+        // Re-enable the Auto Scan button on error
+        document.getElementById('auto-scan-button').disabled = false;
+    });
+}
+
+function startAutoScan(scanInterval, project) {
     // Show loading indicator with "Starting auto scan..."
     showLoadingIndicator('Starting auto scan...');
 
@@ -506,9 +567,7 @@ function handleStopScan(event) {
 
     // Disable the Stop button to prevent multiple clicks
     const stopButton = document.getElementById('stop-scan-button');
-    const startButton = document.getElementById('start-scan-button');
     stopButton.disabled = true;
-    startButton.disabled = true;
 
     fetch('/scan/stop_scan', {
         method: 'POST',
@@ -517,10 +576,7 @@ function handleStopScan(event) {
         },
         body: JSON.stringify({})
     })
-    .then(response => {
-        console.log('Response received from stop_scan:', response); // Debugging log
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         console.log('Data received from stop_scan:', data); // Debugging log
         if (data.status === 'success') {
@@ -533,7 +589,6 @@ function handleStopScan(event) {
             showError(`Error: ${data.message}`, 'Scan Status');
             hideLoadingIndicator();
             stopButton.disabled = false;
-            startButton.disabled = false;
         }
     })
     .catch(error => {
@@ -541,7 +596,6 @@ function handleStopScan(event) {
         showError('An error occurred while stopping the scan.', 'Scan Status');
         hideLoadingIndicator();
         stopButton.disabled = false;
-        startButton.disabled = true;
     });
 }
 
@@ -556,16 +610,18 @@ function pollScanStatus() {
                     clearInterval(intervalId);
                     hideLoadingIndicator();
                     showSuccess('Scan operation completed.', 'Scan Status');
-                    // Re-enable the Start button and disable the Stop button
+                    // Re-enable the Start button and Auto Scan button, and disable the Stop button
                     const startButton = document.getElementById('start-scan-button');
+                    const autoScanButton = document.getElementById('auto-scan-button');
                     const stopButton = document.getElementById('stop-scan-button');
-                    startButton.disabled = false;
-                    stopButton.disabled = true;
+                    if (startButton) startButton.disabled = false;
+                    if (autoScanButton) autoScanButton.disabled = false;
+                    if (stopButton) stopButton.disabled = true;
                 } else {
                     // Scan is still in progress
                     // Optionally, update the loading text
                     const loadingText = document.getElementById('header-loading-text');
-                    if (loadingText.textContent !== 'Scanning...') {
+                    if (loadingText && loadingText.textContent !== 'Scanning...') {
                         loadingText.textContent = 'Scanning...';
                     }
                 }
@@ -573,13 +629,22 @@ function pollScanStatus() {
             .catch(error => {
                 console.error('Error polling scan status:', error);
                 clearInterval(intervalId);
-                hideLoadingIndicator();
-                showError('An error occurred while polling scan status.', 'Scan Status');
-                // Re-enable the Start button and disable the Stop button
-                const startButton = document.getElementById('start-scan-button');
-                const stopButton = document.getElementById('stop-scan-button');
-                startButton.disabled = false;
-                stopButton.disabled = true;
+                // Only show error if scan is still in progress
+                fetch('/scan/is_processing')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.processing) {
+                            hideLoadingIndicator();
+                            showError('An error occurred while polling scan status.', 'Scan Status');
+                            // Re-enable the Start button and Auto Scan button, and disable the Stop button
+                            const startButton = document.getElementById('start-scan-button');
+                            const autoScanButton = document.getElementById('auto-scan-button');
+                            const stopButton = document.getElementById('stop-scan-button');
+                            if (startButton) startButton.disabled = false;
+                            if (autoScanButton) autoScanButton.disabled = false;
+                            if (stopButton) stopButton.disabled = true;
+                        }
+                    });
             });
     }, 1000); // Poll every 1 second
 }
@@ -733,6 +798,9 @@ function highlightSelectedProject(radio) {
             if (data.status === 'success') {
                 const plannedScanCount = data.positions.length;
                 document.getElementById('planned-scan-count').textContent = `Planned Scans: ${plannedScanCount}`;
+                // Reset currentScanIndex to 0 when a project is selected
+                currentScanIndex = 0;
+                updateScanSelector();
             } else {
                 document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
                 showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
@@ -776,7 +844,7 @@ function nextScan() {
         showWarning('No project selected.', 'Scan Selector');
         return;
     }
-    if (currentScanIndex < totalScans) {
+    if (currentScanIndex < totalScans - 1) {
         currentScanIndex++;
         updateScanSelector();
         console.log(`Current scan index: ${currentScanIndex}`);
@@ -789,7 +857,7 @@ function previousScan() {
         showWarning('No project selected.', 'Scan Selector');
         return;
     }
-    if (currentScanIndex > 1) {
+    if (currentScanIndex > 0) {
         currentScanIndex--;
         updateScanSelector();
         console.log(`Current scan index: ${currentScanIndex}`);
@@ -803,7 +871,7 @@ function firstScan() {
         return;
     }
     if (totalScans > 0) {
-        currentScanIndex = 1;
+        currentScanIndex = 0;
         updateScanSelector();
         console.log(`Current scan index: ${currentScanIndex}`);
     }
@@ -816,7 +884,7 @@ function lastScan() {
         return;
     }
     if (totalScans > 0) {
-        currentScanIndex = totalScans;
+        currentScanIndex = totalScans - 1;
         updateScanSelector();
         console.log(`Current scan index: ${currentScanIndex}`);
     }
@@ -885,6 +953,153 @@ let currentScanIndex = 1;
 let totalScans = 0;
 let lastRequestedScanIndex = null;
 
+function runPreviewScan() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+
+    // Show loading indicator with "Running preview scan..."
+    showLoadingIndicator('Running preview scan...');
+
+    fetch('/project/preview_scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            projectName: projectName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess(`Preview scan completed for project: ${data.project}`, 'Preview Scan');
+        } else {
+            showError(`Error: ${data.message}`, 'Preview Scan');
+        }
+        hideLoadingIndicator();
+    })
+    .catch(error => {
+        console.error('Error running preview scan:', error);
+        showError('An error occurred while running the preview scan.', 'Preview Scan');
+        hideLoadingIndicator();
+    });
+}
+
+function runCalibration() {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "Running calibration will overwrite the previous calibration information. Do you want to proceed?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, run calibration!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoadingIndicator('Running calibration scan...');
+            fetch('/scan/calibration_scan', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideLoadingIndicator();
+                if (data.status === 'success') {
+                    showSuccess('Calibration completed successfully');
+                } else {
+                    showError(`Calibration failed: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                hideLoadingIndicator();
+                console.error('Calibration error:', error);
+                showError('Failed to run calibration. Check the console for details.');
+            });
+        }
+    });
+}
+
+function manualPCP() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+
+    // Show loading indicator with "Starting manual PCP..."
+    showLoadingIndicator('Starting manual PCP...');
+
+    fetch('/project/manual_pcp', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            projectName: projectName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess(`Manual PCP started for project: ${data.project}`, 'Manual PCP');
+        } else {
+            showError(`Error: ${data.message}`, 'Manual PCP');
+        }
+        hideLoadingIndicator();
+    })
+    .catch(error => {
+        console.error('Error starting manual PCP:', error);
+        showError('An error occurred while starting the manual PCP.', 'Manual PCP');
+        hideLoadingIndicator();
+    });
+}
+
+function restartApp() {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "Are you sure you want to restart the Flask application?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, restart!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('/restart_app', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showSuccess(data.message, 'Application Restart');
+                } else {
+                    showError(data.message, 'Application Restart');
+                }
+            })
+            .catch(error => {
+                console.error('Error restarting application:', error);
+                showError('An error occurred while restarting the application.', 'Application Restart');
+            });
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
@@ -907,10 +1122,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'success') {
                     const previousTotalScans = totalScans;
                     totalScans = data.scanCount;
-                    document.getElementById('scan-selector').textContent = `${currentScanIndex}/${totalScans}`;
+                    document.getElementById('scan-selector').textContent = `${currentScanIndex}/${totalScans - 1}`;
                     // If auto-refresh is enabled and the total scans have increased, jump to the last scan
                     if (autoRefresh && totalScans > previousTotalScans) {
-                        currentScanIndex = totalScans;
+                        currentScanIndex = totalScans - 1;
                     }
                     // Request and display the scan preview only if the scan index has changed
                     if (currentScanIndex !== lastRequestedScanIndex) {
@@ -951,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setInterval(() => checkScannerStatus(30000), 10000); // every 10 seconds
 
         // Update scan selector every 5 seconds
-        setInterval(updateScanSelector, 5000);
+        setInterval(updateScanSelector, 10000);
 
         // Initialize auto-refresh checkbox
         let autoRefresh = localStorage.getItem('autoRefresh') !== 'false'; // Default to true if not set
@@ -961,3 +1176,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 });
+
+function requestScanPreview(projectName, scanIndex) {
+    let scanFile = scanIndex === 0 ? 'scan_main' : `scan_${scanIndex}`;
+    fetch(`/project/get_scan_preview?projectName=${projectName}&scanFile=${scanFile}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayScanPreview(data.scanPreview);
+                hideViewerLoadingIndicator(); // Hide loading indicator after scan preview is loaded
+            } else {
+                showError(`Error: ${data.message}`, 'Scan Preview');
+                hideViewerLoadingIndicator(); // Hide loading indicator on error
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching scan preview:', error);
+            showError('An unexpected error occurred while fetching scan preview.', 'Scan Preview');
+            hideViewerLoadingIndicator(); // Hide loading indicator on error
+        });
+}

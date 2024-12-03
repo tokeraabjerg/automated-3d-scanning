@@ -30,17 +30,23 @@ def send_command(command):
         except socket.error as e:
             return f"Socket error: {e}"
 
-def perform_scan():
+def interpret_command(positions):
     """
-    Perform a scan by reading positions from positions.json and moving motors.
+    Perform a scan by moving motors to the specified positions.
     """
     try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))  # Add this line
-        positions_path = os.path.join(script_dir, 'positions.json')  # Add this line
-        with open(positions_path, 'r') as file:  # Modify this line
-            positions = json.load(file)  # Load JSON data
-        
+        if not isinstance(positions, list):
+            positions = [positions]  # Ensure positions is a list
+
         for entry in positions:
+            if 'home' in entry and entry['home']:
+                response_home = send_command("HOME")
+                print(f"Homing: {response_home}")
+                if "success" not in response_home.lower():
+                    print("Error homing. Aborting scan.")
+                    return "Error homing"
+                continue  # Skip to the next entry after homing
+
             pos_a = entry['pos_a']
             pos_b = entry['pos_b']
             command_a = f"MOVE_ABS A {pos_a}"
@@ -48,14 +54,33 @@ def perform_scan():
             
             response_a = send_command(command_a)
             print(f"Motor A: {response_a}")
+            if "success" not in response_a.lower():
+                print("Error moving Motor A. Aborting scan.")
+                return "Error moving Motor A"
             
             response_b = send_command(command_b)
             print(f"Motor B: {response_b}")
+            if "success" not in response_b.lower():
+                print("Error moving Motor B. Aborting scan.")
+                return "Error moving Motor B"
             
-            time.sleep(1)  # Wait for 1 seconds between positions
-        print("Scan complete.")
+            time.sleep(0.5)  # Wait for 0.5 seconds between positions
+        return "success"
     except Exception as e:
         print(f"Error during scan: {e}")
+        return f"Error during scan: {e}"
+
+def test():
+    """
+    Test function to send a test position to interpret_command.
+    """
+    test_position = {
+        "pos_a": 2716,
+        "pos_b": 619,
+        "deg_a": 0,
+        "deg_b": 90
+    }
+    interpret_command(test_position)
 
 def main():
     # Wait for the Arduino to initialize
@@ -71,12 +96,15 @@ def main():
     print("  MOVE_ABS B <position>    - Move Driver B to absolute position")
     print("  GETPOS                   - Get current positions")
     print("  PERFORM_SCAN             - Perform scan with predefined positions")
+    print("  TEST                     - Send a test position to perform_scan")
     while True:
         command = input("Enter command: ")
         if command.lower() == 'exit':
             break
+        elif command.upper() == 'TEST':
+            test()
         elif command.upper() == 'PERFORM_SCAN':
-            perform_scan()
+            interpret_command()
         elif command.upper() == 'START_HOME_LOOP':
             response = send_command("HOME_LOOP")
             print(f"Response: {response}")

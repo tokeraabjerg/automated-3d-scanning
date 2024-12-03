@@ -53,7 +53,7 @@
         <!-- Connection Status Indicators -->
         <div id="connection-status">
             <!-- Reconnect Button -->
-            <button id="reconnectButton" onclick="attemptReconnect()">Reconnect</button>
+            <button id="reconnectButton" onclick="attemptReconnect()" title="Reconnect to the scanner">Reconnect</button>
             <!-- Connected Icon -->
             <div id="connected-icon" class="status-icon connected" title="Connected" style="display: none;"></div>
             <!-- Connecting Icon -->
@@ -76,15 +76,21 @@
             <br>
             <!-- Start and Stop Scan Buttons -->
             <div class="button-group">
-                <form id="manual-capture-form" onsubmit="handleManualCapture(event);">
-                    <button type="submit" id="manual-capture-button" class="manual-capture-button">Manual Capture</button>
-                </form>
-                <form id="auto-scan-form" onsubmit="handleAutoScan(event);">
-                    <button type="submit" id="auto-scan-button" class="start-button">Auto Scan</button>
-                </form>
-                <form id="stop-scan-form" onsubmit="handleStopScan(event);">
-                    <button type="submit" id="stop-scan-button" class="stop-button" disabled>Stop Scan</button>
-                </form>
+                <div class="left-buttons">
+                    <form id="manual-capture-form" onsubmit="handleManualCapture(event);">
+                        <button type="submit" id="manual-capture-button" class="manual-capture-button" title="Start a manual capture scan">Manual Capture</button>
+                    </form>
+                    <form id="auto-scan-form" onsubmit="handleAutoScan(event);">
+                        <button type="submit" id="auto-scan-button" class="start-button" title="Start an automatic scan">Auto Scan</button>
+                    </form>
+                    <form id="stop-scan-form" onsubmit="handleStopScan(event);">
+                        <button type="submit" id="stop-scan-button" class="stop-button" disabled title="Stop the current scan">Stop Scan</button>
+                    </form>
+                </div>
+                <div class="right-buttons">
+                    <button type="button" id="run-button" class="run-button" onclick="runPreviewScan()" title="Run a preview scan">Run</button>
+                    <button type="button" id="manual-pcp-button" class="manual-pcp-button" onclick="manualPCP()" title="Run manual post-processing">Manual PCP</button>
+                </div>
             </div>
 
             <br>
@@ -100,10 +106,10 @@
                             <label for="project-{{ loop.index }}">{{ project }}</label>
                         </div>
                         <div class="project-actions">
-                            <button class="rename-button" onclick="renameProject('{{ project }}')">
+                            <button class="rename-button" onclick="renameProject('{{ project }}')" title="Rename this project">
                                 Rename
                             </button>
-                            <button class="delete-button" onclick="deleteProject('{{ project }}')">
+                            <button class="delete-button" onclick="deleteProject('{{ project }}')" title="Delete this project">
                                 Delete
                             </button>
                         </div>
@@ -168,22 +174,30 @@
             <br>
 
             <h2>Server Controls</h2>
-            <form action="{{ url_for('restart') }}" method="post" onsubmit="return confirmRestart(event);">
-                <input type="submit" value="Restart Flask Server" class="restart-button">
-            </form>
+            <div class="button-group">
+                <div class="left-buttons">
+                    <button onclick="restartApp()" class="restart-button" title="Restart the Flask application">Restart Application</button>
+                </div>
+                <div class="right-buttons">
+                    <button onclick="runCalibration()" class="calibration-button" title="Run a calibration scan">Run Calibration</button>
+                </div>
+            </div>
+
         </div>
         <div id="right-panel">
             <div style="display: flex; align-items: center;">
                 <h2>3D Preview</h2>
                 <div id="scan-preview" style="display: flex; align-items: center; margin-left: 20px;">
-                    <button onclick="firstScan()">&#171;</button> <!-- Skip to first scan -->
-                    <button onclick="previousScan()">&lsaquo;</button> <!-- Previous scan -->
+                    <button onclick="firstScan()" title="Skip to first scan">&#171;</button> <!-- Skip to first scan -->
+                    <button onclick="previousScan()" title="Previous scan">&lsaquo;</button> <!-- Previous scan -->
                     <span id="scan-selector" style="margin: 0 10px;">Select a project</span>
-                    <button onclick="nextScan()">&rsaquo;</button> <!-- Next scan -->
-                    <button onclick="lastScan()">&#187;</button> <!-- Skip to last scan -->
+                    <button onclick="nextScan()" title="Next scan">&rsaquo;</button> <!-- Next scan -->
+                    <button onclick="lastScan()" title="Skip to last scan">&#187;</button> <!-- Skip to last scan -->
                     <label style="margin-left: 10px;">
-                        <input type="checkbox" id="auto-refresh-checkbox" onchange="toggleAutoRefresh()" checked> Auto-refresh
+                        <input type="checkbox" id="auto-refresh-checkbox" onchange="toggleAutoRefresh()" checked title="Toggle auto-refresh"> Auto-refresh
                     </label>
+                    <!-- Add subtle button for displaying full version -->
+                    <button onclick="requestAndDisplayPointCloudForIndex(currentScanIndex)" style="margin-left: 10px; font-size: 12px; padding: 5px 10px;" title="Display full version">Display full version</button>
                 </div>
             </div>
             <div id="viewer-container" style="position: relative;">
@@ -194,16 +208,12 @@
                     <span>Loading...</span>
                 </div>
             </div>
-            <h2>Project Scans</h2>
-            <div id="project-scans">
-                <p>Please select a project to view its scans.</p>
-            </div>
             <h2>Logs</h2>
             <div id="log-output">
                 Loading logs...
             </div>
             <!-- Add a button to request and display the point cloud for index 41 -->
-            <button onclick="requestAndDisplayPointCloudForIndex(41)">Display Point Cloud for Index 41</button>
+            <button onclick="requestAndDisplayPointCloudForIndex(41)" title="Display Point Cloud for Index 41">Display Point Cloud for Index 41</button>
         </div>
     </div>
 </body>

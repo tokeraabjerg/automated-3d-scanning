@@ -2,10 +2,23 @@
 # Then, based on an stl of the fixture, it find the transformation which aligns the fixture with the global axis.
 # This transformation than may be applied to all subsequent scans, such that initial rotation of future scans are correctly rotated.
 # Scan assumes that the fixture is at a set position (Vertical, with the flat side)
-
+import getpass
 import open3d as o3d
 import numpy as np
-from ICP import Point_to_Plane
+import time
+import logging
+
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
+    from ICP import Point_to_Plane
+else:
+    print("The code is not being run with modules")
+    from .ICP import Point_to_Plane
+
 
 def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     """
@@ -88,7 +101,7 @@ def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = density_vector_fiks 
     Calibration_transformation=np.dot(translation_matrix, Calibration_transformation)
-    print(Calibration_transformation)
+    #print(Calibration_transformation)
 
     # Lastly, translate the fixture out by the distance to the center of tilt
     tilt_vec=(32.77, 0, 0)
@@ -96,7 +109,7 @@ def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = tilt_vec
     Calibration_transformation=np.dot(translation_matrix, Calibration_transformation)
-    print(Calibration_transformation)
+    #print(Calibration_transformation)
     return Calibration_transformation, Fikstur
     
 def remove_points_in_box(point_cloud, min_bound, max_bound):
@@ -142,6 +155,33 @@ def center_and_filter_point_cloud(point_cloud, radius):
 
     return filtered_point_cloud, centroid
 
+def inverse_center_and_filter_point_cloud(point_cloud, radius):
+    """
+    Centers the point cloud to the global zero point and removes points beyond the specified radius around the x-axis.
+    
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        radius (float): The radius to use for filtering points.
+    
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud.
+        np.ndarray: The centroid of the original point cloud.
+    """
+    # Move the center of the point cloud to the global zero point
+    centroid = np.mean(np.asarray(point_cloud.points), axis=0)
+    point_cloud.translate(-centroid)
+
+    # Filter points within the specified radius around the x-axis
+    def filter_function(point):
+        x, y, z = point
+        distance = np.sqrt(y**2 + z**2)
+        return distance <= radius
+
+    filtered_points = np.asarray(point_cloud.points)[np.apply_along_axis(filter_function, 1, np.asarray(point_cloud.points))]
+    filtered_point_cloud = o3d.geometry.PointCloud()
+    filtered_point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+
+    return filtered_point_cloud
 
 # Eksempel på brug af funktionen:
 if __name__ == "__main__":
@@ -157,23 +197,35 @@ if __name__ == "__main__":
     for arrow in arrows:
         combined_geometry += arrow
 
+    ply_files = [
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply"
+    ]
+    theta_pan = [0, 15, -15]
+    theta_tilt = [0, 0, 0]
+    
     Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\20241127_160500_point_cloud_1.ply")
-    Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(-90))))
-    Norm, Ny_alignment_vox, meandist = preprocess_point_cloud(Ny_alignment, 1, 0.5)
+    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply")
+    Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(0))))
+    Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     
     o3d.visualization.draw_geometries([Ny_alignment_vox, Fikstur, combined_geometry], window_name="Prior to transform")
     Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
     Calibration_transformation, Fikstur=Calibration_by_fixture(Ny_alignment_vox, Fikstur_fil)
     o3d.visualization.draw_geometries([Ny_alignment_vox, Fikstur, combined_geometry], window_name="Post func transform")
 
+    # Save calibration transformation to Calibration.json
+    import json
+    with open("Calibration.json", "w") as f:
+        json.dump(Calibration_transformation.tolist(), f)
 
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt.transform(Calibration_transformation)
 
-    Norm, Ny_alignment_vox, meandist = preprocess_point_cloud(Ny_alignment, 1, 0.5)
+    Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     Ny_alignment_vox.transform(Calibration_transformation)
     #Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 2)
 

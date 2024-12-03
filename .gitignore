@@ -10,3 +10,5 @@ scanner_interface/routes/__pycache__/
 
 # Ignore specific log file
 scanner_interface/app.log
+.DS_Store
+*.DS_Store

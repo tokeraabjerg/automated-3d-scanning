@@ -97,23 +97,19 @@ function initThreeJS(pointCloud, containerId = 'viewer') {
 }
 
 function requestScanPreview(projectName, scanIndex) {
-    fetch(`/project/get_scan_preview?projectName=${projectName}&scanIndex=${scanIndex}`)
+    let scanFile = scanIndex === 0 ? 'scan_main' : `scan_${scanIndex}`;
+    fetch(`/project/get_scan_preview?projectName=${projectName}&scanFile=${scanFile}`)
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                const scanPreview = data.scanPreview;
-                // Display the scan preview using the previewer
-                loadPointCloudFromData(scanPreview);
-                hideViewerLoadingIndicator();
+                displayScanPreview(data.scanPreview);
             } else {
                 showError(`Error: ${data.message}`, 'Scan Preview');
-                hideViewerLoadingIndicator();
             }
         })
         .catch(error => {
             console.error('Error fetching scan preview:', error);
             showError('An unexpected error occurred while fetching scan preview.', 'Scan Preview');
-            hideViewerLoadingIndicator();
         });
 }
 
@@ -197,6 +193,34 @@ function requestAndDisplayPointCloudForIndex(scanIndex) {
             }
         });
 }
+
+// WebSocket listener for receiving point clouds
+function setupWebSocket() {
+    const socket = new WebSocket('ws://localhost:5001/point_cloud');
+
+    socket.onopen = function(event) {
+        console.log('WebSocket connection opened:', event);
+    };
+
+    socket.onmessage = function(event) {
+        console.log('WebSocket message received:', event);
+        const pointCloud = JSON.parse(event.data);
+        displayPointCloudOverlay(pointCloud);
+    };
+
+    socket.onclose = function(event) {
+        console.log('WebSocket connection closed:', event);
+    };
+
+    socket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+// Initialize WebSocket listener when the document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    setupWebSocket();
+});
 
 // Export the functions to be accessible from other scripts
 window.loadPointCloudFromData = loadPointCloudFromData;

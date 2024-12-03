@@ -44,20 +44,22 @@ header h1 {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
-    padding: 10px 20px;
-    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.75); /* Dark semi-transparent background */
+    padding: 15px 30px; /* Increased padding for better spacing */
+    border-radius: 10px; /* More rounded corners */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
     z-index: 1000; /* High z-index to appear above other elements */
+    color: #fff; /* White text color */
 }
 
 /* Spinner for Loading Indicator */
 .loading-indicator .spinner {
-    border: 4px solid #f3f3f3; /* Light grey */
-    border-top: 4px solid #3498db; /* Blue */
+    border: 4px solid rgba(255, 255, 255, 0.3); /* Light grey with transparency */
+    border-top: 4px solid #fff; /* White */
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    animation: spin 2s linear infinite;
+    width: 24px; /* Slightly larger spinner */
+    height: 24px; /* Slightly larger spinner */
+    animation: spin 1s linear infinite; /* Faster spin */
     margin-right: 10px;
 }
 
@@ -105,8 +107,13 @@ th {
 /* Button group styling */
 .button-group {
     display: flex;
-    gap: 10px;
+    justify-content: space-between; /* Align left and right buttons */
     margin-top: 10px;
+}
+
+.left-buttons, .right-buttons {
+    display: flex;
+    gap: 10px;
 }
 
 /* Buttons Container styling */
@@ -179,6 +186,20 @@ button, input[type="submit"] {
 
 .manual-capture-button:hover {
     background-color: #005f73; /* Darker blue on hover */
+}
+
+.manual-pcp-button {
+    background-color: #4CAF50; /* Green */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.manual-pcp-button:hover {
+    background-color: #45a049; /* Darker green on hover */
 }
 
 /* Viewer container styling */
@@ -439,6 +460,7 @@ button, input[type="submit"] {
     padding: 10px 20px;
     border-radius: 8px;
     z-index: 1000; /* High z-index to appear above other elements */
+    color: #000; /* Black text color for visibility */
 }
 
 #viewer-loading-indicator .spinner {
@@ -449,4 +471,34 @@ button, input[type="submit"] {
     height: 20px;
     animation: spin 2s linear infinite;
     margin-right: 10px;
+}
+
+/* Run button styling */
+.run-button {
+    background-color: #4CAF50; /* Green */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.run-button:hover {
+    background-color: #45a049; /* Darker green on hover */
+}
+
+/* Calibration button styling */
+.calibration-button {
+    background-color: #9c27b0; /* Purple color */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.calibration-button:hover {
+    background-color: #7b1fa2; /* Darker purple on hover */
 }
