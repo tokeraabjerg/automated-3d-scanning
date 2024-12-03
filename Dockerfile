@@ -31,6 +31,9 @@ WORKDIR /workspace
 # Copy all files from the host to the container
 COPY . /workspace
 
+# Ensure scanner_interface is a package by adding __init__.py if not already present
+RUN touch scanner_interface/__init__.py
+
 # Expose port 5001 for the Flask app
 EXPOSE 5001
 

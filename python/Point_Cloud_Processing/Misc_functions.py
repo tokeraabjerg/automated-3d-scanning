@@ -9,6 +9,40 @@ def global_imports(modulename,shortname = None, asfunction = False):
     else:        
         globals()[shortname] = eval(modulename + "." + shortname)
 
+def compute_nearest_degree(target_angle, motor):
+    """
+    Compute the nearest possible angle that a stepper motor can achieve.
+    
+    Args:
+        target_angle (float): The target angle in degrees. 
+        motor (str): The motor type (either "pan" or "tilt").
+    
+    Returns:
+        float: The closest possible angle in degrees.
+    """
+
+    # Convert the target angle to steps
+    steps_per_degree = 19.5
+    steps = target_angle * steps_per_degree
+    
+    # Round to the nearest integer step
+    nearest_steps = round(steps)
+    
+    # Convert back to degrees
+    nearest_angle = nearest_steps / steps_per_degree
+    
+    # TODO: check zero steps!
+    if motor == "pan":
+        zero_steps = 2716
+    elif motor == "tilt":
+        zero_steps = 619
+    else:
+        raise ValueError("Invalid motor type. Must be 'pan' or 'tilt'.")
+    
+    abs_steps = nearest_steps + zero_steps
+
+    return nearest_steps, abs_steps, nearest_angle
+
 def compute_bounding_box(point_cloud):
     """
     Beregn bounding box for en point cloud.
@@ -325,3 +359,9 @@ def average_distance_to_nearest_point(pcd):
     average_distance = np.mean(distances)
 
     return average_distance
+
+
+if __name__ == "__main__":
+    steps, true_angle= compute_nearest_degree(15)
+    print(f"number of steps to reach 15 degrees: {steps}")
+    print(f"true angle: {true_angle}")
