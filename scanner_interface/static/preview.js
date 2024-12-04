@@ -194,33 +194,33 @@ function requestAndDisplayPointCloudForIndex(scanIndex) {
         });
 }
 
-// WebSocket listener for receiving point clouds
-function setupWebSocket() {
-    const socket = new WebSocket('ws://localhost:5001/point_cloud');
+// // WebSocket listener for receiving point clouds
+// function setupWebSocket() {
+//     const socket = new WebSocket('ws://localhost:5001/point_cloud');
 
-    socket.onopen = function(event) {
-        console.log('WebSocket connection opened:', event);
-    };
+//     socket.onopen = function(event) {
+//         console.log('WebSocket connection opened:', event);
+//     };
 
-    socket.onmessage = function(event) {
-        console.log('WebSocket message received:', event);
-        const pointCloud = JSON.parse(event.data);
-        displayPointCloudOverlay(pointCloud);
-    };
+//     socket.onmessage = function(event) {
+//         console.log('WebSocket message received:', event);
+//         const pointCloud = JSON.parse(event.data);
+//         displayPointCloudOverlay(pointCloud);
+//     };
 
-    socket.onclose = function(event) {
-        console.log('WebSocket connection closed:', event);
-    };
+//     socket.onclose = function(event) {
+//         console.log('WebSocket connection closed:', event);
+//     };
 
-    socket.onerror = function(error) {
-        console.error('WebSocket error:', error);
-    };
-}
+//     socket.onerror = function(error) {
+//         console.error('WebSocket error:', error);
+//     };
+// }
 
-// Initialize WebSocket listener when the document is ready
-document.addEventListener('DOMContentLoaded', function() {
-    setupWebSocket();
-});
+// // Initialize WebSocket listener when the document is ready
+// document.addEventListener('DOMContentLoaded', function() {
+//     setupWebSocket();
+// });
 
 // Export the functions to be accessible from other scripts
 window.loadPointCloudFromData = loadPointCloudFromData;

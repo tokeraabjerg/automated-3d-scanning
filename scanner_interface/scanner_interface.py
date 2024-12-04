@@ -343,21 +343,19 @@ class ScannerInterface:
                 logger.error("No points acquired. Skipping this scan.")
                 return None
 
-            # Convert to numpy arrays
-            points_np = np.zeros((number_of_points.value, 3), dtype=np.float64)
-            intensities_np = np.zeros((number_of_points.value,), dtype=np.uint16)
+            ## optimized approach using numpy's vectorized operations, needs testing ##
+            # Extract all points and intensities into numpy arrays
+            all_points = np.array([(scanBuffer.point[idx].x, scanBuffer.point[idx].y, scanBuffer.point[idx].z) for idx in range(number_of_points.value)], dtype=np.float64)
+            all_intensities = np.array([scanBuffer.intensity[idx] for idx in range(number_of_points.value)], dtype=np.uint32)  # Use uint32 to avoid clipping
 
-            for idx in range(number_of_points.value):
-                point = scanBuffer.point[idx]
-                if point.x == 0 and point.y == 0 and point.z == -1:
-                    continue  # Skip points at the origin
-                points_np[idx, :] = [point.x, point.y, point.z]
-                intensities_np[idx] = scanBuffer.intensity[idx]
+            # Create a boolean mask for valid points (not at the origin)
+            valid_mask = ~((all_points[:, 0] == 0) & (all_points[:, 1] == 0) & (all_points[:, 2] == -1))
 
-            # Remove points at the origin
-            valid_indices = np.any(points_np != 0, axis=1)
-            points_np = points_np[valid_indices]
-            intensities_np = intensities_np[valid_indices]
+            # Filter out invalid points using the mask
+            points_np = all_points[valid_mask]
+            intensities_np = all_intensities[valid_mask]
+
+            logger.info(f"After filtering origin points, remaining points: {len(points_np)}")
 
             # Create Open3D point cloud
             pcd = o3d.geometry.PointCloud()
