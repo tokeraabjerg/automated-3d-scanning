@@ -30,12 +30,11 @@ def manual_capture():
     """
     logger.debug("manual_capture route called.")
     data = request.json
-    scan_interval = data.get('scanInterval')
     project_name = data.get('selectedProject')
 
-    if not scan_interval or not project_name:
+    if not project_name:
         logger.debug("Invalid data provided for manual capture.")
-        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
+        return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
 
     try:
         # Start the scan thread
@@ -51,7 +50,7 @@ def manual_capture():
             current_app.config['scan_in_progress'] = True
 
         app = current_app._get_current_object()
-        future = executor.submit(scan_thread, app, scan_interval, project_name, stop_event)
+        future = executor.submit(scan_thread, app, project_name, stop_event)
         future.add_done_callback(lambda x: app.app_context().push() or app.config.update(scan_in_progress=False))
 
         logger.debug("Manual capture scan started successfully.")
@@ -60,7 +59,7 @@ def manual_capture():
         current_app.logger.error(f"Error starting manual capture: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def scan_thread(app, scan_interval, project_name, stop_event):
+def scan_thread(app, project_name, stop_event):
     """
     Thread function to handle the scanning process.
     """
@@ -81,7 +80,7 @@ def scan_thread(app, scan_interval, project_name, stop_event):
 
             output_directory = current_app.config.get('output_directory')
 
-            pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=current_app.config.get('stop_event'))
+            pcd = scanner.perform_scan(stop_event=current_app.config.get('stop_event'))
             if pcd is None:
                 logger.error("Failed to perform scan. Exiting scan thread.")
                 return None
@@ -154,11 +153,10 @@ def auto_scan():
     Start an auto scan that loops through positions in positions.json.
     """
     data = request.json
-    scan_interval = data.get('scanInterval')
     project_name = data.get('selectedProject')
 
-    if not scan_interval or not project_name:
-        return jsonify({'status': 'error', 'message': 'Scan interval and project name are required'}), 400
+    if not project_name:
+        return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
 
     # Check if the scanner is connected
     scanner = current_app.config.get('scanner')
@@ -192,7 +190,7 @@ def auto_scan():
             current_app.config['scan_in_progress'] = True
 
         app = current_app._get_current_object()
-        future = executor.submit(auto_scan_thread, app, scan_interval, project_name, positions, stop_event)
+        future = executor.submit(auto_scan_thread, app, project_name, positions, stop_event)
         future.add_done_callback(lambda x: app.app_context().push() or app.config.update(scan_in_progress=False))
 
         return jsonify({'status': 'success', 'project': project_name}), 200
@@ -203,7 +201,7 @@ def auto_scan():
 # Add a flag to track the post-processing thread status
 post_processing_thread_running = False
 
-def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
+def auto_scan_thread(app, project_name, positions, stop_event):
     """
     Thread function to perform auto scan.
     """
@@ -243,12 +241,12 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
 
                 # Wait for the motor to stop before starting the scan
                 logger.info(f"Waiting for motor to stop before starting scan {index + 1}/{len(positions)}.")
-                time.sleep(0.5)  # Aust the sleep duration as needed
+                time.sleep(0.5)  # Adjust the sleep duration as needed
 
                 # Start scan
                 logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
                 scanner = current_app.config.get('scanner')
-                new_pcd = scanner.perform_scan(scan_interval=scan_interval, stop_event=stop_event)
+                new_pcd = scanner.perform_scan(stop_event=stop_event)
                 if new_pcd is None:
                     logger.warning(f"Scan {index + 1} failed or was stopped.")
                     continue
@@ -298,11 +296,26 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
     """
     logger.info("Post-processing thread started.")
 
+    # Define a list of colors to use for point clouds
+    colors = [
+        [1, 0, 0],  # Red
+        [0, 1, 0],  # Green
+        [0, 0, 1],  # Blue
+        [1, 1, 0],  # Yellow
+        [1, 0, 1],  # Magenta
+        [0, 1, 1],  # Cyan
+        [0.5, 0.5, 0.5],  # Gray
+        [1, 0.5, 0],  # Orange
+        [0.5, 0, 0.5],  # Purple
+        [0, 0.5, 0.5]  # Teal
+    ]
+
     with app.app_context():
         try:
             # Get saved calibration transformation
             response = current_app.test_client().get('/calibration/get_saved_calibration')
             calibration_data = response.get_json()
+            colorMe = True
 
             if calibration_data['status'] != 'success':
                 logger.error(f"Failed to get saved calibration: {calibration_data['message']}")
@@ -310,11 +323,22 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
             
             matrix = calibration_data['calibrationTransformation']
             logger.info(f"Using saved calibration transformation: {matrix}")
+            processedClouds = 0
 
             while True:
                 logger.info(f"Current pcd_dict length: {len(pcd_dict)}")
                 if len(pcd_dict) >= 2:
+                    logger.info(f"pcd_dict: {pcd_dict}")
                     logger.info(f"Post-processing {len(pcd_dict)} point clouds.")
+
+                    if colorMe == True:
+                        lowest_scan_key_2 = min((key for key in pcd_dict if key != "scan_main"), 
+                                            key=lambda k: int(k.split('_')[1]))
+                        target_color_pcd = pcd_dict[lowest_scan_key_2]["pcd"]
+
+                        target_color_pcd.paint_uniform_color(colors[processedClouds % len(colors)])
+
+
                     if "scan_main" in pcd_dict:
                         logger.info("Combining scan_main with the lowest scan key.")
                         combined_pcd = pcd_dict["scan_main"]["pcd"]
@@ -322,13 +346,8 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                                            key=lambda k: int(k.split('_')[1]))
                         target_pcd = pcd_dict[lowest_scan_key]["pcd"]
                         target_rotation = pcd_dict[lowest_scan_key]["rotation"]
-                        main_rotation = pcd_dict["scan_main"]["rotation"]
                         
-                        # # Calculate the difference in angles
-                        # theta_pan_diff = target_rotation[0] - main_rotation[0]
-                        # theta_tilt_diff = target_rotation[1] - main_rotation[1]
-                        
-                        logger.info(f"Combining scan_main with {lowest_scan_key}, using rotations {target_rotation[0]} and {target_rotation[1]}")
+                        logger.info(f"Combining scan_main with {lowest_scan_key}, using rotations {target_rotation}")
                         
                         combined_pcd, icp_transform = Point_Cloud_Processing(
                             combined_pcd,
@@ -339,16 +358,14 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         )
                         logger.info(f"ICP transform: {icp_transform}")
 
-                        pcd_dict.update({"scan_main": {"pcd": combined_pcd, "rotation": target_rotation}})
+                        pcd_dict["scan_main"]["pcd"] = combined_pcd
+                        pcd_dict["scan_main"]["rotation"] = target_rotation
                         del pcd_dict[lowest_scan_key]
+                        processedClouds += 1
                     else:
-                        logger.info("Combining the first two point clouds.")
+                        logger.info("Combining the first two point clouds. AKA creating scan_main")
                         pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
                         rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
-                        
-                        # # Calculate the difference in angles
-                        # theta_pan_diff = rotation_list[1][0] - rotation_list[0][0]
-                        # theta_tilt_diff = rotation_list[1][1] - rotation_list[0][1]
                         
                         logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
                         logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={rotation_list[1][0]}, theta_tilt_diff={ rotation_list[1][1]}")
@@ -362,25 +379,23 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         
                         logger.info(f"ICP transform: {icp_transform}")
 
-                        pcd_dict = {
-                            "scan_main": {
-                                "pcd": combined_pcd,
-                                "rotation": rotation_list[0] # I changed this to 0, it should be the first index which is 0,0. Right..?
-                            }
+                        pcd_dict["scan_main"] = {
+                            "pcd": combined_pcd,
+                            "rotation": rotation_list[0]
                         }
+                        del pcd_dict[sorted(pcd_dict.keys())[0]]
+                        del pcd_dict[sorted(pcd_dict.keys())[0]]
+                        processedClouds += 2  
 
                     # Save the combined point cloud as scan_main.ply
                     project_manager = current_app.config.get('project_manager')
                     project_manager.save_point_cloud(combined_pcd, project_name, save_as_main=True)
                     logger.info("Combined point cloud saved as scan_main.ply.")
 
-                if len(pcd_dict) < 2:
-                    if len(pcd_dict) < total_positions and total_positions > 2:
-                        logger.info("Waiting for new scans to process.")
-                        time.sleep(2)
-                    else:
-                        logger.info("No more scans to process. Exiting post-processing thread.")
-                        break
+                if processedClouds == total_positions:
+                    logger.info("All scans processed. Exiting post-processing thread.")
+                    break
+                time.sleep(2)  # Sleep for 2 seconds before checking for new point clouds
 
             logger.info("Post-processing thread completed.")
         except Exception as e:
@@ -389,11 +404,6 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
             global post_processing_thread_running
             post_processing_thread_running = False
             logger.info("Post-processing thread completed.")
-
-
-
-
-
 
 def calculate_average_intensity(pcd):
     """

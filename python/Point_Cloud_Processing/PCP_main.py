@@ -26,7 +26,11 @@ else:
 #define global variables in global scope, tsk tsk.
 ShowMe = False
 legacyMode = False
+
+
 skipalignment = False
+SkipICP = False
+
 # Initialize logger
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,7 @@ logger = logging.getLogger(__name__)
         - Defineret variabler globalt.
 
 """
-def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=6):
+def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2):
     logger.info("Starting Point_Cloud_Processing")
 
     """
@@ -56,7 +60,6 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     - combined_cloud: The final merged point cloud.
     """
     logger.info("Starting Point_Cloud_Processing")
-    SkipICP = False
 
     # Visual aide for the axis of rotation
     """
@@ -70,27 +73,27 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         AxisArrow += arrow
     """
     # Paint the target cloud
-    target_cloud.paint_uniform_color([1, 0.706, 0])
-    logger.info("Target cloud painted")
+    #target_cloud.paint_uniform_color([1, 0.706, 0])
+    logger.debug("Target cloud painted")
 
     # Apply Calibration transformation to the target cloud
     target_cloud.transform(Calibration_transformation)
-    logger.info("Applied calibration transformation to target cloud")
+    logger.debug("Applied calibration transformation to target cloud")
     
     # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
-    logger.info("Starting Preproces_normal_pipeline")
+    logger.debug("Starting Preproces_normal_pipeline")
     target_cloud_normal_sample = Preproces_normal_pipeline(target_cloud, voxel_size, std_ratio=2.0)
-    logger.info("Completed Preproces_normal_pipeline")
+    logger.debug("Completed Preproces_normal_pipeline")
 
 
     # Ensure normals are computed for the combined cloud (Toke)
     if not combined_cloud.has_normals():
-        logger.info("Estimating normals for combined_cloud_normal_sample")
+        logger.info("Estimating normals for combined_cloud_normal_sample and applying calibration transformation")
         combined_cloud.transform(Calibration_transformation)
         combined_cloud = Preproces_normal_pipeline(combined_cloud, voxel_size, std_ratio=2.0) 
 
     
-    logger.info("Normals estimated for combined_cloud_normal_sample")
+    logger.debug("Normals estimated for combined_cloud_normal_sample")
 
     logger.info(f"Angles received in Point_Cloud_Processing: theta_pan_diff={theta_pan}, theta_tilt_diff={theta_tilt}")
 
@@ -99,10 +102,10 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     else:
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
-        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(0)))
-        logger.info(f"Initial rotation matrix: {initial_rotation}")
+        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_yxz((np.radians(theta_tilt), np.radians(theta_pan), np.radians(0)))
+        logger.debug(f"Initial rotation matrix: {initial_rotation}")
         target_cloud_normal_sample.rotate(initial_rotation, center=(0, 0, 0))
-        logger.info("Rotated target cloud")
+        logger.debug("Rotated target cloud")
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
         
