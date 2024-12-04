@@ -88,7 +88,7 @@ def scan_thread(app, scan_interval, project_name, stop_event):
 
             # Replace direct saving with ProjectManager's save_point_cloud method
             project_manager = current_app.config.get('project_manager')
-            project_manager.save_point_cloud(pcd, project_name, pcd_secondary=pcd)
+            project_manager.save_point_cloud(pcd, project_name, save_as_main=False)
 
             return pcd
             
@@ -109,11 +109,13 @@ def stop_scan():
     logger.info("Starting stop scan request.")
     scan_in_progress = current_app.config.get('scan_in_progress', False)
     stop_event = current_app.config.get('stop_event')
+    auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
     scanner = current_app.config.get('scanner')
 
     if scanner is not None:
         try:
             stop_event.set()  # Signal the scanning thread to stop
+            auto_scan_stop_event.set()  # Signal the auto scan thread to stop
             with current_app.config['scan_lock']:
                 current_app.config['scan_in_progress'] = False
             logger.info("Scan stopped successfully.")
@@ -125,14 +127,17 @@ def stop_scan():
         logger.warning("Attempted to stop scan, but scanner instance is None.")
         return jsonify({"status": "error", "message": "Scanner is not connected."}), 400
 
-# Ensure the stop event is reset after the scan is stopped
-def reset_stop_event():
+# Ensure the stop events are reset after the scan is stopped
+def reset_stop_events():
     stop_event = current_app.config.get('stop_event')
-    if (stop_event):
+    auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
+    if stop_event:
         stop_event.clear()
-        logger.info("Stop event reset.")
+    if auto_scan_stop_event:
+        auto_scan_stop_event.clear()
+    logger.info("Stop events reset.")
 
-# Call reset_stop_event after the scan is stopped
+# Call reset_stop_events after the scan is stopped
 @scan_bp.route('/is_processing', methods=['GET'])
 def is_processing():
     """
@@ -140,7 +145,7 @@ def is_processing():
     """
     scan_in_progress = current_app.config.get('scan_in_progress', False)
     if not scan_in_progress:
-        reset_stop_event()
+        reset_stop_events()
     return jsonify({'processing': scan_in_progress})
 
 @scan_bp.route('/auto_scan', methods=['POST'])
@@ -203,6 +208,7 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
     Thread function to perform auto scan.
     """
     pcd_dict = {}  # Dictionary to store individual point clouds and their rotation information
+    auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
 
     try:
         with app.app_context():
@@ -214,9 +220,14 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                 return None
 
             for index, position in enumerate(positions):
-                if stop_event.is_set():
+                if stop_event.is_set() or auto_scan_stop_event.is_set():
                     logger.info("Scan stopped by stop event.")
                     break
+
+                # Ensure position is a dictionary
+                if not isinstance(position, dict):
+                    logger.error(f"Invalid position data at index {index}: {position}")
+                    continue
 
                 # Perform movement to the position
                 logger.info(f"Moving to position {index + 1}/{len(positions)}: {position}")
@@ -232,7 +243,7 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
 
                 # Wait for the motor to stop before starting the scan
                 logger.info(f"Waiting for motor to stop before starting scan {index + 1}/{len(positions)}.")
-                time.sleep(0.5)  # Adjust the sleep duration as needed
+                time.sleep(0.5)  # Aust the sleep duration as needed
 
                 # Start scan
                 logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
@@ -243,9 +254,11 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                     continue
 
                 # Add the new point cloud and its rotation information to the dictionary
+                rotation = [position['deg_a'], position['deg_b']]
                 pcd_dict[f"scan_{index + 1}"] = {
                     "pcd": new_pcd,
-                    "rotation": [position['pos_a'], position['pos_b']]
+                    "rotation": rotation,
+                    "icp_transformation": position.get('icp_transformation', [])
                 }
 
                 logger.info(f"We currently got {len(pcd_dict)} scans")
@@ -259,8 +272,8 @@ def auto_scan_thread(app, scan_interval, project_name, positions, stop_event):
                 if len(pcd_dict) >= 2 and not post_processing_thread_running:
                     logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
                     post_processing_thread_running = True
-                    # post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
-                    # post_processing_thread.start()
+                    post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
+                    post_processing_thread.start()
 
             # Send success message after completing all scans
             logger.info(f"Auto scan completed successfully for project: {project_name}")
@@ -303,6 +316,7 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                 if len(pcd_dict) >= 2:
                     logger.info(f"Post-processing {len(pcd_dict)} point clouds.")
                     if "scan_main" in pcd_dict:
+                        logger.info("Combining scan_main with the lowest scan key.")
                         combined_pcd = pcd_dict["scan_main"]["pcd"]
                         lowest_scan_key = min((key for key in pcd_dict if key != "scan_main"), 
                                            key=lambda k: int(k.split('_')[1]))
@@ -310,41 +324,39 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         target_rotation = pcd_dict[lowest_scan_key]["rotation"]
                         main_rotation = pcd_dict["scan_main"]["rotation"]
                         
-                        # Calculate the difference in angles
-                        theta_pan_diff = target_rotation[0] - main_rotation[0]
-                        theta_tilt_diff = target_rotation[1] - main_rotation[1]
+                        # # Calculate the difference in angles
+                        # theta_pan_diff = target_rotation[0] - main_rotation[0]
+                        # theta_tilt_diff = target_rotation[1] - main_rotation[1]
                         
-                        logger.info(f"Combining scan_main with {lowest_scan_key}")
+                        logger.info(f"Combining scan_main with {lowest_scan_key}, using rotations {target_rotation[0]} and {target_rotation[1]}")
                         
                         combined_pcd, icp_transform = Point_Cloud_Processing(
                             combined_pcd,
                             target_pcd,
-                            theta_pan_diff,  # Difference in deg_a as theta_pan
-                            theta_tilt_diff,  # Difference in deg_b as theta_tilt
+                            target_rotation[0], 
+                            -target_rotation[1],  
                             matrix
                         )
                         logger.info(f"ICP transform: {icp_transform}")
-                        # PRINT ICP TRANFORM TO positions.json
-                        # SAVE ALSO THE NORM, A MEASUREMENT OF SIZE/HOW CLOSE THE INITIAL TRANSFORMATION WAS
-                        # trans_Norm = np.linalg.norm(icp_transformation)
 
                         pcd_dict.update({"scan_main": {"pcd": combined_pcd, "rotation": target_rotation}})
                         del pcd_dict[lowest_scan_key]
                     else:
+                        logger.info("Combining the first two point clouds.")
                         pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
                         rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
                         
-                        # Calculate the difference in angles
-                        theta_pan_diff = rotation_list[1][0] - rotation_list[0][0]
-                        theta_tilt_diff = rotation_list[1][1] - rotation_list[0][1]
+                        # # Calculate the difference in angles
+                        # theta_pan_diff = rotation_list[1][0] - rotation_list[0][0]
+                        # theta_tilt_diff = rotation_list[1][1] - rotation_list[0][1]
                         
                         logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
-                        logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={theta_pan_diff}, theta_tilt_diff={theta_tilt_diff}")
+                        logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={rotation_list[1][0]}, theta_tilt_diff={ rotation_list[1][1]}")
                         combined_pcd, icp_transform = Point_Cloud_Processing(
                             pcd_list[0],
                             pcd_list[1],
-                            theta_pan_diff,  # Difference in deg_a as theta_pan
-                            theta_tilt_diff,  # Difference in deg_b as theta_tilt
+                            rotation_list[1][0], #pan, motor a
+                            -rotation_list[1][1],  #tilt, motor b
                             matrix
                         )
                         
@@ -353,14 +365,14 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         pcd_dict = {
                             "scan_main": {
                                 "pcd": combined_pcd,
-                                "rotation": rotation_list[1]
+                                "rotation": rotation_list[0] # I changed this to 0, it should be the first index which is 0,0. Right..?
                             }
                         }
 
-                    # Save the combined point cloud
+                    # Save the combined point cloud as scan_main.ply
                     project_manager = current_app.config.get('project_manager')
-                    project_manager.save_point_cloud(combined_pcd, project_name)
-                    logger.info("Combined point cloud saved.")
+                    project_manager.save_point_cloud(combined_pcd, project_name, save_as_main=True)
+                    logger.info("Combined point cloud saved as scan_main.ply.")
 
                 if len(pcd_dict) < 2:
                     if len(pcd_dict) < total_positions and total_positions > 2:
@@ -377,6 +389,11 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
             global post_processing_thread_running
             post_processing_thread_running = False
             logger.info("Post-processing thread completed.")
+
+
+
+
+
 
 def calculate_average_intensity(pcd):
     """
@@ -418,6 +435,8 @@ def increase_exposure_time(scanner, increment):
         logger.error(f"Exception while increasing exposure time: {e}")
         return False
 
+
+
 def increase_led_power(scanner, increment):
     """
     Increase the LED power by a set value within the limits of 10 and 100.
@@ -454,6 +473,9 @@ def increase_led_power(scanner, increment):
     except Exception as e:
         logger.error(f"Exception while increasing LED power: {e}")
         return False
+
+
+
 
 @scan_bp.route('/Scanner_calibration_scan', methods=['POST'])
 def Scanner_calibration_scan():
@@ -526,6 +548,9 @@ def Scanner_calibration_scan():
     except Exception as e:
         logger.error(f"Error in exposure calibration scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+
 
 @scan_bp.route('/calibration_scan', methods=['POST'])
 def calibration_scan():

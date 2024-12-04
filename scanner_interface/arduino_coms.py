@@ -39,7 +39,7 @@ def interpret_command(positions):
             positions = [positions]  # Ensure positions is a list
 
         for entry in positions:
-            if 'home' in entry and entry['home']:
+            if isinstance(entry, dict) and 'home' in entry and entry['home']:
                 response_home = send_command("HOME")
                 print(f"Homing: {response_home}")
                 if "success" not in response_home.lower():
@@ -47,22 +47,23 @@ def interpret_command(positions):
                     return "Error homing"
                 continue  # Skip to the next entry after homing
 
-            pos_a = entry['pos_a']
-            pos_b = entry['pos_b']
-            command_a = f"MOVE_ABS A {pos_a}"
-            command_b = f"MOVE_ABS B {pos_b}"
-            
-            response_a = send_command(command_a)
-            print(f"Motor A: {response_a}")
-            if "success" not in response_a.lower():
-                print("Error moving Motor A. Aborting scan.")
-                return "Error moving Motor A"
-            
-            response_b = send_command(command_b)
-            print(f"Motor B: {response_b}")
-            if "success" not in response_b.lower():
-                print("Error moving Motor B. Aborting scan.")
-                return "Error moving Motor B"
+            if 'pos_a' in entry and 'pos_b' in entry:
+                pos_a = entry['pos_a']
+                pos_b = entry['pos_b']
+                command_a = f"MOVE_ABS A {pos_a}"
+                command_b = f"MOVE_ABS B {pos_b}"
+                
+                response_a = send_command(command_a)
+                print(f"Motor A: {response_a}")
+                if "success" not in response_a.lower():
+                    print("Error moving Motor A. Aborting scan.")
+                    return "Error moving Motor A"
+                
+                response_b = send_command(command_b)
+                print(f"Motor B: {response_b}")
+                if "success" not in response_b.lower():
+                    print("Error moving Motor B. Aborting scan.")
+                    return "Error moving Motor B"
             
             time.sleep(0.5)  # Wait for 0.5 seconds between positions
         return "success"

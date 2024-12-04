@@ -87,12 +87,14 @@ scan_lock = threading.Lock()  # Lock for scan_in_progress
 sensor_lock = threading.Lock()  # Lock for sensor handle access
 connecting_attempt = False  # New flag to track connection attempts
 stop_event = threading.Event()  # New event to signal scan stop
+auto_scan_stop_event = threading.Event()  # New event to signal auto scan stop
 
 # Add these variables to app.config
 app.config['scan_in_progress'] = scan_in_progress
 app.config['scan_lock'] = scan_lock
 app.config['sensor_lock'] = sensor_lock 
 app.config['stop_event'] = stop_event
+app.config['auto_scan_stop_event'] = auto_scan_stop_event
 
 def initialize():
     global scanner, config_manager, connecting_attempt
@@ -148,6 +150,8 @@ def initialize():
     app.config['scan_in_progress'] = scan_in_progress
     stop_event = threading.Event()
     app.config['stop_event'] = stop_event
+    auto_scan_stop_event = threading.Event()
+    app.config['auto_scan_stop_event'] = auto_scan_stop_event
 
     # Initialize ThreadPoolExecutor and store it in app config
     executor = ThreadPoolExecutor(max_workers=10)

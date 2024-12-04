@@ -26,7 +26,7 @@ else:
 #define global variables in global scope, tsk tsk.
 ShowMe = False
 legacyMode = False
-
+skipalignment = False
 # Initialize logger
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
         - Defineret variabler globalt.
 
 """
-def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.1, max_correspondence_distance=4):
+def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=6):
     logger.info("Starting Point_Cloud_Processing")
 
     """
@@ -92,11 +92,10 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     
     logger.info("Normals estimated for combined_cloud_normal_sample")
 
+    logger.info(f"Angles received in Point_Cloud_Processing: theta_pan_diff={theta_pan}, theta_tilt_diff={theta_tilt}")
 
-    # Initial alignment based on known rotations
-    if theta_pan == 0 and theta_tilt == 0:
-        logger.info("No alignment needed")
-        initial_transformation = np.eye(4)
+    if skipalignment is True:
+        logger.info("Skipping alignment")
     else:
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
@@ -107,11 +106,6 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
         
-        int_rot_4x4 = np.eye(4)
-        int_rot_4x4[:3, :3] = initial_rotation
-        initial_transformation = int_rot_4x4
-        logger.info(f"Initial transformation matrix: {initial_transformation}")
-    
     # Step 2: Point-to-Plane ICP
     if SkipICP is True:
         logger.info("Skipping ICP")
