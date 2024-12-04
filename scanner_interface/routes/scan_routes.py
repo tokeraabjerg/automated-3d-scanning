@@ -58,8 +58,13 @@ def manual_capture():
     except Exception as e:
         current_app.logger.error(f"Error starting manual capture: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        if request.json.get('log_parameters_after_scan'):
+            project_manager = current_app.config.get('project_manager')
+            project_path = project_manager.get_project_path(project_name)
+            project_manager.read_all_configuration(project_path)
 
-def scan_thread(app, project_name, stop_event):
+def scan_thread(app, project_name, stop_event, log_parameters=False):
     """
     Thread function to handle the scanning process.
     """
@@ -98,33 +103,26 @@ def scan_thread(app, project_name, stop_event):
             with scan_lock:
                 current_app.config['scan_in_progress'] = False
             logger.info("Scan process completed and scan_in_progress flag reset.")
+            if log_parameters:
+                project_path = project_manager.get_project_path(project_name)
+                project_manager.read_all_configuration(project_path)
 
 @scan_bp.route('/stop_scan', methods=['POST'])
 def stop_scan():
     """
-    Handle scan termination request from the user by setting the stop_event.
-    This signals the scanning thread to stop the scan gracefully.
+    Endpoint to stop the ongoing scan process.
     """
-    logger.info("Starting stop scan request.")
-    scan_in_progress = current_app.config.get('scan_in_progress', False)
+    logger.info("Stop scan request received.")
     stop_event = current_app.config.get('stop_event')
     auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
-    scanner = current_app.config.get('scanner')
-
-    if scanner is not None:
-        try:
-            stop_event.set()  # Signal the scanning thread to stop
-            auto_scan_stop_event.set()  # Signal the auto scan thread to stop
-            with current_app.config['scan_lock']:
-                current_app.config['scan_in_progress'] = False
-            logger.info("Scan stopped successfully.")
-            return jsonify({"status": "success", "message": "Scan stopped."}), 200
-        except Exception as e:
-            logger.error(f"Failed to send stop command to the scanner: {e}")
-            return jsonify({"status": "error", "message": "Exception occurred while stopping scan."}), 500
-    else:
-        logger.warning("Attempted to stop scan, but scanner instance is None.")
-        return jsonify({"status": "error", "message": "Scanner is not connected."}), 400
+    
+    if stop_event:
+        stop_event.set()
+    if auto_scan_stop_event:
+        auto_scan_stop_event.set()
+    
+    reset_stop_events()
+    return jsonify({'status': 'stopped'})
 
 # Ensure the stop events are reset after the scan is stopped
 def reset_stop_events():
@@ -164,6 +162,7 @@ def auto_scan():
         return jsonify({'status': 'error', 'message': 'Scanner is not connected'}), 400
 
     try:
+        stop_scan()
         # Access project_manager through current_app
         project_manager = current_app.config['project_manager']
         positions = project_manager.get_positions(project_name)
@@ -197,6 +196,11 @@ def auto_scan():
     except Exception as e:
         current_app.logger.error(f"Error starting auto scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        if request.json.get('log_parameters_after_scan'):
+            project_manager = current_app.config['project_manager']
+            project_path = project_manager.get_project_path(project_name)
+            project_manager.read_all_configuration(project_path)
 
 # Add a flag to track the post-processing thread status
 post_processing_thread_running = False
@@ -207,6 +211,8 @@ def auto_scan_thread(app, project_name, positions, stop_event):
     """
     pcd_dict = {}  # Dictionary to store individual point clouds and their rotation information
     auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
+    config_manager = current_app.config.get('config_manager')
+
 
     try:
         with app.app_context():
@@ -273,22 +279,23 @@ def auto_scan_thread(app, project_name, positions, stop_event):
                     post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
                     post_processing_thread.start()
 
-            # Send success message after completing all scans
+            # Wait for the post-processing thread to finish
+            if config_manager:
+                logger.info("Logging configuration data after autoscan.")
+                project_manager.save_current_configurations(project_name)  # Call the method here
+                logger.info("Configuration data logged successfully.")
+            else:
+                logger.warning("Configuration manager not available. Skipping configuration logging.")
+
             logger.info(f"Auto scan completed successfully for project: {project_name}")
-            return jsonify({'status': 'success', 'message': 'Auto scan completed successfully', 'project': project_name}), 200
 
     except Exception as e:
         current_app.logger.error(f"Error in auto scan thread: {e}")
     finally:
         with app.app_context():
             current_app.config['scan_in_progress'] = False
-
-            # Print the total amount of scans and the number of points in each scan
-            total_scans = len(positions)
-            current_app.logger.info(f"Total scans completed: {total_scans}, expected {len(positions)}")
-            if "scan_main" in pcd_dict:
-                num_points = len(pcd_dict["scan_main"]["pcd"].points)
-                current_app.logger.info(f"Combined scan: {num_points} points")
+            reset_stop_events()  # Ensure stop events are cleared
+        logger.info("Auto scan thread terminating.")
 
 def post_process_thread(app, pcd_dict, project_name, total_positions):
     """
@@ -611,7 +618,7 @@ def calibration_scan():
         logger.info("Calibration performed successfully")
 
         # Save calibration matrix
-        os.makedirs(calibration_dir, exist_ok=True)
+        os.makedirs(calibration_dir, exist_okay=True)
         config_json_path = os.path.join(calibration_dir, 'calibration.json')
 
         with open(config_json_path, 'w') as f:

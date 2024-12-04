@@ -11,11 +11,12 @@ import json
 from typing import Optional
 
 class ProjectManager:
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, config_manager):
         """
-        Initialize the ProjectManager with the specified output directory.
+        Initialize the ProjectManager with the specified output directory and configuration manager.
         """
         self.output_dir = output_dir
+        self.config_manager = config_manager  # Store the injected config_manager
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         self.logger = logging.getLogger(__name__)
@@ -279,7 +280,7 @@ class ProjectManager:
             # Load the point cloud
             point_cloud = o3d.io.read_point_cloud(scan_filepath)
             # Downsample the point cloud for preview
-            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=10000)  # Adjust target points
+            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=100000)  # Adjust target points
             # Convert the downsampled point cloud to a format suitable for JSON response
             downsampled_points = np.asarray(downsampled_pcd.points).tolist()
             downsampled_intensities = np.asarray(downsampled_pcd.colors)[:, 0].tolist()  # Assuming intensity is stored in colors
@@ -416,4 +417,34 @@ class ProjectManager:
         except Exception as e:
             self.logger.error(f"Error updating positions.json for project '{project_name}': {e}")
             raise e
+
+    def save_current_configurations(self, project_name: str):
+        """
+        Retrieve current scanner configurations and save them to the specified project as configurations.json.
+
+        :param project_name: The name of the project where configurations will be saved.
+        """
+        try:
+            if not self.config_manager:
+                self.logger.error("Configuration manager is not available.")
+                return False
+
+            # Read all configurations
+            configurations = self.config_manager.read_all_configurations()
+
+            # Define the path to save the configurations.json
+            project_path = os.path.join(self.output_dir, project_name)
+            if not os.path.exists(project_path):
+                self.logger.error(f"Project '{project_name}' does not exist.")
+                return False
+
+            configurations_path = os.path.join(project_path, 'configurations.json')
+            with open(configurations_path, 'w') as config_file:
+                json.dump(self.config_manager.configurations, config_file, indent=4)
+
+            self.logger.info(f"Configurations saved successfully at {configurations_path}.")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to save configurations: {e}")
+            return False
 

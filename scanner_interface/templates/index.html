@@ -10,7 +10,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MLAS214 - Control Panel (v0.5)</title>
+    <title>MLAS214 - Control Panel (v0.9)</title>
     <!-- Existing CSS -->
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     
@@ -48,7 +48,7 @@
             <div class="spinner"></div>
             <span id="header-loading-text">Loading...</span>
         </div>
-        <h1>Wenglor MLAS214 - Control Panel (v0.5)</h1>
+        <h2>Wenglor MLAS214 - Control Panel (v0.9)</h2>
         
         <!-- Connection Status Indicators -->
         <div id="connection-status">
@@ -135,7 +135,7 @@
             <br><br>
             <h2>Configurations</h2>
             <form action="{{ url_for('config_bp.update_configurations') }}" method="post">
-                <table>
+                <table class="configuration">
                     <tr>
                         <th>Parameter</th>
                         <th>Value</th>
@@ -189,8 +189,8 @@
 
         </div>
         <div id="right-panel">
-            <div style="display: flex; align-items: center;">
-                <h4>3D Preview</h4>
+            <div id="right_panel_header" style="display: flex; align-items: center;">
+                <h4>3D Preview <span style="font-weight: 100; font-style: italic;">(Entry 0 is scan_main)</span></h4>
                 <div id="scan-preview">
                     <button onclick="firstScan()" title="Skip to first scan">&#171;</button> <!-- Skip to first scan -->
                     <button onclick="previousScan()" title="Previous scan">&lsaquo;</button> <!-- Previous scan -->
