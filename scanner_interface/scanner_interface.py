@@ -355,6 +355,8 @@ class ScannerInterface:
             points_np = all_points[valid_mask]
             intensities_np = all_intensities[valid_mask]
 
+            logger.info(f"After filtering origin points, remaining points: {len(points_np)}")
+
             # Create Open3D point cloud
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(points_np)
