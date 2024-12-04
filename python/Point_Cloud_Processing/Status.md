@@ -47,3 +47,5 @@ Thickness requirement (Kill zero-thickness points)
 Docker
 
 Test rotations
+
+Dokumentering af cleanup

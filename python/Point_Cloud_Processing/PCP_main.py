@@ -87,7 +87,7 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     if not combined_cloud.has_normals():
         logger.info("Estimating normals for combined_cloud_normal_sample")
         combined_cloud.transform(Calibration_transformation)
-        combined_cloud_normal_sample = Preproces_normal_pipeline(combined_cloud, voxel_size, std_ratio=2.0) 
+        combined_cloud = Preproces_normal_pipeline(combined_cloud, voxel_size, std_ratio=2.0) 
 
     
     logger.info("Normals estimated for combined_cloud_normal_sample")
@@ -99,13 +99,13 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         initial_transformation = np.eye(4)
     else:
         if ShowMe is True:
-            o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
         initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(0)))
         logger.info(f"Initial rotation matrix: {initial_rotation}")
         target_cloud_normal_sample.rotate(initial_rotation, center=(0, 0, 0))
         logger.info("Rotated target cloud")
         if ShowMe is True:
-            o3d.visualization.draw_geometries([combined_cloud_normal_sample, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
         
         int_rot_4x4 = np.eye(4)
         int_rot_4x4[:3, :3] = initial_rotation
@@ -119,19 +119,19 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         aligned_target = target_cloud_normal_sample
     else:
         logger.info("Performing ICP registration...")
-        icp_transformation, aligned_target = Point_to_Plane(combined_cloud_normal_sample, target_cloud_normal_sample, max_correspondence_distance=1)
+        icp_transformation, aligned_target = Point_to_Plane(combined_cloud, target_cloud_normal_sample, max_correspondence_distance=1)
         logger.info(f"ICP transformation matrix: {icp_transformation}")
 
-    combined_cloud_normal_sample += aligned_target
+    combined_cloud += aligned_target
     logger.info("ICP registration completed")
 
     # Optional: Visualize the current merged cloud
     if ShowMe is True:
-        o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Current cloud merged")
+        o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Current cloud merged")
 
     logger.info("Point_Cloud_Processing completed")
 
-    return combined_cloud_normal_sample, icp_transformation
+    return combined_cloud, icp_transformation
 
 # Example Usage, as in Tokes code
 if __name__ == "__main__":
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
     
     # Initialize the combined point cloud
-    combined_cloud_normal_sample = None
+    combined_cloud = None
 
     start_timePCP = time.time()
 
@@ -196,30 +196,30 @@ if __name__ == "__main__":
                 raise ValueError("lacking calibration point cloud")
         
         if legacyMode is True:
-            combined_cloud_normal_sample, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4)
+            combined_cloud, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4)
         
-        elif combined_cloud_normal_sample == None:
+        elif combined_cloud == None:
             current_cloud.transform(Calibration_transformation)
-            combined_cloud_normal_sample = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
+            combined_cloud = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
             if ShowMe is True:
-                o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow, Fikstur])
+                o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur])
         else:
-            combined_cloud_normal_sample, ICP_transform = Point_Cloud_Processing(combined_cloud_normal_sample, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.01, max_correspondence_distance=1)
+            combined_cloud, ICP_transform = Point_Cloud_Processing(combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.01, max_correspondence_distance=1)
     
-    combined_cloud_normal_sample = remove_points_within_distance_of_pointcloud(combined_cloud_normal_sample, Fikstur, 2) 
+    combined_cloud = remove_points_within_distance_of_pointcloud(combined_cloud, Fikstur, 2) 
     min_bound = (-120.0, -200.0, -50)  # Replace with your box's minimum x, y, and z coordinates
     max_bound = (40, 200, 50) 
-    combined_cloud_normal_sample = remove_points_in_box(combined_cloud_normal_sample, min_bound, max_bound)
+    combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
     
     end_timePCP = time.time()
     elapsed_timePCP = end_timePCP - start_timePCP
     print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")   
 
-    o3d.visualization.draw_geometries([combined_cloud_normal_sample, AxisArrow], window_name="Proccesed Point Clouds")
+    o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
     # Save the final merged point cloud
     output_ply = "merged_point_cloud_tester1.ply"
     #     output_trans = "combined_transformation.json"
-    o3d.io.write_point_cloud(output_ply, combined_cloud_normal_sample)
+    o3d.io.write_point_cloud(output_ply, combined_cloud)
     #print(f"Final merged point cloud saved to: {output_file}")
 
 
