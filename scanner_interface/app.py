@@ -352,8 +352,8 @@ def create_positions_file():
 def append_position():
     data = request.get_json()
     project_name = data.get('projectName')
-    pan_angle = data.get('panAngle')
-    tilt_angle = data.get('tiltAngle')
+    pan_angle = data.get('panAngle', 0)  # Default to 0 if not provided
+    tilt_angle = data.get('tiltAngle', 0)  # Default to 0 if not provided
     home = data.get('home', False)
     position_only = data.get('positionOnly', False)  # New attribute
     project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
