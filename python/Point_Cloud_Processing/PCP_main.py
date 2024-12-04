@@ -157,13 +157,13 @@ if __name__ == "__main__":
         AxisArrow += arrow
     ply_files = [
         r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
+        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply"
+        #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply"
+        #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
+        #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
     ]
     
-    ShowMe = False
+    ShowMe = True
     legacyMode = False
     
 

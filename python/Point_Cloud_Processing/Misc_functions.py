@@ -24,8 +24,14 @@ def compute_nearest_degree(target_angle, motor):
     
     Returns:
         float: The closest possible angle in degrees.
+    
+    Home-ish
+        {
+        "pos_a": 2716,  min 0 max ca 5800
+        "pos_b": 619    min 0 max ca 2000
+    }
     """
-
+    
     # Convert the target angle to steps
     steps_per_degree = 19.5
     steps = target_angle * steps_per_degree

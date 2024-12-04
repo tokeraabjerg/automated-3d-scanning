@@ -21,7 +21,9 @@ import open3d as o3d
 import numpy as np
 import psutil  # Add psutil import
 import subprocess  # Add this import
+import json  # Add this import
 
+from python.Point_Cloud_Processing.Misc_functions import compute_nearest_degree
 from scanner_interface.routes.project_routes import project_bp
 from scanner_interface.routes.scan_routes import scan_bp
 from scanner_interface.routes.config_routes import config_bp
@@ -305,6 +307,98 @@ def restart_app():
     except Exception as e:
         logger.error(f"Exception occurred while restarting Flask application: {e}")
         return jsonify({'status': 'error', 'message': f"Exception occurred while restarting Flask application: {e}"}), 500
+
+@app.route('/project/create_positions_file', methods=['POST'])
+def create_positions_file():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
+
+    logger.info(f"Received request to create positions.json for project: {project_name}")
+    logger.info(f"Project path: {project_path}")
+
+    # Wait for the project directory to be created (timeout after 5 seconds)
+    timeout = 5
+    start_time = time.time()
+    while not os.path.exists(project_path):
+        if time.time() - start_time > timeout:
+            logger.error(f"Project folder does not exist after waiting: {project_path}")
+            return jsonify({'status': 'error', 'message': 'Project folder does not exist.'}), 400
+        time.sleep(0.1)  # Sleep for 100 milliseconds before checking again
+
+    positions_file_path = os.path.join(project_path, 'positions.json')
+    logger.info(f"Positions file path: {positions_file_path}")
+
+    if not os.path.exists(positions_file_path):
+        try:
+            with open(positions_file_path, 'w') as f:
+                json.dump([{
+                    "pos_a": 2716,
+                    "pos_b": 619,
+                    "home": True,
+                    "ignore": "ignore",
+                    "icp_transformation": []
+                }], f, indent=4)  # Create the specified JSON content
+            logger.info(f"positions.json created successfully at {positions_file_path}")
+        except Exception as e:
+            logger.error(f"Error creating positions.json: {e}")
+            return jsonify({'status': 'error', 'message': f"Error creating positions.json: {e}"}), 500
+    else:
+        logger.info(f"positions.json already exists at {positions_file_path}")
+
+    return jsonify({'status': 'success', 'message': 'positions.json created successfully.'})
+
+@app.route('/project/append_position', methods=['POST'])
+def append_position():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    pan_angle = data.get('panAngle')
+    tilt_angle = data.get('tiltAngle')
+    home = data.get('home', False)
+    position_only = data.get('positionOnly', False)  # New attribute
+    project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
+
+    logger.info(f"Received request to append position for project: {project_name}")
+    logger.info(f"Project path: {project_path}")
+
+    positions_file_path = os.path.join(project_path, 'positions.json')
+    logger.info(f"Positions file path: {positions_file_path}")
+
+    if not os.path.exists(positions_file_path):
+        logger.error(f"positions.json does not exist at {positions_file_path}")
+        return jsonify({'status': 'error', 'message': 'positions.json does not exist.'}), 400
+
+    try:
+        with open(positions_file_path, 'r') as f:
+            positions = json.load(f)
+
+        _, abs_pan_steps, _ = compute_nearest_degree(pan_angle, "pan")
+        _, abs_tilt_steps, _ = compute_nearest_degree(tilt_angle, "tilt")
+
+        # Validate tilt steps
+        max_tilt_steps = 1200
+        zero_tilt_steps = 619
+        if abs_tilt_steps > max_tilt_steps:
+            max_tilt_angle = (max_tilt_steps - zero_tilt_steps) / 19.5
+            return jsonify({'status': 'error', 'message': f'Tilt angle exceeds the maximum limit of {max_tilt_angle:.2f} degrees.'}), 400
+
+        new_position = {
+            "pos_a": abs_pan_steps,
+            "pos_b": abs_tilt_steps,
+            "home": home,
+            "ignore": position_only,  # Use positionOnly attribute
+            "icp_transformation": []
+        }
+        positions.append(new_position)
+
+        with open(positions_file_path, 'w') as f:
+            json.dump(positions, f, indent=4)
+
+        logger.info(f"Appended new position to positions.json at {positions_file_path}")
+        return jsonify({'status': 'success', 'message': 'Position appended successfully.'})
+    except Exception as e:
+        logger.error(f"Error appending position: {e}")
+        return jsonify({'status': 'error', 'message': f"Error appending position: {e}"}), 500
 
 def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
     """

@@ -763,18 +763,78 @@ function createNewProject(event) {
     .then(data => {
         if (data.status === 'success') {
             showSuccess(`Project '${data.project}' created successfully.`, 'Project Management');
+            // Create positions.json in the new project folder
+            return fetch('/project/create_positions_file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    projectName: newProjectName
+                })
+            });
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess(`positions.json created successfully in project '${newProjectName}'.`, 'Project Management');
             // Reload the page or update the DOM
             location.reload();
         } else {
-            showError(`Error: ${data.message}`, 'Project Management');
+            throw new Error(data.message);
         }
     })
     .catch(error => {
-        console.error('Error creating project:', error);
-        showError('An unexpected error occurred while creating the project.', 'Project Management');
+        console.error('Error creating project or positions.json:', error);
+        showError('An unexpected error occurred while creating the project or positions.json.', 'Project Management');
     });
 
     return false; // Prevent form submission
+}
+
+function highlightSelectedProject(radio) {
+    // Remove highlight from all project items
+    const projectItems = document.querySelectorAll('.project-item');
+    projectItems.forEach(item => {
+        item.classList.remove('highlighted');
+    });
+
+    // Add highlight to the selected project item
+    const selectedProjectItem = radio.closest('.project-item');
+    if (selectedProjectItem) {
+        selectedProjectItem.classList.add('highlighted');
+    }
+
+    // Fetch and display planned scan count
+    const projectName = radio.value;
+    fetch(`/project/get_positions?projectName=${projectName}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const plannedScanCount = data.positions.length;
+                document.getElementById('planned-scan-count').textContent = `Planned Scans: ${plannedScanCount}`;
+                // Reset currentScanIndex to 0 when a project is selected
+                currentScanIndex = 0;
+                updateScanSelector();
+            } else {
+                document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
+                showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching positions:', error);
+            document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
+            showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+        });
+}
+
+function deselectProject(radio) {
+    radio.checked = false;
+    highlightSelectedProject(radio);
+    document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
 }
 
 function highlightSelectedProject(radio) {
@@ -1195,4 +1255,132 @@ function requestScanPreview(projectName, scanIndex) {
             showError('An unexpected error occurred while fetching scan preview.', 'Scan Preview');
             hideViewerLoadingIndicator(); // Hide loading indicator on error
         });
+}
+
+// Function to show the modal for appending a new scan
+function promptNewPosition() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+    document.getElementById('new-position-modal').style.display = 'block';
+}
+
+// Function to close the modal for appending a new scan
+function closeNewPositionModal() {
+    document.getElementById('new-position-modal').style.display = 'none';
+}
+
+// Function to append a new scan to the selected project
+function appendNewPosition(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+    const panAngle = parseFloat(document.getElementById('pan-angle').value);
+    const tiltAngle = parseFloat(document.getElementById('tilt-angle').value);
+    const home = document.getElementById('home').checked;
+    const positionOnly = document.getElementById('position-only').checked;
+
+    // Validate tilt angle
+    const maxTiltSteps = 1200;
+    const tiltSteps = tiltAngle * 19.5; // Assuming 19.5 steps per degree
+    if (tiltSteps > maxTiltSteps) {
+        showWarning(`Tilt angle exceeds the maximum limit of ${maxTiltSteps / 19.5} degrees.`, 'Validation Error');
+        return;
+    }
+
+    fetch('/project/append_position', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            projectName: projectName,
+            panAngle: panAngle,
+            tiltAngle: tiltAngle,
+            home: home,
+            positionOnly: positionOnly
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess('Scan appended successfully.', 'Project Management');
+            closeNewPositionModal();
+            updatePlannedScanCount(projectName);
+        } else {
+            showError(`Error: ${data.message}`, 'Project Management');
+        }
+    })
+    .catch(error => {
+        console.error('Error appending scan:', error);
+        showError('An unexpected error occurred while appending the scan.', 'Project Management');
+    });
+}
+
+// Function to update the planned scan count
+function updatePlannedScanCount(projectName) {
+    fetch(`/project/get_positions?projectName=${projectName}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const plannedScanCount = data.positions.length;
+                document.getElementById('planned-scan-count').textContent = `Planned Scans: ${plannedScanCount}`;
+            } else {
+                document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
+                showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching positions:', error);
+            document.getElementById('planned-scan-count').textContent = 'Planned Scans: NaN';
+            showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+        });
+}
+
+// Function to show the modal for viewing planned scans
+function viewPlannedPositions() {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+
+    fetch(`/project/get_positions?projectName=${projectName}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const positions = data.positions;
+                const positionsList = document.getElementById('planned-positions-list');
+                positionsList.innerHTML = '';
+                positions.forEach((position, index) => {
+                    const panAngle = (position.pos_a - 2716) / 19.5;
+                    const tiltAngle = (position.pos_b - 619) / 19.5;
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `Position ${index + 1}: Pan = ${position.pos_a} steps (${panAngle.toFixed(2)}°), Tilt = ${position.pos_b} steps (${tiltAngle.toFixed(2)}°), Home = ${position.home}`;
+                    positionsList.appendChild(listItem);
+                });
+                document.getElementById('view-positions-modal').style.display = 'block';
+            } else {
+                showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching positions:', error);
+            showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
+        });
+}
+
+// Function to close the modal for viewing planned scans
+function closeViewPositionsModal() {
+    document.getElementById('view-positions-modal').style.display = 'none';
 }

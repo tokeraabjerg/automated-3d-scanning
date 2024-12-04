@@ -102,7 +102,7 @@
                     {% for project in projects %}
                     <li class="project-item">
                         <div class="project-info">
-                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}" onclick="highlightSelectedProject(this);">
+                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}" onclick="highlightSelectedProject(this);" ondblclick="deselectProject(this);">
                             <label for="project-{{ loop.index }}">{{ project }}</label>
                         </div>
                         <div class="project-actions">
@@ -126,6 +126,12 @@
                     <button type="submit" class="validate-button">Create Project</button>
                     <span id="create-project-spinner" class="spinner" style="display: none;"></span>
                 </form>
+
+                <!-- Append and View Scan Buttons -->
+                <div class="button-group">
+                    <button class="append-button" onclick="promptNewPosition()" title="Append new scan">Append Scan</button>
+                    <button class="view-button" onclick="viewPlannedPositions()" title="View planned scans">View Scans</button>
+                </div>
             </div>
             <br><br>
             <br><br>
@@ -216,5 +222,41 @@
             <button onclick="requestAndDisplayPointCloudForIndex(41)" title="Display Point Cloud for Index 41">Display Point Cloud for Index 41</button>
         </div>
     </div>
+
+    <!-- Modal for appending a new scan -->
+    <div id="new-position-modal" class="modal">
+        <div class="modal-content" style="width: 50%;">
+            <span class="close" onclick="closeNewPositionModal()">&times;</span>
+            <h2>Append New Scan</h2>
+            <form id="new-position-form" onsubmit="appendNewPosition(event);">
+                <label for="pan-angle">Pan Angle (degrees):</label>
+                <input type="number" step="0.1" id="pan-angle" name="pan-angle" required> <!-- Allow non-integer input -->
+                <label for="tilt-angle">Tilt Angle (degrees):</label>
+                <input type="number" step="0.1" id="tilt-angle" name="tilt-angle" required> <!-- Allow non-integer input -->
+                <div style="display: flex; align-items: center;">
+                    <input type="checkbox" id="home" name="home" style="margin-right: 5px;">
+                    <label for="home">Home</label>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <input type="checkbox" id="position-only" name="position-only" style="margin-right: 5px;">
+                    <label for="position-only">Position Only (non-functional)</label>
+                </div>
+                <button type="submit" class="validate-button">Append Scan</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for viewing planned scans -->
+    <div id="view-positions-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeViewPositionsModal()">&times;</span>
+            <h2>Planned Scans</h2>
+            <ul id="planned-positions-list"></ul>
+        </div>
+    </div>
+
+    <!-- Include the separate JavaScript files -->
+    <script src="{{ url_for('static', filename='preview.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
 </body>
 </html>
