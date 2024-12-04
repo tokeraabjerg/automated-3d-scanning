@@ -1365,11 +1365,23 @@ function viewPlannedPositions() {
                 positions.forEach((position, index) => {
                     const panAngle = (position.pos_a - 2716) / 19.5;
                     const tiltAngle = (position.pos_b - 619) / 19.5;
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `Position ${index + 1}: Pan = ${position.pos_a} steps (${panAngle.toFixed(2)}°), Tilt = ${position.pos_b} steps (${tiltAngle.toFixed(2)}°), Home = ${position.home}`;
-                    positionsList.appendChild(listItem);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${panAngle.toFixed(2)}</td>
+                        <td>${tiltAngle.toFixed(2)}</td>
+                        <td>${position.home}</td>
+                        <td><span class="delete-icon" onclick="removeScan(${index})">&times;</span></td>
+                    `;
+                    positionsList.appendChild(row);
                 });
                 document.getElementById('view-positions-modal').style.display = 'block';
+
+                // Set the angle range display
+                const maxPanAngle = (5800 - 2716) / 19.5;
+                const maxTiltAngle = (2000 - 619) / 19.5;
+                document.getElementById('pan-angle-range').textContent = `0.00° to ${maxPanAngle.toFixed(2)}°`;
+                document.getElementById('tilt-angle-range').textContent = `0.00° to ${maxTiltAngle.toFixed(2)}°`;
             } else {
                 showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
             }
@@ -1378,6 +1390,40 @@ function viewPlannedPositions() {
             console.error('Error fetching positions:', error);
             showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
         });
+}
+
+function removeScan(index) {
+    const selectedProject = document.querySelector('input[name="selected-project"]:checked');
+    if (!selectedProject) {
+        showWarning('Please select a project first.', 'Project Selection');
+        return;
+    }
+
+    const projectName = selectedProject.value;
+
+    fetch('/project/remove_position', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            projectName: projectName,
+            index: index
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showSuccess('Scan removed successfully.', 'Project Management');
+            viewPlannedPositions(); // Refresh the table
+        } else {
+            showError(`Error: ${data.message}`, 'Project Management');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing scan:', error);
+        showError('An unexpected error occurred while removing the scan.', 'Project Management');
+    });
 }
 
 // Function to close the modal for viewing planned scans

@@ -251,7 +251,18 @@
         <div class="modal-content">
             <span class="close" onclick="closeViewPositionsModal()">&times;</span>
             <h2>Planned Scans</h2>
-            <ul id="planned-positions-list"></ul>
+            <table id="planned-positions-table">
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Pan Angle ° <span id="pan-angle-range"></span></th>
+                        <th>Tilt Angle ° <span id="tilt-angle-range"></span></th>
+                        <th>Home</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="planned-positions-list"></tbody>
+            </table>
         </div>
     </div>
 

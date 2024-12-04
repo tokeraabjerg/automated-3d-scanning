@@ -425,7 +425,7 @@ if __name__ == "__main__":
     axis_arrows_pcd = create_axis_arrows(length=100.0, radius=5)
     
     # Save the point cloud to a file
-    o3d.io.write_point_cloud("axis_arrows.pcd", axis_arrows_pcd)
+    o3d.io.write_point_cloud("axis_arrows.ply", axis_arrows_pcd)
     
     # Visualize the point cloud
     o3d.visualization.draw_geometries([axis_arrows_pcd], window_name="Axis Arrows")

@@ -24,7 +24,7 @@ else:
     from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 
 #define global variables in global scope, tsk tsk.
-ShowMe = False
+ShowMe = True
 legacyMode = False
 
 # Initialize logger
@@ -100,7 +100,8 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     else:
         if ShowMe is True:
             o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
-        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(0)))
+        #initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(theta_pan), np.radians(theta_tilt), np.radians(0)))
+        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_yxz((np.radians(theta_tilt), np.radians(theta_pan), np.radians(0)))
         logger.info(f"Initial rotation matrix: {initial_rotation}")
         target_cloud_normal_sample.rotate(initial_rotation, center=(0, 0, 0))
         logger.info("Rotated target cloud")
@@ -156,9 +157,9 @@ if __name__ == "__main__":
     for arrow in arrows:
         AxisArrow += arrow
     ply_files = [
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply"
-        #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply"
+        r"C:\Users\mikke\Desktop\Toke Cali\scan_3.ply",
+        r"C:\Users\mikke\Desktop\Toke Cali\scan_4.ply",
+        r"C:\Users\mikke\Desktop\Toke Cali\scan_5.ply"
         #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
         #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
     ]
@@ -167,8 +168,8 @@ if __name__ == "__main__":
     legacyMode = False
     
 
-    theta_pan = [0, 15, -15, -15, 0]
-    theta_tilt = [0, 15, 15, 15, 0]
+    theta_pan = [0, 15, 15, -15, 0]
+    theta_tilt = [0, 0, -15, 15, 0]
     
     # Initialize combined_transformation as a list of independent identity matrices
     # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]

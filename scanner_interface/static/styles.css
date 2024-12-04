@@ -104,6 +104,29 @@ th {
     background-color: #f2f2f2;
 }
 
+/* Planned positions table styling */
+#planned-positions-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+#planned-positions-table th, #planned-positions-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#planned-positions-table th {
+    background-color: #f2f2f2;
+}
+
+#planned-positions-table td .delete-icon {
+    color: red;
+    cursor: pointer;
+    font-size: 18px;
+}
+
 /* Button group styling */
 .button-group {
     display: flex;

@@ -375,10 +375,17 @@ def append_position():
         _, abs_pan_steps, _ = compute_nearest_degree(pan_angle, "pan")
         _, abs_tilt_steps, _ = compute_nearest_degree(tilt_angle, "tilt")
 
-        # Validate tilt steps
-        max_tilt_steps = 1200
+        # Validate pan and tilt steps
+        max_pan_steps = 5800
+        max_tilt_steps = 2000
+        zero_pan_steps = 2716
         zero_tilt_steps = 619
-        if abs_tilt_steps > max_tilt_steps:
+
+        if abs_pan_steps > max_pan_steps or abs_pan_steps < 0:
+            max_pan_angle = (max_pan_steps - zero_pan_steps) / 19.5
+            return jsonify({'status': 'error', 'message': f'Pan angle exceeds the maximum limit of {max_pan_angle:.2f} degrees.'}), 400
+
+        if abs_tilt_steps > max_tilt_steps or abs_tilt_steps < 0:
             max_tilt_angle = (max_tilt_steps - zero_tilt_steps) / 19.5
             return jsonify({'status': 'error', 'message': f'Tilt angle exceeds the maximum limit of {max_tilt_angle:.2f} degrees.'}), 400
 
@@ -399,6 +406,41 @@ def append_position():
     except Exception as e:
         logger.error(f"Error appending position: {e}")
         return jsonify({'status': 'error', 'message': f"Error appending position: {e}"}), 500
+
+@app.route('/project/remove_position', methods=['POST'])
+def remove_position():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    index = data.get('index')
+    project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
+
+    logger.info(f"Received request to remove position for project: {project_name} at index: {index}")
+    logger.info(f"Project path: {project_path}")
+
+    positions_file_path = os.path.join(project_path, 'positions.json')
+    logger.info(f"Positions file path: {positions_file_path}")
+
+    if not os.path.exists(positions_file_path):
+        logger.error(f"positions.json does not exist at {positions_file_path}")
+        return jsonify({'status': 'error', 'message': 'positions.json does not exist.'}), 400
+
+    try:
+        with open(positions_file_path, 'r') as f:
+            positions = json.load(f)
+
+        if index < 0 or index >= len(positions):
+            return jsonify({'status': 'error', 'message': 'Invalid index.'}), 400
+
+        positions.pop(index)
+
+        with open(positions_file_path, 'w') as f:
+            json.dump(positions, f, indent=4)
+
+        logger.info(f"Removed position at index {index} from positions.json at {positions_file_path}")
+        return jsonify({'status': 'success', 'message': 'Position removed successfully.'})
+    except Exception as e:
+        logger.error(f"Error removing position: {e}")
+        return jsonify({'status': 'error', 'message': f"Error removing position: {e}"}), 500
 
 def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
     """
