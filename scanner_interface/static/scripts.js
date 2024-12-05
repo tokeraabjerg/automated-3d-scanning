@@ -1371,45 +1371,45 @@ function closeViewPositionsModal() {
     document.getElementById('view-positions-modal').style.display = 'none';
 }
 
-// Function to initiate a scan
-function startScan() {
-    // Disable the start scan button to prevent multiple requests
-    document.getElementById('startScanButton').disabled = true;
+// // Function to initiate a scan
+// function startScan() {
+//     // Disable the start scan button to prevent multiple requests
+//     document.getElementById('startScanButton').disabled = true;
 
-    // Show a loading indicator
-    showLoadingIndicator(true);
+//     // Show a loading indicator
+//     showLoadingIndicator(true);
 
-    // Send a POST request to initiate the scan
-    fetch('/start_scan', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ /* Include any necessary parameters here */ })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.status === 'success') {
-            console.log('Scan started successfully.');
-            // Update the UI to reflect that the scan has started
-            updateScanStatus('Scan in progress...');
-        } else {
-            console.error('Failed to start scan:', data.message);
-            // Notify the user of the failure
-            alert('Failed to start scan: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error starting scan:', error);
-        // Notify the user of the error
-        alert('Error starting scan. Please try again.');
-    })
-    .finally(() => {
-        // Re-enable the start scan button and hide the loading indicator
-        document.getElementById('startScanButton').disabled = false;
-        showLoadingIndicator(false);
-    });
-}
+//     // Send a POST request to initiate the scan
+//     fetch('/start_scan', {
+//         method: 'POST',
+//         headers: {
+//             'Content-Type': 'application/json'
+//         },
+//         body: JSON.stringify({ /* Include any necessary parameters here */ })
+//     })
+//     .then(response => response.json())
+//     .then(data => {
+//         if(data.status === 'success') {
+//             console.log('Scan started successfully.');
+//             // Update the UI to reflect that the scan has started
+//             updateScanStatus('Scan in progress...');
+//         } else {
+//             console.error('Failed to start scan:', data.message);
+//             // Notify the user of the failure
+//             alert('Failed to start scan: ' + data.message);
+//         }
+//     })
+//     .catch(error => {
+//         console.error('Error starting scan:', error);
+//         // Notify the user of the error
+//         alert('Error starting scan. Please try again.');
+//     })
+//     .finally(() => {
+//         // Re-enable the start scan button and hide the loading indicator
+//         document.getElementById('startScanButton').disabled = false;
+//         showLoadingIndicator(false);
+//     });
+// }
 
 function saveConfigurations() {
     // Disable the save button to prevent multiple submissions
