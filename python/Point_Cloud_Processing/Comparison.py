@@ -29,15 +29,6 @@ def load_point_cloud(file_path):
     print(f"Loaded point cloud with {len(pcd.points)} points.")
     return pcd
 
-# TODO: Fjern denne funktion og opdater variabelnavn i compare_point_clouds
-# TODO: når det ikke længere er relevant at downsample.
-"""
-def downsample_point_cloud(pcd, voxel_size):
-    print(f"Downsampling point cloud with voxel size {voxel_size}...")
-    downsampled_pcd = pcd.voxel_down_sample(voxel_size)
-    print(f"Downsampled point cloud has {len(downsampled_pcd.points)} points.")
-    return downsampled_pcd
-"""
     
 def compute_cloud_to_cloud_distance(pcd1, pcd2):
     print("Computing Cloud-to-Cloud distance...")
