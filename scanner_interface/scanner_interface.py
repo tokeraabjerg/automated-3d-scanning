@@ -340,8 +340,8 @@ class ScannerInterface:
             all_points = np.array([(scanBuffer.point[idx].x, scanBuffer.point[idx].y, scanBuffer.point[idx].z) for idx in range(number_of_points.value)], dtype=np.float64)
             all_intensities = np.array([scanBuffer.intensity[idx] for idx in range(number_of_points.value)], dtype=np.uint32)  # Use uint32 to avoid clipping
 
-            # Create a boolean mask for valid points (not at the origin)
-            valid_mask = ~((all_points[:, 0] == 0) & (all_points[:, 1] == 0) & (all_points[:, 2] == -1))
+            # Create a boolean mask for points with z >= 1
+            valid_mask = all_points[:, 2] >= 1
 
             # Filter out invalid points using the mask
             points_np = all_points[valid_mask]
