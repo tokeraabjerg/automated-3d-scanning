@@ -83,7 +83,7 @@ def crop_point_cloud(point_cloud, point_indices, output_file):
 
 def main():
     # File path to the input and output point clouds
-    input_file = r"C:\Users\ovikd\Documents\Punktskyer\Scanned0.ply"
+    input_file = r"C:\Users\ovikd\Documents\GitHub\automated-3d-scanning\scanner_interface\output\Calibrationverification\scan_5.ply"
     output_file = r"C:\Users\ovikd\Documents\Punktskyer\Croptest.ply"
 
     # Load the point cloud

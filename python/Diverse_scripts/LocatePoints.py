@@ -1,5 +1,6 @@
 import open3d as o3d
 import numpy as np
+#from PP import preprocess_point_cloud
 
 #===================================================
 #  *                    INFO
@@ -45,7 +46,7 @@ class PointPickerVisualizer:
         
         # Set larger point size for easier clicking
         render_option = self.vis.get_render_option()
-        render_option.point_size = 10.0  # Increase this value for larger points
+        render_option.point_size = 5.0  # Increase this value for larger points
     
     def pick_points(self):
         """
@@ -82,12 +83,14 @@ def load_point_cloud(file_path):
     return pcd
 
 # File path to the point cloud
-# file_path = r"C:\Users\ovikd\Downloads\testemne45.ply"
-file_path = r"C:\Users\ovikd\Documents\Punktskyer\DesignPCUT.ply"
+file_path = r"C:\Users\ovikd\Downloads\scan_25.ply"
 
 # Load the point cloud
 point_cloud = load_point_cloud(file_path)
+#Morm, Alignment_point_cloud = preprocess_point_cloud(point_cloud, resolution=1, std_ratio=0.5) 
+
 if point_cloud:
     # Create and run the point picker visualizer
     picker = PointPickerVisualizer(point_cloud)
     picker.pick_points()
+

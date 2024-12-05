@@ -77,9 +77,7 @@ def plot_legend(distances):
 
     plt.show()
 
-def compare_point_clouds(design_pc, scanned_pc, voxel_size):
-    #print("Downsampling scanned point cloud...")
-    #scanned_pc_downsampled = downsample_point_cloud(scanned_pc, voxel_size)
+def compare_point_clouds(design_pc, scanned_pc):
 
     print("Computing distances between the point clouds...")
     distances = compute_cloud_to_cloud_distance(design_pc, scanned_pc)

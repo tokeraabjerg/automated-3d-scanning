@@ -26,25 +26,24 @@ def compute_centroid(file_path):
     print(f"Centroid of point cloud '{file_path}': {centroid}")
     return centroid
 
-def align_centroids(file_path1, file_path2):
+def align_centroids(design_file_path, scanned_file_path):
     """
     Align the centroids of two point clouds.
     :param file_path1: File path of the first point cloud (reference).
     :param file_path2: File path of the second point cloud (to be aligned).
     :return: Aligned point cloud (from file_path2) translated to match the centroid of file_path1.
     """
-    #pcd1 = load_point_cloud(file_path1)
-    #pcd2 = load_point_cloud(file_path2)
-    pcd1 = file_path1
-    pcd2 = file_path2
+
+    designPC = design_file_path
+    scannedPC = scanned_file_path
     
-    centroid1 = compute_centroid(file_path1)
-    centroid2 = compute_centroid(file_path2)
-    print(f"Translation vector: {centroid1 - centroid2}")
+    centroid_design = compute_centroid(design_file_path)
+    centroid_scanned = compute_centroid(scanned_file_path)
+    print(f"Translation vector: {centroid_scanned - centroid_design}")
 
     # Translate the second point cloud to align centroids
-    pcd2_translated = pcd2.translate(centroid1 - centroid2)
-    return pcd1, pcd2_translated
+    designPC_translated = designPC.translate(centroid_scanned - centroid_design)
+    return designPC_translated, scannedPC
 
 def visualize_aligned_point_clouds(file_path1, file_path2):
     """

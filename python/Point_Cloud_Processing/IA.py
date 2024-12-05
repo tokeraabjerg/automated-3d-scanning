@@ -2,6 +2,7 @@ import open3d as o3d
 import numpy as np
 import itertools
 import getpass
+import copy  # Import the copy module
 
 # Define your username
 your_username = "mikke"
@@ -210,7 +211,7 @@ def align_point_clouds(scan, stl_point_cloud):
 
     for rotation in rotations:
         # Apply rotation
-        rotated_scan = scan.clone()
+        rotated_scan = copy.deepcopy(scan)  # Use deepcopy instead of copy() or clone()
         R = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz(np.radians(rotation))
         rotated_scan.rotate(R, center=(0, 0, 0))
 
@@ -225,10 +226,10 @@ def align_point_clouds(scan, stl_point_cloud):
             best_transformation = result.transformation
 
     # Apply the best transformation to the original scan
-    aligned_scan = scan.clone()
+    aligned_scan = copy.deepcopy(scan)  # Use deepcopy instead of copy() or clone()
     aligned_scan.transform(best_transformation)
 
-    return aligned_scan
+    return aligned_scan, stl_point_cloud
 
 
 # def select_points(point_cloud):
