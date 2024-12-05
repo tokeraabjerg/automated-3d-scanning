@@ -249,6 +249,9 @@ def manual_pcp():
     """
     data = request.json
     project_name = data.get('projectName')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
 
     if not project_name:
         return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
@@ -284,7 +287,7 @@ def manual_pcp():
 
         # Start post-processing thread
         app = current_app._get_current_object()
-        post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
+        post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
         post_processing_thread.start()
 
         return jsonify({'status': 'success', 'message': 'Manual point cloud processing started.'}), 200
