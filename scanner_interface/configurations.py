@@ -51,8 +51,11 @@ class Configurations:
 
                 # Retrieve the current value using get_command
                 current_value = self.read_parameter(info.get('get_command'))
+                min_value = self.read_parameter(info.get('get_command_min')) if 'get_command_min' in info else info.get('min')
+                max_value = self.read_parameter(info.get('get_command_max')) if 'get_command_max' in info else info.get('max')
+                default_value = self.read_parameter(info.get('get_command_default')) if 'get_command_default' in info else info.get('default')
 
-                if current_value is None:
+                if current_value is None and info.get('get_command'):
                     logger.warning(f"Failed to read '{key}'. Using default value: {info.get('default')}.")
                     current_value = info.get('default')
                 else:
@@ -65,8 +68,12 @@ class Configurations:
                         elif info['type'] == 'enum':
                             current_value = str(current_value)
                     except ValueError:
-                        logger.error(f"Invalid value format for '{key}': {current_value}. Using default value: {info.get('default')}.")
+                        logger.info(f"Invalid value format for '{key}': {current_value}. Using default value: {info.get('default')}.")
                         current_value = info.get('default')
+
+                # Hardcode fix for LED Power max value
+                if key == 'LED Power (%)':
+                    max_value = 99
 
                 # Store the configuration
                 self.configurations[key] = {
@@ -74,12 +81,12 @@ class Configurations:
                     'description': info.get('description'),
                     'type': info.get('type'),
                     'options': info.get('options'),
-                    'min': info.get('min'),
-                    'max': info.get('max'),
-                    'default': info.get('default'),
+                    'min': min_value,
+                    'max': max_value,
+                    'default': default_value,
                 }
 
-                logger.debug(f"Loaded configuration '{key}': {self.configurations[key]}")
+            logger.debug(f"All configurations loaded successfully. {self.configurations}")
 
     def validate_value(self, info, value):
         """
@@ -128,9 +135,9 @@ class Configurations:
                 #logger.debug(f"No update needed for '{key}', value is already set to {value}.")
                 return True
 
-            # Validate the input based on the type and range
+            #Validate the input based on the type and range
             if not self.validate_value(info, value):
-                return False
+               return False
 
             # Prepare the set_command with the value
             set_command = f"{info['set_command']}={value}\r"
@@ -162,3 +169,10 @@ class Configurations:
             logger.info(f"Configuration '{key}' updated successfully to {updated_value}.")
 
             return True
+
+    def refresh_configurations(self):
+        """
+        Refresh configurations by re-reading all configurations from the sensor.
+        """
+        logger.info("Refreshing configurations from the scanner.")
+        self.read_all_configurations()

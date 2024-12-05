@@ -270,6 +270,8 @@ class ScannerInterface:
             if not self.write_sensor_command("SetTriggerSoftware"):
                 logger.error("Failed to trigger the software scan.")
                 return None
+            
+            
 
             # Try to read camera dimensions
             camera_width_str = self.read_sensor_parameter("GetPixelXMax")

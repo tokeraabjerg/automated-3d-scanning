@@ -1178,7 +1178,45 @@ document.addEventListener('DOMContentLoaded', function() {
             autoRefreshCheckbox.checked = autoRefresh;
         }
     };
+
+    // Load saved configuration values from localStorage
+    loadConfigurationsFromLocalStorage();
+
+    // Save configuration values to localStorage on form submit
+    const configForm = document.getElementById('configForm');
+    if (configForm) {
+        configForm.addEventListener('submit', function() {
+            saveConfigurationsToLocalStorage();
+        });
+    }
 });
+
+function saveConfigurationsToLocalStorage() {
+    const configForm = document.getElementById('configForm');
+    const formData = new FormData(configForm);
+    formData.forEach((value, key) => {
+        localStorage.setItem(key, value);
+    });
+}
+
+function loadConfigurationsFromLocalStorage() {
+    const configForm = document.getElementById('configForm');
+    if (!configForm) return;
+
+    const inputs = configForm.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        const savedValue = localStorage.getItem(input.name);
+        if (savedValue !== null) {
+            if (input.type === 'checkbox') {
+                input.checked = savedValue === 'true';
+            } else if (input.tagName === 'SELECT') {
+                input.value = savedValue;
+            } else {
+                input.value = savedValue;
+            }
+        }
+    });
+}
 
 function requestScanPreview(projectName, scanIndex) {
     let scanFile = scanIndex === 0 ? 'scan_main' : `scan_${scanIndex}`;

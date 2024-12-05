@@ -215,6 +215,11 @@ def index():
     """
     logger.info("Rendering the index page.")
     
+    # Refresh configurations
+    config_manager = app.config['config_manager']
+    if config_manager:
+        config_manager.refresh_configurations()
+
     # Read the logs from the log file
     try:
         with open(log_file_path, 'r') as log_file:
@@ -223,8 +228,7 @@ def index():
         logger.error(f"Error reading log file: {e}")
         logs = "Error reading logs."
 
-    # Retrieve config_manager and project_manager from app config
-    config_manager = app.config['config_manager']
+    # Retrieve project_manager from app config
     project_manager = app.config['project_manager']
 
     # Load projects

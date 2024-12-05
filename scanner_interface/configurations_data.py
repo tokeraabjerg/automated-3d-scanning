@@ -4,6 +4,9 @@
 configurations_info = {
     'Current Acquisition Time (µs)': {
         'get_command': 'GetAcquisitionTime',
+        'get_command_min': 'GetAcquisitionTimeMin',
+        'get_command_max': 'GetAcquisitionTimeMax',
+        'get_command_default': 'GetAcquisitionTimeDefault',
         'set_command': 'SetAcquisitionTime',
         'description': 'Determines the interval of acquiring point cloud or 2D camera images.',
         'type': 'int',
@@ -13,6 +16,9 @@ configurations_info = {
     },
     'Current Exposure Time Limit (µs)': {
         'get_command': 'GetExposureTimeLimit',
+        'get_command_min': 'GetExposureTimeLimitMin',
+        'get_command_max': 'GetExposureTimeLimitMax',
+        'get_command_default': 'GetExposureTimeLimitDefault',
         'set_command': 'SetExposureTimeLimit',
         'description': 'Sets the exposure time limit. The LED projector frequency will be adjusted accordingly.',
         'type': 'int',
@@ -22,6 +28,9 @@ configurations_info = {
     },
     'Current Exposure Time (µs)': {
         'get_command': 'GetExposureTime',
+        'get_command_min': 'GetExposureTimeMin',
+        'get_command_max': 'GetExposureTimeMax',
+        'get_command_default': 'GetExposureTimeDefault',
         'set_command': 'SetExposureTime',
         'description': 'Sets the exposure time of the built-in camera chip.',
         'type': 'int',
@@ -49,6 +58,9 @@ configurations_info = {
     },
     'Contrast Comparison Filter': {
         'get_command': 'GetContrastComparisonFilterMinPhase',
+        'get_command_min': 'GetContrastComparisonFilterMinPhaseMin',
+        'get_command_max': 'GetContrastComparisonFilterMinPhaseMax',
+        'get_command_default': 'GetContrastComparisonFilterMinPhaseDefault',
         'set_command': 'SetContrastComparisonFilterMinPhase',
         'description': 'Sets the filter threshold of the contrast comparison filter where 1 is the highest possible contrast and 0 is no contrast at all.',
         'type': 'float',
@@ -58,6 +70,9 @@ configurations_info = {
     },
     'SDK Queue Size': {
         'get_command': 'GetSDKQueueSize',
+        'get_command_min': 'GetSDKQueueSizeMin',
+        'get_command_max': 'GetSDKQueueSizeMax',
+        'get_command_default': 'GetSDKQueueSizeDefault',
         'set_command': 'SetSDKQueueSize',
         'description': 'Sets the maximum number of point clouds buffered in SDK.',
         'type': 'int',
@@ -67,6 +82,9 @@ configurations_info = {
     },
     'Trigger Source': {
         'get_command': 'GetTriggerSource',
+        'get_command_min': 'GetTriggerSourceMin',
+        'get_command_max': 'GetTriggerSourceMax',
+        'get_command_default': 'GetTriggerSourceDefault',
         'set_command': 'SetTriggerSource',
         'description': 'Sets the trigger source of the 3D sensor.',
         'type': 'enum',
@@ -82,6 +100,9 @@ configurations_info = {
     },
     'Sensor Enable': {
         'get_command': 'GetSensorEnable',
+        'get_command_min': 'GetSensorEnableMin',
+        'get_command_max': 'GetSensorEnableMax',
+        'get_command_default': 'GetSensorEnableDefault',
         'set_command': 'SetSensorEnable',
         'description': 'Activates the I/O data acquisition of the 3D sensor.',
         'type': 'enum',
@@ -95,7 +116,6 @@ configurations_info = {
         'default': '0'
     },
     'Sensor Mode': {
-        'get_command': 'GetSensorMode',
         'set_command': 'SetSensorMode',
         'description': 'Configures the 3D sensor to generate point cloud or 2D images.',
         'type': 'enum',
@@ -107,6 +127,9 @@ configurations_info = {
     },
     'Gain': {
         'get_command': 'GetGain',
+        'get_command_min': 'GetGainMin',
+        'get_command_max': 'GetGainMax',
+        'get_command_default': 'GetGainDefault',
         'set_command': 'SetGain',
         'description': 'Sets the gain of the built-in camera chip.',
         'type': 'int',
@@ -116,6 +139,9 @@ configurations_info = {
     },
     'Subsampling': {
         'get_command': 'GetSubSampling',
+        'get_command_min': 'GetSubSamplingMin',
+        'get_command_max': 'GetSubSamplingMax',
+        'get_command_default': 'GetSubSamplingDefault',
         'set_command': 'SetSubSampling',
         'description': 'Activates the subsampling in the built-in camera chip.',
         'type': 'enum',
@@ -127,6 +153,8 @@ configurations_info = {
     },
     'LED Power (%)': {
         'get_command': 'GetLEDPower',
+        'get_command_min': 'GetLEDPowerMin',
+        'get_command_default': 'GetLEDPowerDefault',
         'set_command': 'SetLEDPower',
         'description': 'Sets the brightness of the sensor’s LED projector.',
         'type': 'int',
@@ -136,6 +164,9 @@ configurations_info = {
     },
     'User LED': {
         'get_command': 'GetUserLED',
+        'get_command_min': 'GetUserLEDMin',
+        'get_command_max': 'GetUserLEDMax',
+        'get_command_default': 'GetUserLEDDefault',
         'set_command': 'SetUserLED',
         'description': 'Sets User LED color.',
         'type': 'enum',
@@ -149,6 +180,9 @@ configurations_info = {
     },
     'LED Activate': {
         'get_command': 'GetLEDActivate',
+        'get_command_min': 'GetLEDActivateMin',
+        'get_command_max': 'GetLEDActivateMax',
+        'get_command_default': 'GetLEDActivateDefault',
         'set_command': 'SetLEDActivate',
         'description': 'Activates/deactivates the built-in LED projector.',
         'type': 'enum',
@@ -159,7 +193,6 @@ configurations_info = {
         'default': '1'
     },
     'Extended Measuring Range': {
-        'get_command': 'GetEnableExtendedMeasuringRange',
         'set_command': 'SetEnableExtendedMeasuringRange',
         'description': 'Activates/deactivates the extended working area.',
         'type': 'enum',
