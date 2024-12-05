@@ -16,7 +16,6 @@ import open3d as o3d
 import os
 import sys
 from typing import Optional
-import psutil  # Add this import
 
 logger = logging.getLogger(__name__)
 
@@ -233,13 +232,8 @@ class ScannerInterface:
                 'error_code': error_code
             }
 
-    def perform_scan(self, scan_interval: int = 1, stop_event: Optional[threading.Event] = None) -> Optional[o3d.geometry.PointCloud]:
+    def perform_scan(self, stop_event: Optional[threading.Event] = None) -> Optional[o3d.geometry.PointCloud]:
         logger.info("Starting perform_scan method.")
-
-        # Cancel existing timer if it exists
-        if hasattr(self, 'stop_timer') and self.stop_timer.is_alive():
-            self.stop_timer.cancel()
-            logger.info("Existing stop timer canceled before starting a new scan.")
 
         # Clear the stop_event before starting the scan
         if stop_event:
@@ -259,8 +253,9 @@ class ScannerInterface:
                 logger.error("Failed to set sensor mode.")
                 return None
 
-            if not self.write_sensor_command(f"SetTriggerSource={trigger_source}"):
-                logger.error("Failed to set trigger source.")
+            # Set trigger source to software
+            if not self.write_sensor_command("SetTriggerSource=1"):
+                logger.error("Failed to set trigger source to software.")
                 return None
 
             if not self.write_sensor_command(f"SetLEDPattern={led_pattern}"):
@@ -269,6 +264,11 @@ class ScannerInterface:
 
             if not self.write_sensor_command("SetAcquisitionStart"):
                 logger.error("Failed to start acquisition.")
+                return None
+            
+             # Trigger the scan
+            if not self.write_sensor_command("SetTriggerSoftware"):
+                logger.error("Failed to trigger the software scan.")
                 return None
 
             # Try to read camera dimensions
@@ -310,10 +310,6 @@ class ScannerInterface:
                 logger.info("Scan stopped by user before starting scan.")
                 return None
 
-            # Start a timer to stop acquisition after scan_interval seconds
-            self.stop_timer = threading.Timer(scan_interval, self.stop_scan)
-            self.stop_timer.start()
-
             logger.info("Attempting to acquire scan.")
 
             # Perform the scan
@@ -325,10 +321,6 @@ class ScannerInterface:
                 byref(roi),
                 timeout
             )
-
-            # Ensure the timer is canceled if acquisition completes before interval
-            self.stop_timer.cancel()
-            self.stop_scan()
 
             if stop_event and stop_event.is_set():
                 logger.info("Scan stopped by user during acquisition.")
@@ -348,8 +340,8 @@ class ScannerInterface:
             all_points = np.array([(scanBuffer.point[idx].x, scanBuffer.point[idx].y, scanBuffer.point[idx].z) for idx in range(number_of_points.value)], dtype=np.float64)
             all_intensities = np.array([scanBuffer.intensity[idx] for idx in range(number_of_points.value)], dtype=np.uint32)  # Use uint32 to avoid clipping
 
-            # Create a boolean mask for valid points (not at the origin)
-            valid_mask = ~((all_points[:, 0] == 0) & (all_points[:, 1] == 0) & (all_points[:, 2] == -1))
+            # Create a boolean mask for points with z >= 1
+            valid_mask = all_points[:, 2] >= 1
 
             # Filter out invalid points using the mask
             points_np = all_points[valid_mask]
@@ -372,10 +364,8 @@ class ScannerInterface:
             return None
 
         finally:
-            # Ensure the timer is canceled if still running
-            if hasattr(self, 'stop_timer') and self.stop_timer.is_alive():
-                self.stop_timer.cancel()
-                logger.info("Stop timer canceled in finally block.")
+            # Stop acquisition to reset the sensor
+            self.write_sensor_command("SetAcquisitionStop")
 
     def write_sensor_command(self, command: str) -> bool:
         """

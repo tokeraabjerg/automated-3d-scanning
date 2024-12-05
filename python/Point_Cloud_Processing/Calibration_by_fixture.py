@@ -9,14 +9,14 @@ import time
 import logging
 
 # Define your username
-your_username = "mikke"
+your_username = None#"mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
     print("The code is being without modules")
     from ICP import Point_to_Plane
 else:
-    print("The code is not being run with modules")
+    print("The code is being run with modules")
     from .ICP import Point_to_Plane
 
 
@@ -72,14 +72,14 @@ def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     max_bound = (120.0, 120.0, 30.0) 
     Fikstur_Reduced = remove_points_in_box(Fikstur, min_bound, max_bound)
 
-    # o3d.visualization.draw_geometries([Fikstur_Reduced, combined_geometry])
+    #o3d.visualization.draw_geometries([Fikstur_Reduced, combined_geometry])
     Fikstur_Reduced, density_vector_fiks = center_and_filter_point_cloud(Fikstur_Reduced, radius=60)
     alignment_point_cloud, density_vector_pc = center_and_filter_point_cloud(alignment_point_cloud, radius=60)
         # TODO: Following may need implimentation if calibration is unstable
         # Will need to be added to zero trans.
-    # centroid = np.mean(np.asarray(point_cloud.points), axis=0)
-    # point_cloud.translate(-centroid)
-    # o3d.visualization.draw_geometries([Fikstur_Reduced, alignment_point_cloud, combined_geometry], window_name="reduced and centered") 
+    centroid = np.mean(np.asarray(alignment_point_cloud.points), axis=0)
+    alignment_point_cloud.translate(-centroid)
+    #o3d.visualization.draw_geometries([Fikstur_Reduced, alignment_point_cloud, combined_geometry], window_name="reduced and centered") 
     
     radius_normal = 2  # Radius til normal estimering
     if not alignment_point_cloud.has_normals():
@@ -92,11 +92,16 @@ def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
     Fikstur_Reduced.paint_uniform_color([1, 0.706, 0])
     
     Transformation, alignment_point_cloud=Point_to_Plane(Fikstur_Reduced, alignment_point_cloud, 5)
-    # o3d.visualization.draw_geometries([Fikstur_Reduced, alignment_point_cloud, combined_geometry], window_name="applied ICP") 
+    #o3d.visualization.draw_geometries([Fikstur_Reduced, alignment_point_cloud, combined_geometry], window_name="applied ICP") 
     
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = -density_vector_pc 
-    Calibration_transformation=np.dot(Transformation, translation_matrix)
+    translation_matrix2 = np.eye(4)
+    translation_matrix2[:3, 3] = -centroid 
+    Combined_translation=np.dot(translation_matrix2, translation_matrix)
+
+    
+    Calibration_transformation=np.dot(Transformation, Combined_translation)
 
     translation_matrix = np.eye(4)
     translation_matrix[:3, 3] = density_vector_fiks 
@@ -198,7 +203,7 @@ if __name__ == "__main__":
         combined_geometry += arrow
 
     ply_files = [
-        r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply",
+        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply",
         r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
         r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_-15.ply"
     ]
@@ -207,7 +212,7 @@ if __name__ == "__main__":
     
     Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\mikkel\mikkel\0.ply")
+    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply")
     Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(0))))
     Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     
@@ -221,6 +226,7 @@ if __name__ == "__main__":
     with open("Calibration.json", "w") as f:
         json.dump(Calibration_transformation.tolist(), f)
 
+    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt.transform(Calibration_transformation)

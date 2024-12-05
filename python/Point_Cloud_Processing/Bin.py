@@ -404,3 +404,28 @@ def detect_and_visualize_outlying_planes(point_cloud, distance_threshold=0., ran
     outlying_planes_pcd.remove_non_finite_points()
 
     return outlying_planes_pcd
+
+def create_axis_arrows(length=1.0, radius=0.01):
+    """
+    Create a point cloud representing axis arrows from the origin (0,0,0).
+
+    Args:
+        length (float): The length of each axis arrow. Defaults to 1.0.
+        radius (float): The radius of each axis arrow. Defaults to 0.01.
+
+    Returns:
+        o3d.geometry.PointCloud: The point cloud representing the axis arrows.
+    """
+    mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=length, origin=[0, 0, 0])
+    axis_arrows_pcd = mesh_frame.sample_points_uniformly(number_of_points=int(length / radius * 1000))
+    return axis_arrows_pcd
+
+if __name__ == "__main__":
+    # Create axis arrows point cloud
+    axis_arrows_pcd = create_axis_arrows(length=100.0, radius=5)
+    
+    # Save the point cloud to a file
+    o3d.io.write_point_cloud("axis_arrows.ply", axis_arrows_pcd)
+    
+    # Visualize the point cloud
+    o3d.visualization.draw_geometries([axis_arrows_pcd], window_name="Axis Arrows")

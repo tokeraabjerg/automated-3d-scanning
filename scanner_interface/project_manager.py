@@ -11,11 +11,12 @@ import json
 from typing import Optional
 
 class ProjectManager:
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, config_manager):
         """
-        Initialize the ProjectManager with the specified output directory.
+        Initialize the ProjectManager with the specified output directory and configuration manager.
         """
         self.output_dir = output_dir
+        self.config_manager = config_manager  # Store the injected config_manager
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         self.logger = logging.getLogger(__name__)
@@ -215,31 +216,34 @@ class ProjectManager:
             self.logger.error(f"Error reducing point cloud: {e}")
             raise e
     
-    def save_point_cloud(self, pcd: o3d.geometry.PointCloud, project_name: str, pcd_secondary: Optional[o3d.geometry.PointCloud] = None):
+    def save_point_cloud(self, pcd: o3d.geometry.PointCloud, project_name: str, save_as_main: bool = False):
         """
         Save the point cloud to the specified project's folder with an incremental filename.
-        If a secondary point cloud is provided, save it with a different naming convention.
+        If save_as_main is True, save the point cloud as scan_main.ply.
         
         :param pcd: The Open3D point cloud to save.
         :param project_name: The name of the current project.
-        :param pcd_secondary: An optional secondary Open3D point cloud to save.
+        :param save_as_main: Boolean indicating whether to save the point cloud as scan_main.ply.
         """
         project_path = os.path.join(self.output_dir, project_name)
         os.makedirs(project_path, exist_ok=True)
-    
-        output_filename_main = os.path.join(project_path, "scan_main.ply")
-    
+        
+        if save_as_main:
+            output_filename = os.path.join(project_path, "scan_main.ply")
+        else:
+            # Determine the next scan number
+            scan_files = [
+                f for f in os.listdir(project_path)
+                if os.path.isfile(os.path.join(project_path, f)) and f.startswith('scan_') and f.endswith('.ply')
+            ]
+            scan_numbers = [int(f.split('_')[1].split('.')[0]) for f in scan_files if f.split('_')[1].split('.')[0].isdigit()]
+            next_scan_number = max(scan_numbers, default=0) + 1
+            output_filename = os.path.join(project_path, f"scan_{next_scan_number}.ply")
+        
         try:
-            # Save the main point cloud
-            o3d.io.write_point_cloud(output_filename_main, pcd)
-            self.logger.info(f"Saved main point cloud to {output_filename_main}")
-    
-            # If a secondary point cloud is provided, save it
-            if pcd_secondary:
-                output_filename_secondary = os.path.join(project_path, "scan_secondary.ply")
-                o3d.io.write_point_cloud(output_filename_secondary, pcd_secondary)
-                self.logger.info(f"Saved secondary point cloud to {output_filename_secondary}")
-    
+            # Save the point cloud
+            o3d.io.write_point_cloud(output_filename, pcd)
+            self.logger.info(f"Saved point cloud to {output_filename}")
         except Exception as e:
             self.logger.error(f"Failed to save point cloud: {e}")
 
@@ -276,7 +280,7 @@ class ProjectManager:
             # Load the point cloud
             point_cloud = o3d.io.read_point_cloud(scan_filepath)
             # Downsample the point cloud for preview
-            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=10000)  # Adjust target points
+            downsampled_pcd = self.reduce_point_cloud(point_cloud, target_points=100000)  # Adjust target points
             # Convert the downsampled point cloud to a format suitable for JSON response
             downsampled_points = np.asarray(downsampled_pcd.points).tolist()
             downsampled_intensities = np.asarray(downsampled_pcd.colors)[:, 0].tolist()  # Assuming intensity is stored in colors
@@ -378,16 +382,30 @@ class ProjectManager:
                 self.logger.error(f"No positions found in positions.json for project '{project_name}'.")
                 raise ValueError(f"No positions found in positions.json for project '{project_name}'.")
 
-            # Calculate relative angle changes
-            base_pos_a = positions[0]['pos_a']
-            base_pos_b = positions[0]['pos_b']
+            # Determine the base positions
+            base_pos_a = None
+            base_pos_b = None
+            for position in positions:
+                if position.get("home"):
+                    base_pos_a = position.get('pos_a', 2716)
+                    base_pos_b = position.get('pos_b', 619)
+                    break
+
+            if base_pos_a is None or base_pos_b is None:
+                self.logger.error(f"No home position found in positions.json for project '{project_name}'.")
+                raise ValueError(f"No home position found in positions.json for project '{project_name}'.")
+
             steps_per_degree = 19.5
 
             for position in positions:
-                relative_deg_a = (position['pos_a'] - base_pos_a) / steps_per_degree
-                relative_deg_b = (position['pos_b'] - base_pos_b) / steps_per_degree
-                position['deg_a'] = relative_deg_a
-                position['deg_b'] = relative_deg_b
+                if position.get("home"):
+                    position['deg_a'] = 0
+                    position['deg_b'] = 0
+                elif 'pos_a' in position and 'pos_b' in position:
+                    relative_deg_a = (position['pos_a'] - base_pos_a) / steps_per_degree
+                    relative_deg_b = (position['pos_b'] - base_pos_b) / steps_per_degree
+                    position['deg_a'] = relative_deg_a
+                    position['deg_b'] = relative_deg_b
 
             # Save the updated positions back to positions.json
             with open(positions_file, 'w') as file:
@@ -395,8 +413,38 @@ class ProjectManager:
 
             self.logger.info(f"Updated positions.json with relative angles for project '{project_name}'.")
 
-            return positions
+            return positions  # Ensure this returns the updated positions list
         except Exception as e:
             self.logger.error(f"Error updating positions.json for project '{project_name}': {e}")
             raise e
+
+    def save_current_configurations(self, project_name: str):
+        """
+        Retrieve current scanner configurations and save them to the specified project as configurations.json.
+
+        :param project_name: The name of the project where configurations will be saved.
+        """
+        try:
+            if not self.config_manager:
+                self.logger.error("Configuration manager is not available.")
+                return False
+
+            # Read all configurations
+            configurations = self.config_manager.read_all_configurations()
+
+            # Define the path to save the configurations.json
+            project_path = os.path.join(self.output_dir, project_name)
+            if not os.path.exists(project_path):
+                self.logger.error(f"Project '{project_name}' does not exist.")
+                return False
+
+            configurations_path = os.path.join(project_path, 'configurations.json')
+            with open(configurations_path, 'w') as config_file:
+                json.dump(self.config_manager.configurations, config_file, indent=4)
+
+            self.logger.info(f"Configurations saved successfully at {configurations_path}.")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to save configurations: {e}")
+            return False
 

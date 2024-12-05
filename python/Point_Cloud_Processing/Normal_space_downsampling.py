@@ -5,7 +5,7 @@ import time
 import logging
 
 # Define usernames which run from python, and not docker
-your_username = "mikke"
+your_username = "not" #"mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
@@ -13,7 +13,7 @@ if getpass.getuser() == your_username:
     from Misc_functions import create_arrow
     from Calibration_by_fixture import inverse_center_and_filter_point_cloud
 else:
-    print("The code is not being run with Toke modules")
+    print("The code is being run with modules")
     from python.Point_Cloud_Processing.Misc_functions import create_arrow
     from python.Point_Cloud_Processing.Calibration_by_fixture import inverse_center_and_filter_point_cloud
 
@@ -90,7 +90,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
     logger.debug("bin_size: %d", bin_size)
     # Compute normals for the point cloud
     if not point_cloud.has_normals():
-        logger.info("Estimating normals...")
+        logger.debug("Estimating normals...")
         start_time = time.time()
         point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn), fast_normal_computation=True)
         end_time = time.time()
@@ -101,7 +101,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
 
     
     normals = np.asarray(point_cloud.normals)
-    logger.info("Picking normals...")
+    logger.debug("Picking normals...")
     start_time = time.time()
     # Normalize the normal vectors
     normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
@@ -124,7 +124,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         np.digitize(phi, phi_bins) - 1
     ]).T
 
-    logger.info("Binning normals into %d theta bins and %d phi bins", num_theta_bins, num_phi_bins)
+    logger.debug("Binning normals into %d theta bins and %d phi bins", num_theta_bins, num_phi_bins)
 
     """
     OG scheme - This is SLOW for large sets of points
@@ -146,7 +146,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
             bin_dict[bin_tuple] = []
         bin_dict[bin_tuple].append(idx)
 
-    print("Randomly sampling points from each bin...")
+    #print("Randomly sampling points from each bin...")
     # Random scheme:
     sampled_indices = set()
     bin_keys = list(bin_dict.keys())  # Ensure bin_keys is a 1-dimensional list

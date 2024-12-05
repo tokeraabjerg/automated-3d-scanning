@@ -24,8 +24,14 @@ def compute_nearest_degree(target_angle, motor):
     
     Returns:
         float: The closest possible angle in degrees.
+    
+    Home-ish
+        {
+        "pos_a": 2716,  min 0 max ca 5800
+        "pos_b": 619    min 0 max ca 2000
+    }
     """
-
+    
     # Convert the target angle to steps
     steps_per_degree = 19.5
     steps = target_angle * steps_per_degree
@@ -415,18 +421,58 @@ def get_xyz_euler(roll, pitch, yaw):
 
     return R
 
+def remove_outliers_dbscan(point_cloud, eps=0.02, min_points=10):
+    """
+    Remove outliers from a point cloud using DBSCAN clustering.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        eps (float): The maximum distance between two samples for them to be considered as in the same neighborhood.
+        min_points (int): The number of samples in a neighborhood for a point to be considered as a core point.
+
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud with outliers removed.
+    """
+    labels = np.array(point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=True))
+    max_label = labels.max()
+    inlier_indices = np.where(labels >= 0)[0]
+    filtered_point_cloud = point_cloud.select_by_index(inlier_indices)
+    return filtered_point_cloud
+
+def show_clusters_dbscan(point_cloud, eps=0.02, min_points=10, min_cluster_size=100):
+    """
+    Show clusters from a point cloud using DBSCAN clustering that are above a certain size.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        eps (float): The maximum distance between two samples for them to be considered as in the same neighborhood.
+        min_points (int): The number of samples in a neighborhood for a point to be considered as a core point.
+        min_cluster_size (int): The minimum size of clusters to be shown.
+
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud with clusters above the specified size.
+    """
+    labels = np.array(point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=True))
+    unique_labels, counts = np.unique(labels, return_counts=True)
+    large_clusters_indices = [i for i, label in enumerate(labels) if counts[label] >= min_cluster_size and label >= 0]
+    filtered_point_cloud = point_cloud.select_by_index(large_clusters_indices)
+    return filtered_point_cloud
 
 if __name__ == "__main__":
 
   # Play with the resulting cloud:
 
-    test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\merged_point_cloud.ply")
+    test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_main.ply")
     o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
-    # filtered_pcd=remove_noise_based_on_normals(test_cloud, radius_est=3, max_nn=100, radius_remove=2, min_neighbors=15, consistency_threshold=0.95)
-    # filtered_pcd, all_points = remove_noise_based_on_planes(test_cloud)
-    all_points = detect_and_visualize_outlying_planes(test_cloud)
-    o3d.visualization.draw_geometries([all_points], window_name="filtered Test Cloud")
     
+    cl, ind = test_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+    statistical_filtered_pcd = test_cloud.select_by_index(ind)
+    o3d.visualization.draw_geometries([cl], window_name="Statistical Outlier Removal")
+
+    test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_main.ply")
+    # Show clusters using DBSCAN
+    dbscan_filtered_pcd = show_clusters_dbscan(test_cloud, eps=1, min_points=5, min_cluster_size=10)
+    o3d.visualization.draw_geometries([dbscan_filtered_pcd], window_name="DBSCAN Clusters")
 
     """
     x = 45
@@ -454,3 +500,4 @@ if __name__ == "__main__":
     print(f"Pitch: {pitch:.2f}°")
     print(f"Yaw: {yaw:.2f}°")
     """
+

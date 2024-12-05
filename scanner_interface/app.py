@@ -21,7 +21,10 @@ import open3d as o3d
 import numpy as np
 import psutil  # Add psutil import
 import subprocess  # Add this import
+import json  # Add this import
+from datetime import datetime  # Add this import
 
+from python.Point_Cloud_Processing.Misc_functions import compute_nearest_degree
 from scanner_interface.routes.project_routes import project_bp
 from scanner_interface.routes.scan_routes import scan_bp
 from scanner_interface.routes.config_routes import config_bp
@@ -41,13 +44,22 @@ output_directory = os.path.join(base_dir, "output")
 os.makedirs(output_directory, exist_ok=True)
 
 # Initialize ProjectManager and store it in app config
-project_manager = ProjectManager(output_directory)
-app.config['project_manager'] = project_manager  
+# Remove or comment out the following lines:
+# project_manager = ProjectManager(output_directory)
+# app.config['project_manager'] = project_manager  
+
 app.config['output_directory'] = output_directory 
+
+class CustomFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        ct = datetime.fromtimestamp(record.created)
+        s = ct.strftime('%H:%M:%S')
+        s += ".%02d" % (record.msecs / 10)
+        return s
 
 # Set up logging with RotatingFileHandler
 log_file_path = os.path.join(base_dir, 'app.log')
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = CustomFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 rotating_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
 rotating_handler.setLevel(logging.DEBUG)  # Set to DEBUG level
@@ -85,12 +97,14 @@ scan_lock = threading.Lock()  # Lock for scan_in_progress
 sensor_lock = threading.Lock()  # Lock for sensor handle access
 connecting_attempt = False  # New flag to track connection attempts
 stop_event = threading.Event()  # New event to signal scan stop
+auto_scan_stop_event = threading.Event()  # New event to signal auto scan stop
 
 # Add these variables to app.config
 app.config['scan_in_progress'] = scan_in_progress
 app.config['scan_lock'] = scan_lock
 app.config['sensor_lock'] = sensor_lock 
 app.config['stop_event'] = stop_event
+app.config['auto_scan_stop_event'] = auto_scan_stop_event
 
 def initialize():
     global scanner, config_manager, connecting_attempt
@@ -109,6 +123,10 @@ def initialize():
             logger.error(f"SDK library not found at {lib_path}")
             config_manager = Configurations()  # Initialize with default configurations
             app.config['config_manager'] = config_manager  # Add this line
+
+            # Initialize ProjectManager with config_manager
+            project_manager = ProjectManager(output_directory, config_manager)
+            app.config['project_manager'] = project_manager
             return
 
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
@@ -129,15 +147,20 @@ def initialize():
             logger.warning("Failed to connect to the sensor. Proceeding with default configurations.")
             config_manager = Configurations()  # Initialize with default configurations
             app.config['config_manager'] = config_manager  # Add this line
+
+        # Initialize ProjectManager with config_manager
+        project_manager = ProjectManager(output_directory, config_manager)
+        app.config['project_manager'] = project_manager
+
     except Exception as e:
         connecting_attempt = False  # Reset flag on exception
         logger.error(f"Error initializing scanner or configuration manager: {e}")
         config_manager = Configurations()  # Initialize with default configurations
         app.config['config_manager'] = config_manager  # Add this line
 
-    # Initialize ProjectManager and store it in app config
-    project_manager = ProjectManager(output_directory)
-    app.config['project_manager'] = project_manager
+        # Initialize ProjectManager with config_manager
+        project_manager = ProjectManager(output_directory, config_manager)
+        app.config['project_manager'] = project_manager
 
     # Initialize scan-related configurations
     scan_lock = threading.Lock()
@@ -146,6 +169,8 @@ def initialize():
     app.config['scan_in_progress'] = scan_in_progress
     stop_event = threading.Event()
     app.config['stop_event'] = stop_event
+    auto_scan_stop_event = threading.Event()
+    app.config['auto_scan_stop_event'] = auto_scan_stop_event
 
     # Initialize ThreadPoolExecutor and store it in app config
     executor = ThreadPoolExecutor(max_workers=10)
@@ -197,6 +222,10 @@ def index():
     except Exception as e:
         logger.error(f"Error reading log file: {e}")
         logs = "Error reading logs."
+
+    # Retrieve config_manager and project_manager from app config
+    config_manager = app.config['config_manager']
+    project_manager = app.config['project_manager']
 
     # Load projects
     projects = project_manager.load_projects()
@@ -306,6 +335,140 @@ def restart_app():
         logger.error(f"Exception occurred while restarting Flask application: {e}")
         return jsonify({'status': 'error', 'message': f"Exception occurred while restarting Flask application: {e}"}), 500
 
+@app.route('/project/create_positions_file', methods=['POST'])
+def create_positions_file():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
+
+    logger.info(f"Received request to create positions.json for project: {project_name}")
+    logger.info(f"Project path: {project_path}")
+
+    # Wait for the project directory to be created (timeout after 5 seconds)
+    timeout = 5
+    start_time = time.time()
+    while not os.path.exists(project_path):
+        if time.time() - start_time > timeout:
+            logger.error(f"Project folder does not exist after waiting: {project_path}")
+            return jsonify({'status': 'error', 'message': 'Project folder does not exist.'}), 400
+        time.sleep(0.1)  # Sleep for 100 milliseconds before checking again
+
+    positions_file_path = os.path.join(project_path, 'positions.json')
+    logger.info(f"Positions file path: {positions_file_path}")
+
+    if not os.path.exists(positions_file_path):
+        try:
+            with open(positions_file_path, 'w') as f:
+                json.dump([{
+                    "pos_a": 2716,
+                    "pos_b": 619,
+                    "home": True,
+                    "ignore": "ignore",
+                    "icp_transformation": []
+                }], f, indent=4)  # Create the specified JSON content
+            logger.info(f"positions.json created successfully at {positions_file_path}")
+        except Exception as e:
+            logger.error(f"Error creating positions.json: {e}")
+            return jsonify({'status': 'error', 'message': f"Error creating positions.json: {e}"}), 500
+    else:
+        logger.info(f"positions.json already exists at {positions_file_path}")
+
+    return jsonify({'status': 'success', 'message': 'positions.json created successfully.'})
+
+@app.route('/project/append_position', methods=['POST'])
+def append_position():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    pan_angle = data.get('panAngle', 0)  # Default to 0 if not provided
+    tilt_angle = data.get('tiltAngle', 0)  # Default to 0 if not provided
+    home = data.get('home', False)
+    position_only = data.get('positionOnly', False)  # New attribute
+    project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
+
+    logger.info(f"Received request to append position for project: {project_name}")
+    logger.info(f"Project path: {project_path}")
+
+    positions_file_path = os.path.join(project_path, 'positions.json')
+    logger.info(f"Positions file path: {positions_file_path}")
+
+    if not os.path.exists(positions_file_path):
+        logger.error(f"positions.json does not exist at {positions_file_path}")
+        return jsonify({'status': 'error', 'message': 'positions.json does not exist.'}), 400
+
+    try:
+        with open(positions_file_path, 'r') as f:
+            positions = json.load(f)
+
+        _, abs_pan_steps, _ = compute_nearest_degree(pan_angle, "pan")
+        _, abs_tilt_steps, _ = compute_nearest_degree(tilt_angle, "tilt")
+
+        # Validate pan and tilt steps
+        max_pan_steps = 5800
+        max_tilt_steps = 2000
+        zero_pan_steps = 2716
+        zero_tilt_steps = 619
+
+        if abs_pan_steps > max_pan_steps or abs_pan_steps < 0:
+            max_pan_angle = (max_pan_steps - zero_pan_steps) / 19.5
+            return jsonify({'status': 'error', 'message': f'Pan angle exceeds the maximum limit of {max_pan_angle:.2f} degrees.'}), 400
+
+        if abs_tilt_steps > max_tilt_steps or abs_tilt_steps < 0:
+            max_tilt_angle = (max_tilt_steps - zero_tilt_steps) / 19.5
+            return jsonify({'status': 'error', 'message': f'Tilt angle exceeds the maximum limit of {max_tilt_angle:.2f} degrees.'}), 400
+
+        new_position = {
+            "pos_a": abs_pan_steps,
+            "pos_b": abs_tilt_steps,
+            "home": home,
+            "ignore": position_only,  # Use positionOnly attribute
+            "icp_transformation": []
+        }
+        positions.append(new_position)
+
+        with open(positions_file_path, 'w') as f:
+            json.dump(positions, f, indent=4)
+
+        logger.info(f"Appended new position to positions.json at {positions_file_path}")
+        return jsonify({'status': 'success', 'message': 'Position appended successfully.'})
+    except Exception as e:
+        logger.error(f"Error appending position: {e}")
+        return jsonify({'status': 'error', 'message': f"Error appending position: {e}"}), 500
+
+@app.route('/project/remove_position', methods=['POST'])
+def remove_position():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    index = data.get('index')
+    project_path = os.path.join(app.config['output_directory'], project_name)  # Correct project path
+
+    logger.info(f"Received request to remove position for project: {project_name} at index: {index}")
+    logger.info(f"Project path: {project_path}")
+
+    positions_file_path = os.path.join(project_path, 'positions.json')
+    logger.info(f"Positions file path: {positions_file_path}")
+
+    if not os.path.exists(positions_file_path):
+        logger.error(f"positions.json does not exist at {positions_file_path}")
+        return jsonify({'status': 'error', 'message': 'positions.json does not exist.'}), 400
+
+    try:
+        with open(positions_file_path, 'r') as f:
+            positions = json.load(f)
+
+        if index < 0 or index >= len(positions):
+            return jsonify({'status': 'error', 'message': 'Invalid index.'}), 400
+
+        positions.pop(index)
+
+        with open(positions_file_path, 'w') as f:
+            json.dump(positions, f, indent=4)
+
+        logger.info(f"Removed position at index {index} from positions.json at {positions_file_path}")
+        return jsonify({'status': 'success', 'message': 'Position removed successfully.'})
+    except Exception as e:
+        logger.error(f"Error removing position: {e}")
+        return jsonify({'status': 'error', 'message': f"Error removing position: {e}"}), 500
+
 def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
     """
     Process an Open3D point cloud by downsampling it if it has more than 100,000 points.
@@ -322,10 +485,45 @@ def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointC
         logger.error(f"Error processing point cloud: {e}")
         return None
 
+@app.route('/scan/manual_capture', methods=['POST'])
+def manual_capture():
+    data = request.get_json()
+    selected_project = data.get('selectedProject')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    # ...existing code...
+    # Pass preprocessing_method, voxel_size, and max_correspondence_distance to the processing function
+    # ...existing code...
+
+@app.route('/scan/auto_scan', methods=['POST'])
+def auto_scan():
+    data = request.get_json()
+    selected_project = data.get('selectedProject')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    # ...existing code...
+    # Pass preprocessing_method, voxel_size, and max_correspondence_distance to the processing function
+    # ...existing code...
+
+@app.route('/project/manual_pcp', methods=['POST'])
+def manual_pcp():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    # ...existing code...
+    # Pass preprocessing_method, voxel_size, and max_correspondence_distance to the processing function
+    # ...existing code...
+
 if __name__ == '__main__':
     try:
         logger.info("Starting Flask application.")
         app.run(host='0.0.0.0', port=5001, debug=True)
+    except Exception as e:
+        logger.error(f"Exception occurred: {e}")
     finally:
         disconnect_scanner()
         logger.info("Scanner disconnected on application shutdown.")

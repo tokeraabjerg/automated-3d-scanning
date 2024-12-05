@@ -10,7 +10,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MLAS214 - Control Panel (v0.5)</title>
+    <title>MLAS214 - Control Panel (v0.9)</title>
     <!-- Existing CSS -->
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     
@@ -42,35 +42,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-    <header style="position: relative;">
+    <header>
         <!-- Loading Indicator -->
-        <div id="header-loading-indicator" class="loading-indicator" style="display: none;">
+        <div id="header-loading-indicator" class="loading-indicator">
             <div class="spinner"></div>
             <span id="header-loading-text">Loading...</span>
         </div>
-        <h1>Wenglor MLAS214 - Control Panel (v0.5)</h1>
+        <h2>Wenglor MLAS214 - Control Panel (v0.9)</h2>
         
         <!-- Connection Status Indicators -->
         <div id="connection-status">
             <!-- Reconnect Button -->
             <button id="reconnectButton" onclick="attemptReconnect()" title="Reconnect to the scanner">Reconnect</button>
             <!-- Connected Icon -->
-            <div id="connected-icon" class="status-icon connected" title="Connected" style="display: none;"></div>
+            <div id="connected-icon" class="status-icon connected" title="Connected"></div>
             <!-- Connecting Icon -->
-            <div id="connecting-icon" class="status-icon connecting" title="Connecting" style="display: none;"></div>
+            <div id="connecting-icon" class="status-icon connecting" title="Connecting"></div>
             <!-- Disconnected Icon -->
-            <div id="disconnected-icon" class="status-icon disconnected" title="Disconnected" style="display: inline-block;"></div>
+            <div id="disconnected-icon" class="status-icon disconnected" title="Disconnected"></div>
         </div>
     </header>
     <div id="main-content">
         <div id="left-panel">
-            <h3>Scan Controls</h3>
+            <h4>Scan Controls</h4>
 
             <!-- Scan and Projects Container -->
             <div class="scan-projects-container">
-                <!-- Example Scan Interval Input -->
-                <label for="scanInterval">Scan Interval (seconds):</label>
-                <input type="number" id="scanInterval" name="scanInterval" min="1" value="1">
+                <!-- Removed Scan Interval Input -->
                 <span id="planned-scan-count">Planned Scans: NaN</span>
             </div>
             <br>
@@ -97,12 +95,12 @@
 
             <!-- Projects Section -->
             <div id="projects-section">
-                <h3>Projects</h3>
+                <h4>Projects</h4>
                 <ul id="projects-list" class="projects-list">
                     {% for project in projects %}
                     <li class="project-item">
                         <div class="project-info">
-                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}" onclick="highlightSelectedProject(this);">
+                            <input type="radio" name="selected-project" value="{{ project }}" id="project-{{ loop.index }}" onclick="highlightSelectedProject(this);" ondblclick="deselectProject(this);">
                             <label for="project-{{ loop.index }}">{{ project }}</label>
                         </div>
                         <div class="project-actions">
@@ -124,19 +122,61 @@
                     <label for="newProjectName">New Project Name:</label>
                     <input type="text" id="newProjectName" name="newProjectName" required>
                     <button type="submit" class="validate-button">Create Project</button>
-                    <span id="create-project-spinner" class="spinner" style="display: none;"></span>
+                    <span id="create-project-spinner" class="spinner"></span>
                 </form>
+
+                <!-- Append and View Scan Buttons -->
+                <div class="button-group">
+                    <button class="append-button" onclick="promptNewPosition()" title="Append new scan">Append Scan</button>
+                    <button class="view-button" onclick="viewPlannedPositions()" title="View planned scans">View Scans</button>
+                </div>
             </div>
             <br><br>
             <br><br>
             <h2>Configurations</h2>
             <form action="{{ url_for('config_bp.update_configurations') }}" method="post">
-                <table>
+                <table class="configuration">
                     <tr>
                         <th>Parameter</th>
                         <th>Value</th>
                         <th>Description</th>
                         <th>Range</th>
+                    </tr>
+                    <!-- PCP Settings Header -->
+                    <tr>
+                        <th colspan="4">PCP Settings</th>
+                    </tr>
+                    <tr>
+                        <td>Preprocessing Method</td>
+                        <td>
+                            <select name="preprocessing_method" id="preprocessing-method" required>
+                                <option value="Standard">Standard</option>
+                                <option value="Early_outliers_NSS">Early_outliers_NSS</option>
+                                <option value="NSS">NSS</option>
+                            </select>
+                        </td>
+                        <td class="config-description">Select the preprocessing method for point cloud processing.</td>
+                        <td class="config-range">Options: Standard, Early_outliers_NSS, NSS</td>
+                    </tr>
+                    <tr>
+                        <td>Voxel Size</td>
+                        <td>
+                            <input type="number" step="0.001" name="voxel_size" id="voxel-size" value="0.01" required>
+                        </td>
+                        <td class="config-description">Set the voxel size for downsampling.</td>
+                        <td class="config-range">Range: 0.001 - 1.0</td>
+                    </tr>
+                    <tr>
+                        <td>Max Correspondence Distance</td>
+                        <td>
+                            <input type="number" step="0.1" name="max_correspondence_distance" id="max-correspondence-distance" value="2" required>
+                        </td>
+                        <td class="config-description">Set the maximum correspondence distance for ICP.</td>
+                        <td class="config-range">Range: 0.1 - 10.0</td>
+                    </tr>
+                    <!-- Scanner Settings Header -->
+                    <tr>
+                        <th colspan="4">Scanner Settings</th>
                     </tr>
                     {% for key, config in configurations.items() %}
                     <tr>
@@ -185,9 +225,9 @@
 
         </div>
         <div id="right-panel">
-            <div style="display: flex; align-items: center;">
-                <h2>3D Preview</h2>
-                <div id="scan-preview" style="display: flex; align-items: center; margin-left: 20px;">
+            <div id="right_panel_header" style="display: flex; align-items: center;">
+                <h4>3D Preview <span style="font-weight: 100; font-style: italic;">(Entry 0 is scan_main)</span></h4>
+                <div id="scan-preview">
                     <button onclick="firstScan()" title="Skip to first scan">&#171;</button> <!-- Skip to first scan -->
                     <button onclick="previousScan()" title="Previous scan">&lsaquo;</button> <!-- Previous scan -->
                     <span id="scan-selector" style="margin: 0 10px;">Select a project</span>
@@ -200,21 +240,66 @@
                     <button onclick="requestAndDisplayPointCloudForIndex(currentScanIndex)" style="margin-left: 10px; font-size: 12px; padding: 5px 10px;" title="Display full version">Display full version</button>
                 </div>
             </div>
-            <div id="viewer-container" style="position: relative;">
+            <div id="viewer-container">
                 <!-- 3D Viewer Canvas -->
-                <div id="viewer" style="width: 100%; height: 400px;"></div>
-                <div id="viewer-loading-indicator" class="loading-indicator" style="display: none;">
+                <div id="viewer"></div>
+                <div id="viewer-loading-indicator" class="loading-indicator">
                     <div class="spinner"></div>
                     <span>Loading...</span>
                 </div>
             </div>
-            <h2>Logs</h2>
+            <h4>Logs</h4>
             <div id="log-output">
                 Loading logs...
             </div>
-            <!-- Add a button to request and display the point cloud for index 41 -->
-            <button onclick="requestAndDisplayPointCloudForIndex(41)" title="Display Point Cloud for Index 41">Display Point Cloud for Index 41</button>
         </div>
     </div>
+
+    <!-- Modal for appending a new scan -->
+    <div id="new-position-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeNewPositionModal()">&times;</span>
+            <h2>Append New Scan</h2>
+            <form id="new-position-form" onsubmit="appendNewPosition(event);">
+                <label for="pan-angle">Pan Angle (degrees):</label>
+                <input type="number" step="0.1" id="pan-angle" name="pan-angle" required> <!-- Allow non-integer input -->
+                <label for="tilt-angle">Tilt Angle (degrees):</label>
+                <input type="number" step="0.1" id="tilt-angle" name="tilt-angle" required> <!-- Allow non-integer input -->
+                <div style="display: flex; align-items: center;">
+                    <input type="checkbox" id="home" name="home" style="margin-right: 5px;">
+                    <label for="home">Home</label>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <input type="checkbox" id="position-only" name="position-only" style="margin-right: 5px;">
+                    <label for="position-only">Position Only (non-functional)</label>
+                </div>
+                <button type="submit" class="validate-button">Append Scan</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for viewing planned scans -->
+    <div id="view-positions-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeViewPositionsModal()">&times;</span>
+            <h2>Planned Scans</h2>
+            <table id="planned-positions-table">
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Pan Angle ° <span id="pan-angle-range"></span></th>
+                        <th>Tilt Angle ° <span id="tilt-angle-range"></span></th>
+                        <th>Home</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="planned-positions-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Include the separate JavaScript files -->
+    <script src="{{ url_for('static', filename='preview.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
 </body>
 </html>

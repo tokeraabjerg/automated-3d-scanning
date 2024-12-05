@@ -15,7 +15,7 @@ if getpass.getuser() == your_username:
     from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
     from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 else:
-    print("The code is not being run with modules")
+    print("The code is being run with modules")
 
 
 
