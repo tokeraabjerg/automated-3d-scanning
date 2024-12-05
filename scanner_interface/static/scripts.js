@@ -284,6 +284,7 @@ function handleManualCapture(event) {
     const preprocessingMethod = document.getElementById('preprocessing-method').value;
     const voxelSize = parseFloat(document.getElementById('voxel-size').value);
     const maxCorrespondenceDistance = parseFloat(document.getElementById('max-correspondence-distance').value);
+    const colorTheMain = document.getElementById('color_the_main').value = "enabled";
 
     // Show loading indicator with "Starting scan..."
     showLoadingIndicator('Starting scan...');
@@ -303,7 +304,8 @@ function handleManualCapture(event) {
             selectedProject: project,
             preprocessingMethod: preprocessingMethod,
             voxelSize: voxelSize,
-            maxCorrespondenceDistance: maxCorrespondenceDistance
+            maxCorrespondenceDistance: maxCorrespondenceDistance,
+            colorMe: colorTheMain ? true : false
         })
     })
     .then(response => response.json())
@@ -429,6 +431,8 @@ function startAutoScan(project) {
     const preprocessingMethod = document.getElementById('preprocessing-method').value;
     const voxelSize = parseFloat(document.getElementById('voxel-size').value);
     const maxCorrespondenceDistance = parseFloat(document.getElementById('max-correspondence-distance').value);
+    const colorTheMain = document.getElementById('color_the_main').value = "enabled";
+
 
     fetch('/scan/auto_scan', {
         method: 'POST',
@@ -439,7 +443,8 @@ function startAutoScan(project) {
             selectedProject: project,
             preprocessingMethod: preprocessingMethod,
             voxelSize: voxelSize,
-            maxCorrespondenceDistance: maxCorrespondenceDistance
+            maxCorrespondenceDistance: maxCorrespondenceDistance,
+            colorMe: colorTheMain ? true : false
         })
     })
     .then(response => response.json())

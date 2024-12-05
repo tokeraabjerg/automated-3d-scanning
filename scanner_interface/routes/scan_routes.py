@@ -152,6 +152,10 @@ def auto_scan():
     """
     data = request.json
     project_name = data.get('selectedProject')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    colorMe = data.get('colorMe', False)
 
     if not project_name:
         return jsonify({'status': 'error', 'message': 'Project name is required'}), 400
@@ -163,6 +167,10 @@ def auto_scan():
 
     try:
         stop_scan()
+
+        logger.info(f"Starting auto scan, using parameters, project: {project_name}, PPC method: {preprocessing_method}, voxel size: {voxel_size}, max correspondence distance: {max_correspondence_distance}, colorize scan_main: {colorMe}")
+
+
         # Access project_manager through current_app
         project_manager = current_app.config['project_manager']
         positions = project_manager.get_positions(project_name)
@@ -189,7 +197,7 @@ def auto_scan():
             current_app.config['scan_in_progress'] = True
 
         app = current_app._get_current_object()
-        future = executor.submit(auto_scan_thread, app, project_name, positions, stop_event)
+        future = executor.submit(auto_scan_thread, app, project_name, positions, stop_event, preprocessing_method, voxel_size, max_correspondence_distance)
         future.add_done_callback(lambda x: app.app_context().push() or app.config.update(scan_in_progress=False))
 
         return jsonify({'status': 'success', 'project': project_name}), 200
@@ -205,7 +213,7 @@ def auto_scan():
 # Add a flag to track the post-processing thread status
 post_processing_thread_running = False
 
-def auto_scan_thread(app, project_name, positions, stop_event):
+def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_method, voxel_size, max_correspondence_distance):
     """
     Thread function to perform auto scan.
     """
@@ -276,7 +284,7 @@ def auto_scan_thread(app, project_name, positions, stop_event):
                 if len(pcd_dict) >= 2 and not post_processing_thread_running:
                     logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
                     post_processing_thread_running = True
-                    post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions)))
+                    post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
                     post_processing_thread.start()
 
             # Wait for the post-processing thread to finish
@@ -297,7 +305,7 @@ def auto_scan_thread(app, project_name, positions, stop_event):
             reset_stop_events()  # Ensure stop events are cleared
         logger.info("Auto scan thread terminating.")
 
-def post_process_thread(app, pcd_dict, project_name, total_positions):
+def post_process_thread(app, pcd_dict, project_name, total_positions, preprocessing_method, voxel_size, max_correspondence_distance, colorMe = False):
     """
     Thread function to handle post-processing of point clouds.
     """
@@ -361,7 +369,10 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                             target_pcd,
                             target_rotation[0], 
                             -target_rotation[1],  
-                            matrix
+                            matrix,
+                            voxel_size,
+                            max_correspondence_distance,
+                            preprocessing_method
                         )
                         logger.info(f"ICP transform: {icp_transform}")
 
@@ -371,8 +382,10 @@ def post_process_thread(app, pcd_dict, project_name, total_positions):
                         processedClouds += 1
                     else:
                         logger.info("Combining the first two point clouds. AKA creating scan_main")
-                        pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
-                        rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
+                        # pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
+                        # rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
+                        # source_pcd = pcd_dict["scan_1"]
+                        # target_pcd = pcd_dict["scan_2"]
                         
                         logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
                         logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={rotation_list[1][0]}, theta_tilt_diff={ rotation_list[1][1]}")

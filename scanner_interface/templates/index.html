@@ -161,7 +161,7 @@
                     <tr>
                         <td>Voxel Size</td>
                         <td>
-                            <input type="number" step="0.001" name="voxel_size" id="voxel-size" value="0.01" required>
+                            <input type="number" step="0.001" name="voxel_size" id="voxel-size" value="1" required>
                         </td>
                         <td class="config-description">Set the voxel size for downsampling.</td>
                         <td class="config-range">Range: 0.001 - 1.0</td>
@@ -173,6 +173,17 @@
                         </td>
                         <td class="config-description">Set the maximum correspondence distance for ICP.</td>
                         <td class="config-range">Range: 0.1 - 10.0</td>
+                    </tr>
+                    <tr>
+                        <td>Color the scan_main</td>
+                        <td>
+                            <select name="color_the_main" id="color_the_main" required>
+                                <option value="enabled">Enabled</option>
+                                <option value="disabled">Disabled</option>
+                            </select>
+                        </td>
+                        <td class="config-description">Enable or disable coloring of the scan_main.</td>
+                        <td class="config-range">Options: Enabled, Disabled</td>
                     </tr>
                     <!-- Scanner Settings Header -->
                     <tr>
