@@ -9,7 +9,7 @@ import time
 import logging
 
 # Define your username
-your_username = None#"mikke"
+your_username = "mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:

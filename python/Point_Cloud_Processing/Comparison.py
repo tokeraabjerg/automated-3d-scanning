@@ -2,8 +2,11 @@ import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 import multiprocessing
+import json
+import os
 from Translatory_crutch import align_centroids
-
+from Calibration_by_fixture import remove_points_in_box
+from Misc_functions import remove_points_within_distance_of_pointcloud
 #===========================================================================
 #  *                                 INFO
 #    Bruges til at sammenligne to punktskyer (scannet og fra design-STL)
@@ -105,19 +108,84 @@ def compare_point_clouds(design_pc, scanned_pc):
 
     p1.join()
 
+def apply_calibration(pcd, calibration_path):
+    with open(calibration_path, 'r') as f:
+        calibration_data = json.load(f)
+    
+    transformation_matrix = np.array(calibration_data['calibration_transformation'])
+    
+    pcd.transform(transformation_matrix)
+    
+    return pcd
+
+def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
+    for folder_num in range(1, num_folders + 1):
+        folder_path = os.path.join(base_path, str(folder_num))
+        scan_path = os.path.join(folder_path, "scan_1.ply")
+
+        # Load point cloud
+        pcd = load_point_cloud(scan_path)
+        if pcd is None:
+            print("Missing pcd, Continuing to next folder...")
+            continue
+        min_bound = (-1000.0, -2000.0, -10)  # Replace with your box's minimum x, y, and z coordinates
+        max_bound = (1000, 2000, 10) 
+        pcd = remove_points_in_box(pcd, min_bound, max_bound)
+
+        # Apply calibration
+        calibration_path = r"calibration\calibration.json"
+        pcd = apply_calibration(pcd, calibration_path)
+
+        min_bound = (-120.0, -200.0, -200)  # Replace with your box's minimum x, y, and z coordinates
+        max_bound = (100, 200, 200) 
+        #pcd = remove_points_in_box(pcd, min_bound, max_bound)
+
+        #pcd = remove_points_within_distance_of_pointcloud(pcd, Fikstur, 2)
+
+        # Initial visualization
+        o3d.visualization.draw_geometries([pcd], window_name=f"Initial Point Cloud - Folder {folder_num}")
+
+        # Perform statistical outlier removal
+        cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
+        outlier_count = len(pcd.points) - len(ind)
+
+        # Save the number of points removed to a JSON file
+        json_path = os.path.join(folder_path, "outliers_removed.json")
+        with open(json_path, 'w') as f:
+            json.dump({"outliers_removed": outlier_count}, f)
+
+        # Visualize the point cloud after outlier removal
+        inlier_cloud = pcd.select_by_index(ind)
+        o3d.visualization.draw_geometries([inlier_cloud], window_name=f"Filtered Point Cloud - Folder {folder_num}")
+
 if __name__ == "__main__":
     # Enable multiprocessing on Windows
     multiprocessing.set_start_method('spawn', force=True)
 
     # File paths
-    design_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC_rotated.ply"  # Replace with your design point cloud path
-    scanned_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"  # Replace with your scanned point cloud path
+    base_path = r"scanner_interface\output"
+    num_folders = 2
+    
+    Fikstur = o3d.io.read_point_cloud(r"calibration\ref.ply")
+    Fikstur.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(90), np.radians(90), np.radians(0))), center=(0,0,0))
+    Fikstur.translate((0,-100,-15))
+    tilt_vec=(32.77, 0, 0)
+    Fikstur.translate(tilt_vec)
+    # Process and visualize .ply files
+    process_and_visualize_ply_files(base_path, num_folders, Fikstur)
+    
+    
+    # Ola's kode
+    # # File paths
+    # design_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC_rotated.ply"  # Replace with your design point cloud path
+    # scanned_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"  # Replace with your scanned point cloud path
 
-    # Voxel size for downsampling
-    voxel_size = 0.5
+    # # Voxel size for downsampling
+    # voxel_size = 0.5
 
-    # Align the centroids of the point clouds
-    pcd1, pcd2_translated = align_centroids(design_pc_path1, scanned_pc_path1)
+    # # Align the centroids of the point clouds
+    # pcd1, pcd2_translated = align_centroids(design_pc_path1, scanned_pc_path1)
 
-    # Compare the point clouds and paint scanned PC based on distances
-    compare_point_clouds(pcd1, pcd2_translated)
+    # # Compare the point clouds and paint scanned PC based on distances
+    # compare_point_clouds(pcd1, pcd2_translated)
+
