@@ -485,6 +485,39 @@ def process_point_cloud_o3d(pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointC
         logger.error(f"Error processing point cloud: {e}")
         return None
 
+@app.route('/scan/manual_capture', methods=['POST'])
+def manual_capture():
+    data = request.get_json()
+    selected_project = data.get('selectedProject')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    # ...existing code...
+    # Pass preprocessing_method, voxel_size, and max_correspondence_distance to the processing function
+    # ...existing code...
+
+@app.route('/scan/auto_scan', methods=['POST'])
+def auto_scan():
+    data = request.get_json()
+    selected_project = data.get('selectedProject')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    # ...existing code...
+    # Pass preprocessing_method, voxel_size, and max_correspondence_distance to the processing function
+    # ...existing code...
+
+@app.route('/project/manual_pcp', methods=['POST'])
+def manual_pcp():
+    data = request.get_json()
+    project_name = data.get('projectName')
+    preprocessing_method = data.get('preprocessingMethod', 'Standard')
+    voxel_size = data.get('voxelSize', 0.01)
+    max_correspondence_distance = data.get('maxCorrespondenceDistance', 2)
+    # ...existing code...
+    # Pass preprocessing_method, voxel_size, and max_correspondence_distance to the processing function
+    # ...existing code...
+
 if __name__ == '__main__':
     try:
         logger.info("Starting Flask application.")

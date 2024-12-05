@@ -142,6 +142,42 @@
                         <th>Description</th>
                         <th>Range</th>
                     </tr>
+                    <!-- PCP Settings Header -->
+                    <tr>
+                        <th colspan="4">PCP Settings</th>
+                    </tr>
+                    <tr>
+                        <td>Preprocessing Method</td>
+                        <td>
+                            <select name="preprocessing_method" id="preprocessing-method" required>
+                                <option value="Standard">Standard</option>
+                                <option value="Early_outliers_NSS">Early_outliers_NSS</option>
+                                <option value="NSS">NSS</option>
+                            </select>
+                        </td>
+                        <td class="config-description">Select the preprocessing method for point cloud processing.</td>
+                        <td class="config-range">Options: Standard, Early_outliers_NSS, NSS</td>
+                    </tr>
+                    <tr>
+                        <td>Voxel Size</td>
+                        <td>
+                            <input type="number" step="0.001" name="voxel_size" id="voxel-size" value="0.01" required>
+                        </td>
+                        <td class="config-description">Set the voxel size for downsampling.</td>
+                        <td class="config-range">Range: 0.001 - 1.0</td>
+                    </tr>
+                    <tr>
+                        <td>Max Correspondence Distance</td>
+                        <td>
+                            <input type="number" step="0.1" name="max_correspondence_distance" id="max-correspondence-distance" value="2" required>
+                        </td>
+                        <td class="config-description">Set the maximum correspondence distance for ICP.</td>
+                        <td class="config-range">Range: 0.1 - 10.0</td>
+                    </tr>
+                    <!-- Scanner Settings Header -->
+                    <tr>
+                        <th colspan="4">Scanner Settings</th>
+                    </tr>
                     {% for key, config in configurations.items() %}
                     <tr>
                         <td>{{ key }}</td>

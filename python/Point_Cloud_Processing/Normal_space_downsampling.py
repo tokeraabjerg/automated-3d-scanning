@@ -5,7 +5,7 @@ import time
 import logging
 
 # Define usernames which run from python, and not docker
-your_username = "mikke"
+your_username = "not" #"mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
@@ -13,7 +13,7 @@ if getpass.getuser() == your_username:
     from Misc_functions import create_arrow
     from Calibration_by_fixture import inverse_center_and_filter_point_cloud
 else:
-    print("The code is not being run with Toke modules")
+    print("The code is being run with modules")
     from python.Point_Cloud_Processing.Misc_functions import create_arrow
     from python.Point_Cloud_Processing.Calibration_by_fixture import inverse_center_and_filter_point_cloud
 

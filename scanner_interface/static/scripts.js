@@ -281,6 +281,10 @@ function handleManualCapture(event) {
         return;
     }
 
+    const preprocessingMethod = document.getElementById('preprocessing-method').value;
+    const voxelSize = parseFloat(document.getElementById('voxel-size').value);
+    const maxCorrespondenceDistance = parseFloat(document.getElementById('max-correspondence-distance').value);
+
     // Show loading indicator with "Starting scan..."
     showLoadingIndicator('Starting scan...');
 
@@ -297,7 +301,9 @@ function handleManualCapture(event) {
         },
         body: JSON.stringify({
             selectedProject: project,
-            log_parameters_after_scan: logParameters
+            preprocessingMethod: preprocessingMethod,
+            voxelSize: voxelSize,
+            maxCorrespondenceDistance: maxCorrespondenceDistance
         })
     })
     .then(response => response.json())
@@ -345,6 +351,10 @@ function handleAutoScan(event) {
         showWarning('Please select or create a project before starting a scan.', 'Scan Validation');
         return;
     }
+
+    const preprocessingMethod = document.getElementById('preprocessing-method').value;
+    const voxelSize = parseFloat(document.getElementById('voxel-size').value);
+    const maxCorrespondenceDistance = parseFloat(document.getElementById('max-correspondence-distance').value);
 
     // Check for existing scans
     fetch(`/project/get_scan_count?projectName=${project}`)
@@ -416,6 +426,10 @@ function startAutoScan(project) {
     autoScanButton.disabled = true;
     stopButton.disabled = true;
 
+    const preprocessingMethod = document.getElementById('preprocessing-method').value;
+    const voxelSize = parseFloat(document.getElementById('voxel-size').value);
+    const maxCorrespondenceDistance = parseFloat(document.getElementById('max-correspondence-distance').value);
+
     fetch('/scan/auto_scan', {
         method: 'POST',
         headers: {
@@ -423,6 +437,9 @@ function startAutoScan(project) {
         },
         body: JSON.stringify({
             selectedProject: project,
+            preprocessingMethod: preprocessingMethod,
+            voxelSize: voxelSize,
+            maxCorrespondenceDistance: maxCorrespondenceDistance
         })
     })
     .then(response => response.json())
@@ -1016,13 +1033,20 @@ function manualPCP() {
             // Show loading indicator with "Starting manual PCP..."
             showLoadingIndicator('Starting manual PCP...');
 
+            const preprocessingMethod = document.getElementById('preprocessing-method').value;
+            const voxelSize = parseFloat(document.getElementById('voxel-size').value);
+            const maxCorrespondenceDistance = parseFloat(document.getElementById('max-correspondence-distance').value);
+
             fetch('/project/manual_pcp', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    projectName: projectName
+                    projectName: projectName,
+                    preprocessingMethod: preprocessingMethod,
+                    voxelSize: voxelSize,
+                    maxCorrespondenceDistance: maxCorrespondenceDistance
                 })
             })
             .then(response => response.json())
@@ -1203,10 +1227,11 @@ function appendNewPosition(event) {
     const positionOnly = document.getElementById('position-only').checked;
 
     // Validate tilt angle
-    const maxTiltSteps = 1200;
-    const tiltSteps = tiltAngle * 19.5; // Assuming 19.5 steps per degree
-    if (tiltSteps > maxTiltSteps) {
-        showWarning(`Tilt angle exceeds the maximum limit of ${maxTiltSteps / 19.5} degrees.`, 'Validation Error');
+    const zerostep = 619; // Zero step for tilt motor
+    const collisionLimitTiltSteps = 1200; // Collision limit in steps
+    const tiltSteps = tiltAngle * 19.5; // Assuming 1-9.5 steps per degree
+    if ((tiltSteps+zerostep) > collisionLimitTiltSteps) {
+        showWarning(`Tilt angle exceeds the collision limit of ${(collisionLimitTiltSteps-619) / 19.5} degrees.`, 'Validation Error');
         return;
     }
 
@@ -1293,9 +1318,10 @@ function viewPlannedPositions() {
 
                 // Set the angle range display
                 const maxPanAngle = (5800 - 2716) / 19.5;
-                const maxTiltAngle = (2000 - 619) / 19.5;
+                const maxTiltAngle = (1200) / 19.5; // Motor maximum range
+                const minTiltAngle = -619 / 19.5; // Adjust the minimum tilt angle relative to absolute zero
                 document.getElementById('pan-angle-range').textContent = `0.00° to ${maxPanAngle.toFixed(2)}°`;
-                document.getElementById('tilt-angle-range').textContent = `0.00° to ${maxTiltAngle.toFixed(2)}°`;
+                document.getElementById('tilt-angle-range').textContent = `${minTiltAngle.toFixed(2)}° to ${maxTiltAngle.toFixed(2)}° (Motor maximum range)`;
             } else {
                 showWarning('positions.json not found or empty for the selected project.', 'Project Selection');
             }

@@ -5,7 +5,7 @@ import time
 import getpass
 
 # Define your username
-your_username = "mikke"
+your_username = "not" #"mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
@@ -13,35 +13,29 @@ if getpass.getuser() == your_username:
     from IA import RANSAC_initial_alignment
     from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
     from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
-    from PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+    from PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
     from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 else:
-    print("The code is not being run with modules")
+    print("The code is being run with modules")
     from .IA import RANSAC_initial_alignment
     from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
     from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
-    from .PP import preprocess_point_cloud, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+    from .PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
     from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 
 #define global variables in global scope, tsk tsk.
-ShowMe = True
+ShowMe = False
 legacyMode = False
-
-
-skipalignment = False
-SkipICP = False
+doInitial_alignment = True
+doICP = True
+Preprocessing_pipeline = "Standard"
+# options = "Standard", "Early_outliers_NSS" and "NSS"
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-"""
-    Ændringer by Toke, for MDP:
-        - Funktionen antager at input er en normal, 
-        jeg har tilføjet et tjek så jeg ikke behøver at gøre det i min ende.
-        - Defineret variabler globalt.
 
-"""
-def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2):
+def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2, preprocessing_method="Standard"):
     logger.info("Starting Point_Cloud_Processing")
 
     """
@@ -73,31 +67,56 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         AxisArrow += arrow
     """
     # Paint the target cloud
-    #target_cloud.paint_uniform_color([1, 0.706, 0])
-    logger.debug("Target cloud painted")
+    # target_cloud.paint_uniform_color([1, 0.706, 0])
+    # logger.debug("Target cloud painted")
 
     # Apply Calibration transformation to the target cloud
     target_cloud.transform(Calibration_transformation)
     logger.debug("Applied calibration transformation to target cloud")
     
+    
     # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
-    logger.debug("Starting Preproces_normal_pipeline")
-    target_cloud_normal_sample = Preproces_normal_pipeline(target_cloud, voxel_size, std_ratio=2.0)
-    logger.debug("Completed Preproces_normal_pipeline")
+    if preprocessing_method == "Standard":
+        logger.debug("Selecting Preproces_pipeline")
+        def Preproces(target_cloud, voxel_size, std_ratio):
+            target_cloud = Preproces_pipeline(target_cloud, voxel_size, std_ratio)
+            return target_cloud
+    elif preprocessing_method == "Early_outliers_NSS":
+        logger.debug("Selecting Early_outliers_NSS")
+        def Preproces(target_cloud, voxel_size, std_ratio):
+            target_cloud = Preproces_early_outliers_pipeline(target_cloud, voxel_size, std_ratio)
+            return target_cloud
+    elif preprocessing_method == "NSS":
+        logger.debug("Starting Preproces_normal_pipeline")
+        def Preproces(target_cloud, voxel_size, std_ratio):
+            target_cloud = Preproces_normal_pipeline(target_cloud, voxel_size, std_ratio)
+            return target_cloud
+    else:
+        raise ValueError("Invalid Preprocessing_pipeline option")
 
 
+    logger.debug("Starting Preproces")
+    target_cloud_normal_sample = Preproces(target_cloud, voxel_size, std_ratio=2.0)
+    logger.debug("Completed Preproces")
+    if not target_cloud_normal_sample.has_normals():
+        logger.info("Target lost normals after preprocessing")
+    
     # Ensure normals are computed for the combined cloud (Toke)
     if not combined_cloud.has_normals():
-        logger.info("Estimating normals for combined_cloud_normal_sample and applying calibration transformation")
+        logger.info("Estimating normals for combined_cloud and applying calibration transformation")
         combined_cloud.transform(Calibration_transformation)
-        combined_cloud = Preproces_normal_pipeline(combined_cloud, voxel_size, std_ratio=2.0) 
+        combined_cloud = Preproces(combined_cloud, voxel_size, std_ratio=2.0) 
 
+    if not target_cloud_normal_sample.has_normals():
+        logger.info("Target lost normals COMBINED preprocessing")
+    if not combined_cloud.has_normals():
+        logger.info("Combined lost normals after preprocessing")
     
     logger.debug("Normals estimated for combined_cloud_normal_sample")
 
     logger.info(f"Angles received in Point_Cloud_Processing: theta_pan_diff={theta_pan}, theta_tilt_diff={theta_tilt}")
 
-    if skipalignment is True:
+    if doInitial_alignment is False:
         logger.info("Skipping alignment")
     else:
         if ShowMe is True:
@@ -110,7 +129,7 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
             o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
         
     # Step 2: Point-to-Plane ICP
-    if SkipICP is True:
+    if doICP is False:
         logger.info("Skipping ICP")
         icp_transformation = np.eye(4)
         aligned_target = target_cloud_normal_sample
@@ -153,19 +172,33 @@ if __name__ == "__main__":
     for arrow in arrows:
         AxisArrow += arrow
     ply_files = [
-        r"C:\Users\mikke\Desktop\Toke Cali\scan_3.ply",
-        r"C:\Users\mikke\Desktop\Toke Cali\scan_4.ply",
-        r"C:\Users\mikke\Desktop\Toke Cali\scan_5.ply"
+        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply",
+        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_2.ply",
+        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_3.ply",
+        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_4.ply"
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_5.ply",
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_6.ply",
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_7.ply",
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_8.ply",
         #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
         #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
     ]
     
+    theta_pan = [0, 20, 40, 60, 0]
+    theta_tilt = [0, 0, 0, 0, 0]
+
+    # #illustrate the first cloud:
+    # cloud = o3d.io.read_point_cloud(ply_files[0])
+    # o3d.visualization.draw_geometries([cloud, AxisArrow], window_name="First Point Cloud")
+    # cloud = remove_points_in_box(cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
+    # #TODO: Implement this function or a version of it at scan level - maybe next to origen points?
+    # o3d.visualization.draw_geometries([cloud, AxisArrow], window_name="First Point Cloud")
+    
+
     ShowMe = True
     legacyMode = False
     
 
-    theta_pan = [0, 15, 15, -15, 0]
-    theta_tilt = [0, 0, -15, 15, 0]
     
     # Initialize combined_transformation as a list of independent identity matrices
     # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
@@ -192,20 +225,27 @@ if __name__ == "__main__":
             else:
                 raise ValueError("lacking calibration point cloud")
         
+        logger.info("Removing points around the scanner")
+        current_cloud = remove_points_in_box(current_cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
+        # TODO: Implement this function or a version of it at scan level - maybe next to origen points?
+        
+
         if legacyMode is True:
             combined_cloud, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4)
         
         elif combined_cloud == None:
+            o3d.visualization.draw_geometries([current_cloud, AxisArrow, Fikstur], window_name="First Point Cloud")
             current_cloud.transform(Calibration_transformation)
             combined_cloud = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
             if ShowMe is True:
-                o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur])
+                o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur], window_name="First Point Cloud post calibration")
         else:
+            o3d.visualization.draw_geometries([combined_cloud, current_cloud, AxisArrow, Fikstur], window_name="Current Point Cloud, before processing and calibration")
             combined_cloud, ICP_transform = Point_Cloud_Processing(combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.01, max_correspondence_distance=1)
     
     combined_cloud = remove_points_within_distance_of_pointcloud(combined_cloud, Fikstur, 2) 
-    min_bound = (-120.0, -200.0, -50)  # Replace with your box's minimum x, y, and z coordinates
-    max_bound = (40, 200, 50) 
+    min_bound = (-120.0, -200.0, -100)  # Replace with your box's minimum x, y, and z coordinates
+    max_bound = (50, 200, 100) 
     combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
     
     end_timePCP = time.time()
@@ -218,55 +258,3 @@ if __name__ == "__main__":
     #     output_trans = "combined_transformation.json"
     o3d.io.write_point_cloud(output_ply, combined_cloud)
     #print(f"Final merged point cloud saved to: {output_file}")
-
-
-    
-
-# if __name__ == "__main__":
-#     # List of .ply files to process
-#     ply_files = [
-#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
-#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
-#         r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
-#     ]
-
-#     # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
-#     rotation_vectors = [
-#     #(None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
-#     (0, 0, 0),     # Ingen rotation identificere en point cloud som værende velegnet til zeroing.
-#     (15, 0, 0),     # Rotation omkring en vilkårlig akse
-#     (45, 0, 0)    # 90 grader omkring y-aksen
-#     ]
-
-#     # Translation vectors to move from global to local coords. Must find a method of locating the motors axis of rotation.
-#     # Hard coded translation for the first axis of rotation (Not perfect, since data appears inconsistent)
-#     # Calculated x_axis=(143.31,24.85,-318.16)
-    
-#     # Working x_axis=(143.31, 15,-340.16)
-#     # x_axis=(143.31, 15,-345)
-
-#     # Obtain zeroing transformation
-#     Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
-
-#     if rotation_vectors[0] == (0,0,0):
-#         print("Zeroing point clouds by fixture-based method")
-#         Alignment_point_cloud = o3d.io.read_point_cloud(ply_files[0])
-#     else:
-#         raise ValueError("lacking zeroing point cloud")
-    
-#     Calibration_transformation, Fikstur=Zero_point_cloud_by_fixture(Alignment_point_cloud, Fikstur_fil)
-#     Calibration_transformation = np.eye(4)
-#     # Process the point clouds
-#     print("Starting point cloud processing...")
-#     final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, Calibration_transformation, voxel_size=1.5, max_correspondence_distance=4)
-#     print(combined_transformation.shape)
-#     final_cloud_minus_fixture = remove_points_within_distance_of_pointcloud(Fikstur, final_cloud, 10)
-
-#     # Save the final merged point cloud
-#     output_ply = "merged_point_cloud.ply"
-#     output_trans = "combined_transformation.json"
-#     #o3d.io.write_point_cloud(output_file, final_cloud)
-#     #print(f"Final merged point cloud saved to: {output_file}")
-
-#     # Visualize the final result
-#     #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
