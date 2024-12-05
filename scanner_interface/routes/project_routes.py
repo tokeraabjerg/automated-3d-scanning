@@ -293,4 +293,30 @@ def manual_pcp():
         logger.error(f"Error during manual point cloud processing for '{project_name}': {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@project_bp.route('/save_configurations', methods=['POST'])
+def save_configurations():
+    """
+    Save the current scanner configurations to the specified project as configurations.json.
+    """
+    try:
+        data = request.get_json()
+        project_name = data.get('projectName')
+
+        if not project_name:
+            return jsonify({'status': 'error', 'message': 'Project name is required.'}), 400
+
+        project_manager = current_app.config.get('project_manager')
+        if not project_manager:
+            return jsonify({'status': 'error', 'message': 'Project manager is not available.'}), 500
+
+        success = project_manager.save_current_configurations(project_name)
+
+        if success:
+            return jsonify({'status': 'success', 'message': 'Configurations saved successfully.'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to save configurations.'}), 500
+    except Exception as e:
+        current_app.logger.error(f"Error in save_configurations: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 

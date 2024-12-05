@@ -22,6 +22,7 @@ import numpy as np
 import psutil  # Add psutil import
 import subprocess  # Add this import
 import json  # Add this import
+from datetime import datetime  # Add this import
 
 from python.Point_Cloud_Processing.Misc_functions import compute_nearest_degree
 from scanner_interface.routes.project_routes import project_bp
@@ -43,13 +44,22 @@ output_directory = os.path.join(base_dir, "output")
 os.makedirs(output_directory, exist_ok=True)
 
 # Initialize ProjectManager and store it in app config
-project_manager = ProjectManager(output_directory)
-app.config['project_manager'] = project_manager  
+# Remove or comment out the following lines:
+# project_manager = ProjectManager(output_directory)
+# app.config['project_manager'] = project_manager  
+
 app.config['output_directory'] = output_directory 
+
+class CustomFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        ct = datetime.fromtimestamp(record.created)
+        s = ct.strftime('%H:%M:%S')
+        s += ".%02d" % (record.msecs / 10)
+        return s
 
 # Set up logging with RotatingFileHandler
 log_file_path = os.path.join(base_dir, 'app.log')
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = CustomFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 rotating_handler = RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=5)
 rotating_handler.setLevel(logging.DEBUG)  # Set to DEBUG level
@@ -113,6 +123,10 @@ def initialize():
             logger.error(f"SDK library not found at {lib_path}")
             config_manager = Configurations()  # Initialize with default configurations
             app.config['config_manager'] = config_manager  # Add this line
+
+            # Initialize ProjectManager with config_manager
+            project_manager = ProjectManager(output_directory, config_manager)
+            app.config['project_manager'] = project_manager
             return
 
         scanner = ScannerInterface(lib_path, output_directory=output_directory)  # Pass output_directory
@@ -133,15 +147,20 @@ def initialize():
             logger.warning("Failed to connect to the sensor. Proceeding with default configurations.")
             config_manager = Configurations()  # Initialize with default configurations
             app.config['config_manager'] = config_manager  # Add this line
+
+        # Initialize ProjectManager with config_manager
+        project_manager = ProjectManager(output_directory, config_manager)
+        app.config['project_manager'] = project_manager
+
     except Exception as e:
         connecting_attempt = False  # Reset flag on exception
         logger.error(f"Error initializing scanner or configuration manager: {e}")
         config_manager = Configurations()  # Initialize with default configurations
         app.config['config_manager'] = config_manager  # Add this line
 
-    # Initialize ProjectManager and store it in app config
-    project_manager = ProjectManager(output_directory)
-    app.config['project_manager'] = project_manager
+        # Initialize ProjectManager with config_manager
+        project_manager = ProjectManager(output_directory, config_manager)
+        app.config['project_manager'] = project_manager
 
     # Initialize scan-related configurations
     scan_lock = threading.Lock()
@@ -203,6 +222,10 @@ def index():
     except Exception as e:
         logger.error(f"Error reading log file: {e}")
         logs = "Error reading logs."
+
+    # Retrieve config_manager and project_manager from app config
+    config_manager = app.config['config_manager']
+    project_manager = app.config['project_manager']
 
     # Load projects
     projects = project_manager.load_projects()
@@ -466,6 +489,8 @@ if __name__ == '__main__':
     try:
         logger.info("Starting Flask application.")
         app.run(host='0.0.0.0', port=5001, debug=True)
+    except Exception as e:
+        logger.error(f"Exception occurred: {e}")
     finally:
         disconnect_scanner()
         logger.info("Scanner disconnected on application shutdown.")

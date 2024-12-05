@@ -187,6 +187,8 @@ function checkScannerStatus(logInterval = 30000) {
 
 // Function to fetch and display logs every 2 seconds
 let errorDisplayed = false;
+const logLimit = 1000; // Set a limit on the number of log lines to display
+
 function fetchLogs() {
     fetch('/get_logs')
         .then(response => {
@@ -198,9 +200,10 @@ function fetchLogs() {
         .then(data => {
             const logOutput = document.getElementById('log-output');
             const isScrolledToTop = logOutput.scrollTop === 0;
-            // Split the log data into lines, reverse the order, and join back into a string
-            let reversedLogs = data.split('\n').reverse().join('\n');
-            logOutput.textContent = reversedLogs;
+            // Split the log data into lines, reverse the order, and limit the number of lines
+            let logLines = data.split('\n').reverse().slice(0, logLimit);
+            let limitedLogs = logLines.join('\n');
+            logOutput.textContent = limitedLogs;
             // Scroll to the top to show the newest logs only if the user is not scrolling
             if (isScrolledToTop) {
                 logOutput.scrollTop = 0;
@@ -293,7 +296,8 @@ function handleManualCapture(event) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            selectedProject: project
+            selectedProject: project,
+            log_parameters_after_scan: logParameters
         })
     })
     .then(response => response.json())
@@ -418,16 +422,12 @@ function startAutoScan(project) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            selectedProject: project
+            selectedProject: project,
         })
     })
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            showSuccess(`Auto scan started for project: ${data.project}`, 'Scan Status');
-            // Update loading indicator to "Scanning..."
-            showLoadingIndicator('Scanning...');
-            // Enable the Stop button
             stopButton.disabled = false;
             // Start polling for scan status
             pollScanStatus();
@@ -1344,3 +1344,95 @@ function removeScan(index) {
 function closeViewPositionsModal() {
     document.getElementById('view-positions-modal').style.display = 'none';
 }
+
+// Function to initiate a scan
+function startScan() {
+    // Disable the start scan button to prevent multiple requests
+    document.getElementById('startScanButton').disabled = true;
+
+    // Show a loading indicator
+    showLoadingIndicator(true);
+
+    // Send a POST request to initiate the scan
+    fetch('/start_scan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ /* Include any necessary parameters here */ })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            console.log('Scan started successfully.');
+            // Update the UI to reflect that the scan has started
+            updateScanStatus('Scan in progress...');
+        } else {
+            console.error('Failed to start scan:', data.message);
+            // Notify the user of the failure
+            alert('Failed to start scan: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error starting scan:', error);
+        // Notify the user of the error
+        alert('Error starting scan. Please try again.');
+    })
+    .finally(() => {
+        // Re-enable the start scan button and hide the loading indicator
+        document.getElementById('startScanButton').disabled = false;
+        showLoadingIndicator(false);
+    });
+}
+
+function saveConfigurations() {
+    // Disable the save button to prevent multiple submissions
+    const saveButton = document.getElementById('saveConfigButton');
+    saveButton.disabled = true;
+
+    // Show a loading indicator or message
+    showLoadingIndicator(true);
+
+    // Collect configuration data from the form
+    const configForm = document.getElementById('configForm');
+    const formData = new FormData(configForm);
+    const configData = {};
+    formData.forEach((value, key) => {
+        configData[key] = value;
+    });
+
+    // Send a POST request to the update_configurations endpoint
+    fetch('/config/update_configurations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errData => { throw errData; });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            console.log('Configurations saved successfully.');
+            alert('Configurations saved successfully.');
+        } else {
+            console.error('Failed to save configurations:', data.message);
+            alert('Failed to save configurations: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving configurations:', error);
+        alert('Error saving configurations. Please try again.');
+    })
+    .finally(() => {
+        // Re-enable the save button and hide the loading indicator
+        saveButton.disabled = false;
+        showLoadingIndicator(false);
+    });
+}
+
+

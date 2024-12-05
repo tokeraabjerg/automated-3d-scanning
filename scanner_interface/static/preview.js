@@ -5,6 +5,13 @@ function loadPointCloudFromData(data, containerId = 'viewer') {
     console.log('Loading point cloud data into container:', containerId);
     const viewer = document.getElementById(containerId);
 
+    // Show the loading indicator
+    const container = viewer.parentElement;
+    const loadingIndicator = container.querySelector('#viewer-loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'flex';
+    }
+
     // Clear any existing content
     while (viewer.firstChild) {
         viewer.removeChild(viewer.firstChild);
@@ -44,56 +51,81 @@ function loadPointCloudFromData(data, containerId = 'viewer') {
 
     console.log('Point cloud created, initializing three.js scene...');
     // Initialize three.js scene and render the point cloud
-    initThreeJS(pointCloud, containerId);
+    initThreeJS(pointCloud, containerId).then(() => {
+        // Hide the loading indicator after the scene is initialized
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+            console.log('Loading indicator hidden.');
+        }
+    }).catch(error => {
+        console.error('Error initializing Three.js scene:', error);
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        showError('An error occurred while loading the 3D preview.', 'Loading Error');
+    });
 }
 
 // Initialize three.js scene
 function initThreeJS(pointCloud, containerId = 'viewer') {
-    const container = document.getElementById(containerId);
+    return new Promise((resolve, reject) => {
+        try {
+            const container = document.getElementById(containerId);
 
-    // Create scene, camera, renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 100000);
-    camera.position.set(0, 0, 100);
+            // Create scene, camera, renderer
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 100000);
+            camera.position.set(0, 0, 100);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    
-    // Set the background color to white
-    renderer.setClearColor(0xffffff, 1); // white background
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            
+            // Set the background color to white
+            renderer.setClearColor(0xffffff, 1); // white background
 
-    container.appendChild(renderer.domElement);
+            container.appendChild(renderer.domElement);
 
-    // Add controls
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            // Add controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-    // Add the point cloud to the scene
-    scene.add(pointCloud);
+            // Add the point cloud to the scene
+            scene.add(pointCloud);
 
-    // Fit camera to point cloud
-    const boundingBox = new THREE.Box3().setFromObject(pointCloud);
-    const center = boundingBox.getCenter(new THREE.Vector3());
-    const size = boundingBox.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = camera.fov * (Math.PI / 180);
-    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-    camera.position.z = cameraZ * 1.5;
-    camera.lookAt(center);
+            // Fit camera to point cloud
+            const boundingBox = new THREE.Box3().setFromObject(pointCloud);
+            const center = boundingBox.getCenter(new THREE.Vector3());
+            const size = boundingBox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            camera.position.z = cameraZ * 1.5;
+            camera.lookAt(center);
 
-    // Handle window resize
-    window.addEventListener('resize', function() {
-        camera.aspect = container.clientWidth / container.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
+            // Set the OrbitControls' target to the center of the point cloud
+            controls.target.copy(center);
+            controls.update();
+
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            // Animate the scene
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            console.log('Three.js scene initialized successfully.');
+            resolve();
+        } catch (error) {
+            reject(error);
+        }
     });
-
-    // Animate the scene
-    function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-    }
-    animate();
 }
 
 function requestScanPreview(projectName, scanIndex) {

@@ -17,28 +17,10 @@
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
-    font-size: 16px; /* Set a standard font size */
+    font-size: 12px; /* Set a standard font size */
 }
 
-h1 {
-    font-size: 2em; /* Adjust heading sizes */
-}
 
-h2 {
-    font-size: 1.5em; /* Adjust heading sizes */
-}
-
-h3 {
-    font-size: 1.25em; /* Adjust heading sizes */
-}
-
-button, input, select, textarea {
-    font-size: 1em; /* Adjust form element sizes */
-}
-
-.table {
-    font-size: 1em; /* Adjust table font size */
-}
 
 /* Header styling */
 header {
@@ -53,8 +35,9 @@ header {
 }
 
 /* Header title styling */
-header h1 {
+header h2 {
     font-size: 24px;
+    margin: 0; /* Remove default top and bottom margins to enable vertical centering */
 }
 
 /* Loading Indicator in Header */
@@ -88,27 +71,51 @@ header h1 {
 /* Main content styling */
 #main-content {
     display: flex;
-    height: calc(100vh - 60px); /* Adjust based on header height */
-    padding: 1.25em; /* Adjust padding */
+    height: calc(100vh - 5em); /* Adjust height to 100% of viewport height minus header height */
+    padding-top: 1em; /* Adjust padding */
+    padding-left: 1em; /* Adjust padding */
+    padding-right: 1em; /* Adjust padding */
+
+
 }
 
 /* Left panel styling */
 #left-panel {
-    width: 45%;
+    /* Remove the fixed width */
+    /* width: 50%; */
     background-color: #fff;
     padding: 1em; /* Adjust padding */
     overflow-y: auto;
     border-right: 1px solid #ccc;
-    height: calc(100vh - 2.5em); /* Adjust height to 100% of viewport height minus padding */
+    height: 96%; /* Set height to 100% of the main content area */
+    overflow-y: auto; /* Add scroll if content overflows */
+    padding-top: 1em; /* Adjust padding */
+    padding-left: 1em; /* Adjust padding */
+    padding-right: 1em; /* Adjust padding */
+    box-sizing: border-box; /* Ensure padding is included in the height calculation */
+    flex: 1 1 0; /* Ensure equal flex growth and shrinkage */
 }
 
 /* Right panel styling */
 #right-panel {
-    width: 55%;
+    /* Remove the fixed width */
+    /* width: 50%; */
     padding: 1em; /* Adjust padding */
     overflow-y: auto;
-    height: calc(100vh - 2.5em); /* Adjust height to 100% of viewport height minus padding */
+    /* height: calc(100vh - 2.5em); Adjust height to 100% of viewport height minus padding */
+    height: 98%; /* Set height to 100% of the main content area */
+    overflow: hidden; /* Prevent scrolling in the right panel */
+    padding-top: 1em; /* Adjust padding */
+    padding-left: 1em; /* Adjust padding */
+    padding-right: 1em; /* Adjust padding */
+    box-sizing: border-box; /* Ensure padding is included in the height calculation */
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0; /* Ensure equal flex growth and shrinkage */
 }
+
+
+#right_panel_header {  margin-top: -15px;  }
 
 /* Table styling */
 table {
@@ -156,12 +163,12 @@ th {
 .button-group {
     display: flex;
     justify-content: space-between; /* Align left and right buttons */
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 .left-buttons, .right-buttons {
     display: flex;
-    gap: 10px;
+    gap: 5px;
     display: flex;
     align-items: center;
 }
@@ -169,25 +176,25 @@ th {
 /* Buttons Container styling */
 .buttons-container {
     display: flex;
-    gap: 10px;
+    gap: 5px;
     align-items: center; /* Vertically centers the buttons */
 }
 
 /* Button styling */
 button, input[type="submit"] {
-    padding: 10px 20px;
+    padding: 5px 5px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .start-button, .manual-capture-button, .stop-button {
-    padding: 10px 20px;
+    padding: 10px 5px;
     text-align: center;
     text-decoration: none;
     display: inline-block;
-    font-size: 16px;
+    font-size: 13px;
     margin: 4px 2px;
     cursor: pointer;
     border-radius: 4px;
@@ -245,7 +252,7 @@ button, input[type="submit"] {
     padding: 10px 20px;
     cursor: pointer;
     border-radius: 5px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .manual-pcp-button:hover {
@@ -258,22 +265,32 @@ button, input[type="submit"] {
     border: 1px solid #ccc;
     background-color: #fff;
     position: relative;
+    flex: 1; /* Allow the viewer container to take available space */
 }
 
 #viewer {
     width: 100%;
-    height: 400px;
+    height: 300px;
 }
 
 /* Log output styling */
 #log-output {
+    font-size:11px;
     background-color: #eef;
     padding: 10px;
     border: 1px solid #ccd;
-    height: 300px;
+    height: 100%;
     overflow-y: scroll;
     white-space: pre-wrap;
     font-family: monospace;
+    height: 200px; /* Set a fixed height for the log container */
+    overflow-y: auto; /* Enable vertical scrolling within the log container */
+    border: 1px solid #ccc; /* Optional: Add a border for better visibility */
+    padding: 10px; /* Optional: Add padding for better readability */
+    flex: 1; /* Allow the log container to take available space */
+    margin-top: 1em; /* Add margin to separate from other elements */
+    height: calc(100% - 4em); /* Adjust height to fill remaining space */
+    font-size:10px;
 }
 
 /* Scan and Projects Container */
@@ -314,7 +331,7 @@ button, input[type="submit"] {
 
 .project-item label {
     flex: 1; /* Take up remaining space */
-    margin-left: 20px; /* Space between radio button and label */
+    margin-left: 15px; /* Space between radio button and label */
 }
 
 .project-actions {
@@ -449,21 +466,30 @@ button, input[type="submit"] {
 /* Ensure connection-status has a higher z-index */
 #connection-status {
     z-index: 1001; /* Higher than loading-indicator */
+    display: flex;
+    align-items: center; /* Vertically center items within the connection-status container */
+    margin: 0; /* Remove any margins that might affect vertical alignment */
+    justify-content: flex-start; /* Align items to the start horizontally */
 }
 
 #toast-container {
     top: 80px; /* Adjust this value to match the height of your header */
 }
-#connection-status {
-    position: absolute;
-    top: 50%;
-    right: 20px;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-}
+
 #reconnectButton {
     margin-right: 10px; /* Adjust spacing as needed */
+    background-color: #6c757d; /* Subtle grey background */
+    color: white; /* White text */
+    padding: 8px 16px; /* Padding */
+    border: none; /* Remove default border */
+    border-radius: 4px; /* Rounded corners */
+    cursor: pointer; /* Pointer cursor on hover */
+    font-size: 14px; /* Font size */
+    transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+#reconnectButton:hover {
+    background-color: #5a6268; /* Darker grey on hover */
 }
 
 #header-loading-indicator {
@@ -478,7 +504,7 @@ button, input[type="submit"] {
     padding: 10px 20px;
     cursor: pointer;
     border-radius: 5px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .restart-button:hover {
@@ -551,7 +577,7 @@ button, input[type="submit"] {
     padding: 10px 20px;
     cursor: pointer;
     border-radius: 5px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .run-button:hover {
@@ -566,7 +592,7 @@ button, input[type="submit"] {
     padding: 10px 20px;
     cursor: pointer;
     border-radius: 5px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .calibration-button:hover {
@@ -637,7 +663,7 @@ button, input[type="submit"] {
     padding: 10px 20px;
     cursor: pointer;
     border-radius: 5px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .modal-content form button:hover {
@@ -657,11 +683,5 @@ button, input[type="submit"] {
 
 .modal-content ul li:last-child {
     border-bottom: none;
-}
-
-#left-panel, #right-panel {
-    height: calc(120vh - 2.5em); /* Adjust height to 100% of viewport height minus padding */
-    overflow-y: auto; /* Add scroll if content overflows */
-    padding: 1.25em; /* Adjust padding */
 }
 
