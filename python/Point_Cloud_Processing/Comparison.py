@@ -119,7 +119,8 @@ def apply_calibration(pcd, calibration_path):
     return pcd
 
 def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
-    for folder_num in range(1, num_folders + 1):
+    # Ændre det første tal i range for at bestemme startpunkt.
+    for folder_num in range(21, num_folders + 1):
         folder_path = os.path.join(base_path, str(folder_num))
         scan_path = os.path.join(folder_path, "scan_1.ply")
 
@@ -148,6 +149,7 @@ def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
         # Perform statistical outlier removal
         cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
         outlier_count = len(pcd.points) - len(ind)
+        print("Outliers removed: " + str(outlier_count))
 
         # Save the number of points removed to a JSON file
         json_path = os.path.join(folder_path, "outliers_removed.json")
@@ -163,8 +165,8 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
 
     # File paths
-    base_path = r"scanner_interface\output"
-    num_folders = 2
+    base_path = r"scanner_interface\output\Parameter_test"
+    num_folders = 24
     
     Fikstur = o3d.io.read_point_cloud(r"calibration\ref.ply")
     Fikstur.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(90), np.radians(90), np.radians(0))), center=(0,0,0))
