@@ -27,7 +27,7 @@ else:
 ShowMe = False
 legacyMode = False
 doInitial_alignment = True
-doICP = True
+doICP = False
 Preprocessing_pipeline = "Standard"
 # options = "Standard", "Early_outliers_NSS" and "NSS"
 
@@ -53,7 +53,6 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     Returns:
     - combined_cloud: The final merged point cloud.
     """
-    logger.info("Starting Point_Cloud_Processing")
 
     # Visual aide for the axis of rotation
     """
@@ -72,7 +71,7 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
     # Apply Calibration transformation to the target cloud
     target_cloud.transform(Calibration_transformation)
-    logger.debug("Applied calibration transformation to target cloud")
+    logger.info("Applied calibration transformation to target cloud")
     
     
     # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
@@ -97,7 +96,6 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
     logger.debug("Starting Preproces")
     target_cloud_normal_sample = Preproces(target_cloud, voxel_size, std_ratio=2.0)
-    logger.debug("Completed Preproces")
     if not target_cloud_normal_sample.has_normals():
         logger.info("Target lost normals after preprocessing")
     
@@ -114,7 +112,7 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     
     logger.debug("Normals estimated for combined_cloud_normal_sample")
 
-    logger.info(f"Angles received in Point_Cloud_Processing: theta_pan_diff={theta_pan}, theta_tilt_diff={theta_tilt}")
+    logger.debug(f"Angles received in Point_Cloud_Processing: theta_pan_diff={theta_pan}, theta_tilt_diff={theta_tilt}")
 
     if doInitial_alignment is False:
         logger.info("Skipping alignment")
@@ -134,12 +132,12 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         icp_transformation = np.eye(4)
         aligned_target = target_cloud_normal_sample
     else:
-        logger.info("Performing ICP registration...")
-        icp_transformation, aligned_target = Point_to_Plane(combined_cloud, target_cloud_normal_sample, max_correspondence_distance=1)
+        logger.debug("Performing ICP registration...")
+        icp_transformation, aligned_target = Point_to_Plane(combined_cloud, target_cloud_normal_sample, max_correspondence_distance)
         logger.info(f"ICP transformation matrix: {icp_transformation}")
 
     combined_cloud += aligned_target
-    logger.info("ICP registration completed")
+    logger.debug("ICP registration completed")
 
     # Optional: Visualize the current merged cloud
     if ShowMe is True:

@@ -93,6 +93,7 @@ class ScannerInterface:
         self.ping_log_interval = 60  # Set the log interval to 60 seconds
         self.last_ping_success_log_time = 0  # Initialize the last log time for ping success
         self.ping_log_interval = 60  # Set the log interval to 60 seconds
+        self.max_retries = 5  # Increase the number of retries for connection attempts
 
         self._configure_library_functions()
 
@@ -146,13 +147,16 @@ class ScannerInterface:
         """
         return ERROR_CODES.get(error_code, f"Unknown error code: {error_code}")
 
-    def connect(self, max_retries: int = 3) -> bool:
+    def connect(self, max_retries: int = None) -> bool:
         """
         Attempt to connect to the sensor.
 
         :param max_retries: Maximum number of connection attempts.
         :return: True if connected successfully, False otherwise.
         """
+        if max_retries is None:
+            max_retries = self.max_retries
+
         with self.lock:
             logger.info("Attempting to connect to the sensor.")
             for attempt in range(1, max_retries + 1):
@@ -288,7 +292,7 @@ class ScannerInterface:
             try:
                 camera_width = int(camera_width_str)
                 camera_height = int(camera_height_str)
-                logger.info(f"Camera dimensions: width={camera_width}, height={camera_height}")
+                logger.debug(f"Camera dimensions: width={camera_width}, height={camera_height}")
             except ValueError as ve:
                 logger.error(f"Invalid camera dimensions received: width='{camera_width_str}', height='{camera_height_str}'")
                 return None
@@ -358,7 +362,7 @@ class ScannerInterface:
             pcd.colors = o3d.utility.Vector3dVector(np.tile(intensities_normalized[:, None], (1, 3)))
 
             # pcd is the Open3D point cloud
-            logger.info("Scan completed successfully.")
+            logger.debug("Scan completed successfully.")
             return pcd
 
         except Exception as e:

@@ -66,7 +66,7 @@ def Preproces_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
     logger.info(f"Starting Preproces_pipeline with voxel_size={voxel_size}, std_ratio={std_ratio}")
 
     # Voxel downsample
-    logger.info("Starting voxel downsampling")
+    logger.debug("Starting voxel downsampling")
     pcd = pcd.voxel_down_sample(voxel_size)
     logger.info(f"Voxel downsampling completed, points count: {len(pcd.points)}")
 
@@ -81,7 +81,7 @@ def Preproces_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
         pcd.orient_normals_to_align_with_direction(orientation_reference=([0., 0., -1.]))
 
 
-    logger.info("Starting outlier removal")
+    logger.debug("Starting outlier removal")
     pcd_downsampled, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
     logger.info(f"Outlier removal completed, points count: {len(pcd_downsampled.points)}")
 
@@ -104,7 +104,7 @@ def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
     logger.info(f"Starting Preproces_normal_pipeline with voxel_size={voxel_size}, std_ratio={std_ratio}")
 
     # Voxel downsample
-    logger.info("Starting voxel downsampling")
+    logger.debug("Starting voxel downsampling")
     pcd = pcd.voxel_down_sample(voxel_size)
     logger.info(f"Voxel downsampling completed, points count: {len(pcd.points)}")
 
@@ -123,7 +123,7 @@ def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
         pcd.orient_normals_to_align_with_direction(orientation_reference=([0., 0., -1.]))
 
 
-    logger.info("Starting outlier removal")
+    logger.debug("Starting outlier removal")
     pcd_downsampled, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
     logger.info(f"Outlier removal completed, points count: {len(pcd_downsampled.points)}")
 

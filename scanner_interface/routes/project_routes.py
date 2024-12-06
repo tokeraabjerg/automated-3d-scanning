@@ -269,6 +269,7 @@ def manual_pcp():
 
         # Fetch full-size point clouds
         pcd_dict = {}
+        highest_scan_index = 0
         for index, position in enumerate(positions):
             scan_index = index + 1
             scan_filename = f"scan_{scan_index}.ply"
@@ -281,13 +282,15 @@ def manual_pcp():
                     "pcd": pcd,
                     "rotation": rotation  # Rotation determined from positions.json
                 }
+                highest_scan_index = max(highest_scan_index, scan_index)
 
         if not pcd_dict:
             return jsonify({'status': 'error', 'message': 'No point clouds found for the project.'}), 404
 
         # Start post-processing thread
+        logger.info(f"Starting manual point cloud processing for '{project_name}', expected scans: {highest_scan_index}")
         app = current_app._get_current_object()
-        post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
+        post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, highest_scan_index, preprocessing_method, voxel_size, max_correspondence_distance))
         post_processing_thread.start()
 
         return jsonify({'status': 'success', 'message': 'Manual point cloud processing started.'}), 200

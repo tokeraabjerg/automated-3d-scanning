@@ -1142,8 +1142,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Error fetching scan count:', error);
-                showError('An unexpected error occurred while fetching scan count.', 'Scan Selector');
+                //console.error('Error fetching scan count:', error);
+                //showError('An unexpected error occurred while fetching scan count.', 'Scan Selector');
             });
     }
 
