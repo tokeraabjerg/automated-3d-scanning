@@ -283,6 +283,7 @@ def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_met
                 if len(pcd_dict) >= 2 and not post_processing_thread_running:
                     logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
                     post_processing_thread_running = True
+                    # TODO: OBS: The len(positions) demand that the amount of positons is correct relative to the amount of scans. Other methods have been implimetned in manual PCP for convience.
                     post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
                     post_processing_thread.start()
 

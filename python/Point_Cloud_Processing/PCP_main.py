@@ -71,7 +71,7 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
     # Apply Calibration transformation to the target cloud
     target_cloud.transform(Calibration_transformation)
-    logger.debug("Applied calibration transformation to target cloud")
+    logger.info("Applied calibration transformation to target cloud")
     
     
     # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
