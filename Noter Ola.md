@@ -20,6 +20,7 @@ Full Factorial Design:
 
 
 Factors:
-LED Power: 20 - 40
-Spray: On - Off
-Current exposure time
+LED Power: 10 - 60
+Spray: On
+Current exposure time 22000 to 44000
+contrast 0.1 0.5 to 0.9, 1 as well
