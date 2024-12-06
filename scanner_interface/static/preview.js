@@ -80,8 +80,8 @@ function initThreeJS(pointCloud, containerId = 'viewer') {
             const renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             
-            // Set the background color to white
-            renderer.setClearColor(0xffffff, 1); // white background
+            // Set the background color to lightblue
+            renderer.setClearColor(0xadd8e6, 1); // light blue background
 
             container.appendChild(renderer.domElement);
 

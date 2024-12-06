@@ -31,6 +31,8 @@ def manual_capture():
     logger.debug("manual_capture route called.")
     data = request.json
     project_name = data.get('selectedProject')
+    project_manager = current_app.config.get('project_manager')
+
 
     if not project_name:
         logger.debug("Invalid data provided for manual capture.")
@@ -42,6 +44,9 @@ def manual_capture():
         stop_event = current_app.config['stop_event']
         scan_lock = current_app.config['scan_lock']
         scan_in_progress = current_app.config['scan_in_progress']
+
+        #project_path = project_manager.get_project_path(project_name)
+        project_manager.save_current_configurations(project_name)
 
         with scan_lock:
             if scan_in_progress:
@@ -58,17 +63,15 @@ def manual_capture():
     except Exception as e:
         current_app.logger.error(f"Error starting manual capture: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
-    finally:
-        if request.json.get('log_parameters_after_scan'):
-            project_manager = current_app.config.get('project_manager')
-            project_path = project_manager.get_project_path(project_name)
-            project_manager.read_all_configuration(project_path)
+    # finally:
+        # project_manager = current_app.config.get('project_manager')
+        # project_path = project_manager.get_project_path(project_name)
+        # project_manager.save_current_configurations(project_path)
 
 def scan_thread(app, project_name, stop_event, log_parameters=False):
     """
     Thread function to handle the scanning process.
     """
-    logger.debug("scan_thread function called.")
     logger.info("Scan thread started.")
 
     with app.app_context():
@@ -103,9 +106,6 @@ def scan_thread(app, project_name, stop_event, log_parameters=False):
             with scan_lock:
                 current_app.config['scan_in_progress'] = False
             logger.info("Scan process completed and scan_in_progress flag reset.")
-            if log_parameters:
-                project_path = project_manager.get_project_path(project_name)
-                project_manager.read_all_configuration(project_path)
 
 @scan_bp.route('/stop_scan', methods=['POST'])
 def stop_scan():
@@ -205,10 +205,9 @@ def auto_scan():
         current_app.logger.error(f"Error starting auto scan: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
-        if request.json.get('log_parameters_after_scan'):
-            project_manager = current_app.config['project_manager']
-            project_path = project_manager.get_project_path(project_name)
-            project_manager.read_all_configuration(project_path)
+        project_manager = current_app.config['project_manager']
+        #project_path = project_manager.get_project_path(project_name)
+        project_manager.save_current_configurations(project_name)
 
 # Add a flag to track the post-processing thread status
 post_processing_thread_running = False
@@ -255,7 +254,7 @@ def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_met
 
                 # Wait for the motor to stop before starting the scan
                 logger.info(f"Waiting for motor to stop before starting scan {index + 1}/{len(positions)}.")
-                time.sleep(0.5)  # Adjust the sleep duration as needed
+                time.sleep(2)  # Adjust the sleep duration as needed
 
                 # Start scan
                 logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
@@ -287,13 +286,6 @@ def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_met
                     post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
                     post_processing_thread.start()
 
-            # Wait for the post-processing thread to finish
-            if config_manager:
-                logger.info("Logging configuration data after autoscan.")
-                project_manager.save_current_configurations(project_name)  # Call the method here
-                logger.info("Configuration data logged successfully.")
-            else:
-                logger.warning("Configuration manager not available. Skipping configuration logging.")
 
             logger.info(f"Auto scan completed successfully for project: {project_name}")
 
@@ -337,11 +329,11 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
                 return
             
             matrix = calibration_data['calibrationTransformation']
-            logger.info(f"Using saved calibration transformation: {matrix}")
+            logger.debug(f"Using saved calibration transformation: {matrix}")
             processedClouds = 0
 
             while True:
-                logger.info(f"Current pcd_dict length: {len(pcd_dict)}")
+                logger.info(f"Current pcd_dict length: {len(pcd_dict)}. Waiting for more scans...")
                 if len(pcd_dict) >= 2:
                     logger.info(f"pcd_dict: {pcd_dict}")
                     logger.info(f"Post-processing {len(pcd_dict)} point clouds.")
@@ -355,7 +347,6 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
 
 
                     if "scan_main" in pcd_dict:
-                        logger.info("Combining scan_main with the lowest scan key.")
                         combined_pcd = pcd_dict["scan_main"]["pcd"]
                         lowest_scan_key = min((key for key in pcd_dict if key != "scan_main"), 
                                            key=lambda k: int(k.split('_')[1]))
@@ -381,43 +372,45 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
                         del pcd_dict[lowest_scan_key]
                         processedClouds += 1
                     else:
-                        logger.info("Combining the first two point clouds. AKA creating scan_main")
-                        # pcd_list = [pcd_dict[key]["pcd"] for key in sorted(pcd_dict.keys())[:2]]
-                        # rotation_list = [pcd_dict[key]["rotation"] for key in sorted(pcd_dict.keys())[:2]]
+                        first_two_scans = sorted(pcd_dict.keys(), key=lambda x: int(x.split('_')[1]))[:2]
+                        logger.info(f"First two scans selected for combination: {first_two_scans}")
+                        pcd_list = [pcd_dict[first_two_scans[0]]["pcd"], pcd_dict[first_two_scans[1]]["pcd"]]
+                        rotation_list = [pcd_dict[first_two_scans[0]]["rotation"], pcd_dict[first_two_scans[1]]["rotation"]]
                         # source_pcd = pcd_dict["scan_1"]
                         # target_pcd = pcd_dict["scan_2"]
                         
-                        logger.info(f"Combining {sorted(pcd_dict.keys())[:2]}")
-                        logger.info(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={rotation_list[1][0]}, theta_tilt_diff={ rotation_list[1][1]}")
+                        logger.debug(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={rotation_list[1][0]}, theta_tilt_diff={ rotation_list[1][1]}")
                         combined_pcd, icp_transform = Point_Cloud_Processing(
                             pcd_list[0],
                             pcd_list[1],
                             rotation_list[1][0], #pan, motor a
                             -rotation_list[1][1],  #tilt, motor b
-                            matrix
+                            matrix,
+                            voxel_size,
+                            max_correspondence_distance,
+                            preprocessing_method
                         )
                         
                         logger.info(f"ICP transform: {icp_transform}")
+
+                        del pcd_dict[sorted(pcd_dict.keys())[0]]
+                        del pcd_dict[sorted(pcd_dict.keys())[0]]
 
                         pcd_dict["scan_main"] = {
                             "pcd": combined_pcd,
                             "rotation": rotation_list[0]
                         }
-                        del pcd_dict[sorted(pcd_dict.keys())[0]]
-                        del pcd_dict[sorted(pcd_dict.keys())[0]]
                         processedClouds += 2  
 
-                    # Save the combined point cloud as scan_main.ply
-                    project_manager = current_app.config.get('project_manager')
-                    project_manager.save_point_cloud(combined_pcd, project_name, save_as_main=True)
-                    logger.info("Combined point cloud saved as scan_main.ply.")
-
                 if processedClouds == total_positions:
-                    logger.info("All scans processed. Exiting post-processing thread.")
                     break
                 time.sleep(2)  # Sleep for 2 seconds before checking for new point clouds
 
-            logger.info("Post-processing thread completed.")
+            # Save the combined point cloud as scan_main.ply
+            project_manager = current_app.config.get('project_manager')
+            project_manager.save_point_cloud(combined_pcd, project_name, save_as_main=True)
+            logger.info("Combined point cloud saved as scan_main.ply.")
+
         except Exception as e:
             logger.error(f"Error in post-processing thread: {e}")
         finally:
@@ -605,7 +598,7 @@ def calibration_scan():
         time.sleep(1)  # Wait for motors to settle
 
         # Perform the calibration scan
-        pcd = scanner.perform_scan(scan_interval=1, stop_event=current_app.config.get('stop_event'))
+        pcd = scanner.perform_scan(stop_event=current_app.config.get('stop_event'))
         if pcd is None:
             logger.error("Scan failed")
             return jsonify({'status': 'error', 'message': 'Scan failed'}), 500
@@ -631,7 +624,7 @@ def calibration_scan():
         logger.info("Calibration performed successfully")
 
         # Save calibration matrix
-        os.makedirs(calibration_dir, exist_okay=True)
+        os.makedirs(calibration_dir, exist_ok=True) # correct argument is exist_ok, do not change
         config_json_path = os.path.join(calibration_dir, 'calibration.json')
 
         with open(config_json_path, 'w') as f:
