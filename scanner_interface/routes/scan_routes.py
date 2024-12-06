@@ -394,8 +394,10 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
                         
                         logger.info(f"ICP transform: {icp_transform}")
 
-                        del pcd_dict[sorted(pcd_dict.keys())[0]]
-                        del pcd_dict[sorted(pcd_dict.keys())[0]]
+                        logger.info(f"Deleted ")
+                        del pcd_dict[first_two_scans[0]]
+                        del pcd_dict[first_two_scans[1]]
+                        logger.info(f"Deleted scans: {first_two_scans[0]} and {first_two_scans[1]}")
 
                         pcd_dict["scan_main"] = {
                             "pcd": combined_pcd,
