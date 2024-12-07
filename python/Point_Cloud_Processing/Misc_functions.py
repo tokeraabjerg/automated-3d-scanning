@@ -710,7 +710,7 @@ def remove_points_in_hollow_cylinder(point_cloud, center, inner_radius, outer_ra
 def find_optimal_scaling_factor(source, target, max_correspondence_distance, scaling_range=(0.95, 1.15), scaling_step=0.05):
     """
     Find the optimal scaling factor to align two point clouds.
-
+    #TODO Test with full scan of scaling part.
     Args:
         source (o3d.geometry.PointCloud): The source point cloud.
         target (o3d.geometry.PointCloud): The target point cloud.

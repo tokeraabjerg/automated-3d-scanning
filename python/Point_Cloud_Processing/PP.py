@@ -5,7 +5,7 @@ import time
 import logging
 
 # Define your username
-your_username = None#"mikke"
+your_username = "mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
@@ -109,7 +109,7 @@ def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
     logger.info(f"Voxel downsampling completed, points count: {len(pcd.points)}")
 
     # Downsample using normal space sampling
-    pcd = normal_space_sampling_with_bin_control(pcd, int(len(pcd.points)/12), radius=3, max_nn=50, bin_size=360)
+    pcd = normal_space_sampling_with_bin_control(pcd, int(len(pcd.points)/8), radius=3, max_nn=50, bin_size=360)
     
     # Redudant, but ensures that the normals are present:
     if not pcd.has_normals():
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     end_timeb = time.time()
     elapsed_timeb = end_timeb - start_timeb
     print(f"Time taken to preprocess: {elapsed_timeb:.2f} seconds")
-    brk
+    
     # Create the axis arrows
     arrows = [
         create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis

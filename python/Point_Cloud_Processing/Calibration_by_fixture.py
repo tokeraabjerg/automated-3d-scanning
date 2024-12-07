@@ -212,7 +212,7 @@ if __name__ == "__main__":
     
     Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply")
+    Ny_alignment = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_1.ply")
     Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(0))))
     Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     with open("Calibration.json", "w") as f:
         json.dump(Calibration_transformation.tolist(), f)
 
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply")
+    Ny_alignment = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_1.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt.transform(Calibration_transformation)

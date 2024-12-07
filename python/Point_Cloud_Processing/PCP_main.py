@@ -3,9 +3,11 @@ import numpy as np
 import logging  # Add logging import
 import time
 import getpass
+import json  # Add json import
+import os  # Add os import
 
 # Define your username
-your_username = "not" #"mikke"
+your_username = "mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
@@ -24,18 +26,18 @@ else:
     from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 
 #define global variables in global scope, tsk tsk.
-ShowMe = False
+ShowMe = True
 legacyMode = False
 doInitial_alignment = True
-doICP = False
-Preprocessing_pipeline = "Standard"
+doICP = True
+Preprocessing_pipeline = "NSS"
 # options = "Standard", "Early_outliers_NSS" and "NSS"
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 
-def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2, preprocessing_method="Standard"):
+def Point_Cloud_Processing(Fikstur, combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2, std=1,preprocessing_method="Standard"):
     logger.info("Starting Point_Cloud_Processing")
 
     """
@@ -54,17 +56,9 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
     - combined_cloud: The final merged point cloud.
     """
 
-    # Visual aide for the axis of rotation
-    """
-    arrows = [
-    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
-    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
-    ]
-    AxisArrow = o3d.geometry.TriangleMesh()
-    for arrow in arrows:
-        AxisArrow += arrow
-    """
+    # Print the parameters:
+    print(f"Parameters received in Point_Cloud_Processing: voxel_size={voxel_size}, max_correspondence_distance={max_correspondence_distance}, std={std}, preprocessing_method={preprocessing_method}")
+
     # Paint the target cloud
     # target_cloud.paint_uniform_color([1, 0.706, 0])
     # logger.debug("Target cloud painted")
@@ -95,15 +89,20 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
 
     logger.debug("Starting Preproces")
-    target_cloud_normal_sample = Preproces(target_cloud, voxel_size, std_ratio=2.0)
+    target_cloud_normal_sample = Preproces(target_cloud, voxel_size, std_ratio=std)
     if not target_cloud_normal_sample.has_normals():
         logger.info("Target lost normals after preprocessing")
     
     # Ensure normals are computed for the combined cloud (Toke)
     if not combined_cloud.has_normals():
+        if ShowMe is True:
+            o3d.visualization.draw_geometries([current_cloud, AxisArrow, Fikstur], window_name="First Point Cloud")
         logger.info("Estimating normals for combined_cloud and applying calibration transformation")
         combined_cloud.transform(Calibration_transformation)
-        combined_cloud = Preproces(combined_cloud, voxel_size, std_ratio=2.0) 
+        combined_cloud = Preproces(combined_cloud, voxel_size, std_ratio=std)
+        combined_cloud += Fikstur
+        if ShowMe is True:
+                o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur], window_name="First Point Cloud post calibration")
 
     if not target_cloud_normal_sample.has_normals():
         logger.info("Target lost normals COMBINED preprocessing")
@@ -138,7 +137,9 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
     combined_cloud += aligned_target
     logger.debug("ICP registration completed")
-
+    
+    logger.info("voxeldownsampling the combined cloud post registration")
+    combined_cloud = combined_cloud.voxel_down_sample(voxel_size=voxel_size)
     # Optional: Visualize the current merged cloud
     if ShowMe is True:
         o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Current cloud merged")
@@ -147,18 +148,26 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
 
     return combined_cloud, icp_transformation
 
+# Function to get the next available filename
+def get_next_filename(base_path, base_name, extension):
+    index = 1
+    while os.path.exists(f"{base_path}/{base_name}_{index}.{extension}"):
+        index += 1
+    return f"{base_path}/{base_name}_{index}.{extension}"
+
 # Example Usage, as in Tokes code
 if __name__ == "__main__":
     # List of .ply files to process
     
     # Todo: Scaling of the point clouds
-    # Play with the resulting cloud:
-
-    # test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\merged_point_cloud_tester1.ply")
-    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
-    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=60, std_ratio=0.5)
-    #o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
-    
+    # TODO: check scaling of the point clouds in calibration
+    # Assuming they are correctly scaled, and everything works, employ the fixture method-adding to the method
+    # Then, run "experiments" with PCP.
+    # Test preprocessing,
+    # Test Voxel size
+    # Test max_correspondence_distance
+    # Test std_ratio
+    # Send files to Comparison
 
     Calibration_known = False
     arrows = [
@@ -169,11 +178,34 @@ if __name__ == "__main__":
     AxisArrow = o3d.geometry.TriangleMesh()
     for arrow in arrows:
         AxisArrow += arrow
+
+    #test_cloud = o3d.io.read_point_cloud(r"merged_point_cloud_white.ply")
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=60, std_ratio=0.5)
+    #o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
+    #min_bound = (-120.0, -200.0, -15)  # Replace with your box's minimum x, y, and z coordinates
+    #max_bound = (100, 200, 100) 
+    #test_cloud = remove_points_in_box(test_cloud, min_bound, max_bound)
+    
+    #test_cloud = test_cloud.voxel_down_sample(voxel_size=0.1)
+    
+
+    #ind = test_cloud.cluster_dbscan(eps=2, min_points=200, print_progress=True)
+    #test_cloud = test_cloud.select_by_index([i for i, label in enumerate(ind) if label != -1])
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=1)
+    #o3d.visualization.draw_geometries([test_cloud, AxisArrow], window_name="Test Cloud")
+    
+
+
     ply_files = [
-        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply",
-        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_2.ply",
-        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_3.ply",
-        r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_4.ply"
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_1.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_2.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_3.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\editednr4.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_5.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_7.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_8.ply",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_6.ply"
         #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_5.ply",
         #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_6.ply",
         #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_7.ply",
@@ -181,22 +213,15 @@ if __name__ == "__main__":
         #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
         #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
     ]
-    
-    theta_pan = [0, 20, 40, 60, 0]
-    theta_tilt = [0, 0, 0, 0, 0]
 
-    # #illustrate the first cloud:
-    # cloud = o3d.io.read_point_cloud(ply_files[0])
-    # o3d.visualization.draw_geometries([cloud, AxisArrow], window_name="First Point Cloud")
-    # cloud = remove_points_in_box(cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
-    # #TODO: Implement this function or a version of it at scan level - maybe next to origen points?
-    # o3d.visualization.draw_geometries([cloud, AxisArrow], window_name="First Point Cloud")
-    
-
+    theta_pan = [0, 0, 0, 0, 45, -45, -130, 145.03]
+    theta_tilt = [0, -25.03, -14.97, 20, 0, 0, 0, 0]
     ShowMe = True
     legacyMode = False
-    
-
+    doInitial_alignment = True
+    doICP = True
+    Preprocessing_pipeline = "NSS"
+# options = "Standard", "Early_outliers_NSS" and "NSS"
     
     # Initialize combined_transformation as a list of independent identity matrices
     # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
@@ -204,25 +229,33 @@ if __name__ == "__main__":
     # Initialize the combined point cloud
     combined_cloud = None
 
-    start_timePCP = time.time()
+    # Initialize list to store ICP transformations
+    icp_transformations = []
 
+    start_timePCP = time.time()
+    
     for i in range(0, len(ply_files)):
         print(f"Processing point cloud {i+1}/{len(ply_files)}...")
         
         current_cloud = o3d.io.read_point_cloud(ply_files[i])
+        #current_cloud.scale(1, center=(0, 0, 0))
         if Calibration_known is False:
             if theta_pan[i] == 0 and theta_tilt[i] == 0:
                 print("Finding calibration by fixture-based method")
                 Alignment_point_cloud = current_cloud
-                Morm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5) 
+                Norm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5) 
                 Fikstur_fil=r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
                 Calibration_transformation, Fikstur = Calibration_by_fixture(Alignment_point_cloud, Fikstur_fil)  
+                if ShowMe is True:
+                    current_cloud = o3d.io.read_point_cloud(ply_files[i])
+                    current_cloud.transform(Calibration_transformation)
+                    o3d.visualization.draw_geometries([Alignment_point_cloud, Fikstur, AxisArrow], window_name="Alignment Point Cloud")
                 print("Calibration transformation found:")
                 print(Calibration_transformation)
                 Calibration_known = True
             else:
                 raise ValueError("lacking calibration point cloud")
-        
+        brk
         logger.info("Removing points around the scanner")
         current_cloud = remove_points_in_box(current_cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
         # TODO: Implement this function or a version of it at scan level - maybe next to origen points?
@@ -230,29 +263,30 @@ if __name__ == "__main__":
 
         if legacyMode is True:
             combined_cloud, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.5, max_correspondence_distance=4)
-        
         elif combined_cloud == None:
-            o3d.visualization.draw_geometries([current_cloud, AxisArrow, Fikstur], window_name="First Point Cloud")
-            current_cloud.transform(Calibration_transformation)
-            combined_cloud = Preproces_normal_pipeline(current_cloud, voxel_size=0.5, std_ratio=2)
-            if ShowMe is True:
-                o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur], window_name="First Point Cloud post calibration")
+            combined_cloud = current_cloud #.transform(Calibration_transformation)
         else:
-            o3d.visualization.draw_geometries([combined_cloud, current_cloud, AxisArrow, Fikstur], window_name="Current Point Cloud, before processing and calibration")
-            combined_cloud, ICP_transform = Point_Cloud_Processing(combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.01, max_correspondence_distance=1)
+            if ShowMe is True:
+                o3d.visualization.draw_geometries([combined_cloud, current_cloud, AxisArrow, Fikstur], window_name="Current Point Cloud, before processing and calibration")
+            combined_cloud, ICP_transform = Point_Cloud_Processing(Fikstur, combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=0.01, max_correspondence_distance=1, std=1, preprocessing_method="Standard")
+            icp_transformations.append(ICP_transform.tolist())  # Store the ICP transformation
     
     combined_cloud = remove_points_within_distance_of_pointcloud(combined_cloud, Fikstur, 2) 
-    min_bound = (-120.0, -200.0, -100)  # Replace with your box's minimum x, y, and z coordinates
-    max_bound = (50, 200, 100) 
-    combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
-    
+    # TODO: test this function
+    min_bound = (-120.0, -200.0, -15)  # Replace with your box's minimum x, y, and z coordinates
+    max_bound = (100, 200, 100) 
+    test_cloud = remove_points_in_box(test_cloud, min_bound, max_bound)    
     end_timePCP = time.time()
     elapsed_timePCP = end_timePCP - start_timePCP
     print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")   
 
     o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
     # Save the final merged point cloud
-    output_ply = "merged_point_cloud_tester1.ply"
-    #     output_trans = "combined_transformation.json"
+    output_ply = "merged_point_cloud_white.ply"
     o3d.io.write_point_cloud(output_ply, combined_cloud)
-    #print(f"Final merged point cloud saved to: {output_file}")
+    # Save the ICP transformations to a JSON file
+    base_path = "scanner_interface/output/hvidt-fikstur-0.5-contrast-filter"
+    icp_json_filename = get_next_filename(base_path, "icp_transformations", "json")
+    with open(icp_json_filename, 'w') as f:
+        json.dump({"icp_transformations": icp_transformations}, f, indent=4)
+    print(f"ICP transformations saved to: {icp_json_filename}")
