@@ -139,7 +139,7 @@ def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
 
         min_bound = (-120.0, -200.0, -200)  # Replace with your box's minimum x, y, and z coordinates
         max_bound = (100, 200, 200) 
-        #pcd = remove_points_in_box(pcd, min_bound, max_bound)
+        pcd = remove_points_in_box(pcd, min_bound, max_bound)
 
         #pcd = remove_points_within_distance_of_pointcloud(pcd, Fikstur, 2)
 

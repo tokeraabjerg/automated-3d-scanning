@@ -220,6 +220,31 @@ def create_arrow(origin, direction, color, shaft_radius=1, head_radius=2, head_l
     arrow.translate(origin)
     return arrow
 
+def create_circle_mesh(diameter, z_value=0, color=(1, 0, 0)):
+    """
+    Create a 3D mesh of a circle with the given diameter.
+
+    Args:
+        diameter (float): The diameter of the circle.
+        z_value (float): The z-coordinate where the circle lies.
+        color (tuple): The color of the circle in RGB format (r, g, b).
+
+    Returns:
+        open3d.geometry.TriangleMesh: Circle mesh.
+    """
+    radius = diameter / 2
+    circle = o3d.geometry.TriangleMesh.create_sphere(radius=radius, resolution=20)
+    circle.paint_uniform_color(color)
+    
+    # Scale the sphere to make it a flat circle
+    scale_matrix = np.diag([1, 1, 0.01, 1])
+    circle.transform(scale_matrix)
+    
+    # Translate the circle to the specified z_value
+    circle.translate((0, 0, z_value))
+    
+    return circle
+
 # example usage
 # Define arrows
 arrows = [
@@ -458,12 +483,354 @@ def show_clusters_dbscan(point_cloud, eps=0.02, min_points=10, min_cluster_size=
     filtered_point_cloud = point_cloud.select_by_index(large_clusters_indices)
     return filtered_point_cloud
 
+def inverse_radius_filter_point_cloud(point_cloud, radius):
+    """
+    Centers the point cloud to the global zero point and removes points beyond the specified radius around the x-axis.
+    
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        radius (float): The radius to use for filtering points.
+    
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud.
+        np.ndarray: The centroid of the original point cloud.
+    """
+
+    # Filter points within the specified radius around the x-axis
+    def filter_function(point):
+        x, y, z = point
+        distance = np.sqrt(y**2 + z**2)
+        return distance <= radius
+
+    filtered_points = np.asarray(point_cloud.points)[np.apply_along_axis(filter_function, 1, np.asarray(point_cloud.points))]
+    filtered_point_cloud = o3d.geometry.PointCloud()
+    filtered_point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+
+    return filtered_point_cloud
+
+def Point_to_Point(source, target, max_correspondence_distance):
+    # Point Association using ICP for Open3D v0.18.0
+    print("Running ICP...")
+
+    # Initializing convergence criteria (using ICPConvergenceCriteria)
+    criteria = o3d.pipelines.registration.ICPConvergenceCriteria(
+        relative_fitness=1e-12, 
+        relative_rmse=1e-12, 
+        max_iteration=200  # Increase the number of iterations
+    )
+
+    # Perform ICP with scaling
+    icp_result = o3d.pipelines.registration.registration_icp(
+        target, source, max_correspondence_distance=max_correspondence_distance, 
+        init=np.eye(4),  # Initial transformation (identity matrix)
+        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(with_scaling=True),
+        criteria=criteria
+    )
+
+    print("Fitness: ", icp_result.fitness)
+    print("Inlier RMSE: ", icp_result.inlier_rmse)
+
+    # Apply the transformation to the target point cloud
+    target.transform(icp_result.transformation)
+
+    # Return the transformed target point cloud for further use (or visualization)
+    return icp_result.transformation, target
+
+def find_smallest_circle_diameter(point_cloud):
+    """
+    Find the diameter of the smallest circle in a cylindrical point cloud along the z-axis using RANSAC.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input cylindrical point cloud.
+
+    Returns:
+        float: The diameter of the smallest circle.
+    """
+    points = np.asarray(point_cloud.points)
+    
+    # Project points onto the XY plane
+    xy_points = points[:, :2]
+    
+    # Use RANSAC to fit a circle to the points
+    def fit_circle(points):
+        A = np.hstack([points, np.ones((points.shape[0], 1))])
+        b = np.sum(points**2, axis=1)
+        x = np.linalg.lstsq(A, b, rcond=None)[0]
+        center = x[:2] / 2
+        radius = np.sqrt(x[2] + np.sum(center**2))
+        return center, radius
+
+    best_radius = float('inf')
+    best_center = None
+    num_iterations = 1000
+    threshold = 0.01
+
+    for _ in range(num_iterations):
+        sample_indices = np.random.choice(xy_points.shape[0], 3, replace=False)
+        sample_points = xy_points[sample_indices]
+        try:
+            center, radius = fit_circle(sample_points)
+            distances = np.linalg.norm(xy_points - center, axis=1)
+            inliers = np.abs(distances - radius) < threshold
+            if np.sum(inliers) > 3 and radius < best_radius:
+                best_radius = radius
+                best_center = center
+        except np.linalg.LinAlgError:
+            continue
+    
+    min_diameter = 2 * best_radius if best_radius != float('inf') else None
+    
+    return min_diameter
+
+def highlight_smallest_circle_points(point_cloud, diameter):
+    """
+    Highlight the points used to create the smallest circle from the point cloud.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input cylindrical point cloud.
+        diameter (float): The diameter of the smallest circle.
+
+    Returns:
+        o3d.geometry.PointCloud: Point cloud with highlighted points.
+        open3d.geometry.TriangleMesh: Circle mesh.
+    """
+    points = np.asarray(point_cloud.points)
+    
+    # Project points onto the XY plane
+    xy_points = points[:, :2]
+    
+    # Calculate the distance of each point from the origin
+    distances = np.linalg.norm(xy_points, axis=1)
+    
+    # Find the minimum distance (radius of the smallest circle)
+    min_radius = diameter / 2
+    
+    # Find points that are within a small threshold of the minimum radius
+    threshold = 0.01  # Adjust this threshold as needed
+    circle_points_indices = np.where(np.abs(distances - min_radius) < threshold)[0]
+    circle_points = points[circle_points_indices]
+    
+    # Create a point cloud for the circle points
+    circle_points_pcd = o3d.geometry.PointCloud()
+    circle_points_pcd.points = o3d.utility.Vector3dVector(circle_points)
+    circle_points_pcd.paint_uniform_color([1, 0, 0])  # Red color for highlighted points
+    
+    # Create the circle mesh
+    circle_mesh = create_circle_mesh(diameter)
+    
+    return circle_points_pcd, circle_mesh
+
+def find_smallest_circle_diameter_general(point_cloud, min_distance=24, max_distance=27):
+    """
+    Find the diameter of the smallest circle in a cylindrical point cloud along the z-axis without constraining to a specific center point.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input cylindrical point cloud.
+        min_distance (float): The minimum distance from the z-axis to consider.
+        max_distance (float): The maximum distance from the z-axis to consider.
+
+    Returns:
+        float: The diameter of the smallest circle.
+    """
+    points = np.asarray(point_cloud.points)
+    
+    # Filter points within the specified distance range from the z-axis
+    distances_from_z = np.linalg.norm(points[:, :2], axis=1)
+    filtered_points = points[(distances_from_z >= min_distance) & (distances_from_z <= max_distance)]
+    
+    # Project points onto the XY plane
+    xy_points = filtered_points[:, :2]
+    
+    # Use RANSAC to fit a circle to the points
+    def fit_circle(points):
+        A = np.hstack([points, np.ones((points.shape[0], 1))])
+        b = np.sum(points**2, axis=1)
+        x = np.linalg.lstsq(A, b, rcond=None)[0]
+        center = x[:2] / 2
+        radius = np.sqrt(x[2] + np.sum(center**2))
+        return center, radius
+
+    best_radius = 30
+    best_center = (0,0,0)
+    num_iterations = 1000
+    threshold = 1
+
+    for _ in range(num_iterations):
+        sample_indices = np.random.choice(xy_points.shape[0], 3, replace=False)
+        sample_points = xy_points[sample_indices]
+        try:
+            center, radius = fit_circle(sample_points)
+            distances = np.linalg.norm(xy_points - center, axis=1)
+            inliers = np.abs(distances - radius) < threshold
+            if np.sum(inliers) > 3 and radius < best_radius:
+                best_radius = radius
+                best_center = center
+        except np.linalg.LinAlgError:
+            continue
+    
+    min_diameter = 2 * best_radius if best_radius != float('inf') else None
+    
+    return min_diameter
+
+def remove_points_in_hollow_cylinder(point_cloud, center, inner_radius, outer_radius, height):
+    """
+    Remove points within a specified hollow cylindrical region from the point cloud.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+        center (tuple): The center of the base of the cylinder (x, y).
+        inner_radius (float): The inner radius of the hollow cylinder.
+        outer_radius (float): The outer radius of the hollow cylinder.
+        height (float): The height of the cylinder (can be negative for subtraction in the negative z direction).
+
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud with points inside the hollow cylinder removed.
+    """
+    points = np.asarray(point_cloud.points)
+    
+    # Calculate the distance of each point from the center of the cylinder base
+    distances_from_center = np.linalg.norm(points[:, :2] - np.array(center), axis=1)
+    
+    # Determine the z-range based on the height
+    if height >= 0:
+        z_min, z_max = 0, height
+    else:
+        z_min, z_max = height, 0
+    
+    # Filter points that are within the hollow cylindrical region
+    mask = ~((distances_from_center >= inner_radius) & (distances_from_center <= outer_radius) & (points[:, 2] >= z_min) & (points[:, 2] <= z_max))
+    filtered_points = points[mask]
+    
+    # Create a new point cloud with the filtered points
+    filtered_point_cloud = o3d.geometry.PointCloud()
+    filtered_point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+    
+    return filtered_point_cloud
+
+def find_optimal_scaling_factor(source, target, max_correspondence_distance, scaling_range=(0.95, 1.15), scaling_step=0.05):
+    """
+    Find the optimal scaling factor to align two point clouds.
+
+    Args:
+        source (o3d.geometry.PointCloud): The source point cloud.
+        target (o3d.geometry.PointCloud): The target point cloud.
+        max_correspondence_distance (float): The maximum correspondence distance for ICP.
+        scaling_range (tuple): The range of scaling factors to test (min, max).
+        scaling_step (float): The step size for scaling factors.
+
+    Returns:
+        float: The optimal scaling factor.
+        float: The fitness score of the optimal scaling factor.
+    """
+    best_scaling_factor = 1.0
+    best_fitness = 0.0
+    print("Finding optimal scaling factor...")
+    for scale in np.arange(scaling_range[0], scaling_range[1], scaling_step):
+        # Apply scaling to a copy of the original target
+        scaled_target = o3d.geometry.PointCloud(target)
+        scaled_target.scale(scale, center=(0, 0, 0))
+        icp_result = o3d.pipelines.registration.registration_icp(
+            source, scaled_target, max_correspondence_distance,
+            np.eye(4),
+            o3d.pipelines.registration.TransformationEstimationPointToPoint()
+        )
+        o3d.visualization.draw_geometries([source, scaled_target])
+        if icp_result.fitness > best_fitness:
+            best_fitness = icp_result.fitness
+            best_scaling_factor = scale
+
+    return best_scaling_factor, best_fitness
+
 if __name__ == "__main__":
+    from Comparison import compare_point_clouds
+    from  Normal_space_downsampling import normal_space_sampling_with_bin_control
+    
+    arrows = [
+    create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
+    create_arrow(origin=(0, 0, 0), direction=(0, 0, 1), color=(0, 0, 1))   # Blue arrow along Z-axis
+    ]
+    AxisArrow = o3d.geometry.TriangleMesh()
+    for arrow in arrows:
+        AxisArrow += arrow
 
   # Play with the resulting cloud:
+    scanned_pointcloud = o3d.io.read_point_cloud(r"calibration\Smultring\scan_1.ply")
+    Reference = o3d.io.read_point_cloud(r"calibration\CalibrationCylinder2.ply")
+    scanned_pointcloud.translate((0,10,-290))
+    scanned_pointcloud = inverse_radius_filter_point_cloud(scanned_pointcloud, 100)
+    scanned_pointcloud = scanned_pointcloud.voxel_down_sample(voxel_size=0.1)
+    print("Number of points in the point cloud: ", len(np.asarray(scanned_pointcloud.points)))
+    scanned_pointcloud, ind = scanned_pointcloud.remove_statistical_outlier(nb_neighbors=35, std_ratio=0.3)
+    
+    
 
-    test_cloud = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_main.ply")
+    #Visualize the pointcloud
+    centroid=scanned_pointcloud.get_center()
+    scanned_pointcloud.translate(-centroid)
+    scanned_pointcloud.translate((8,0,0))
+    centroid=Reference.get_center()
+    Reference.translate(-centroid)
+    Reference.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(90), np.radians(90), np.radians(0))), center=(0,0,0))
+    Reference.translate((0,0,-16))
+    
+    # Remove points within a specified hollow cylinder
+    center = (0, 0)
+    inner_radius = 28
+    outer_radius = 47
+    height = -100
+    #Reference = remove_points_in_hollow_cylinder(Reference, center, inner_radius, outer_radius, height)
+    Reference.paint_uniform_color((0,1,0))
+    
+    # Visualize the filtered point cloud
+    # o3d.visualization.draw_geometries([AxisArrow, Reference], window_name="Filtered point cloud")
+    
+    scanned_pointcloud.translate((0,-1,-1))
+    # eye = np.eye(4)
+    # eye[4,4]=0.5
+
+    # o3d.visualization.draw_geometries([scanned_pointcloud, AxisArrow, Reference], window_name="Scanned point cloud")
+    
+    scanned_pointcloud = remove_points_in_hollow_cylinder(scanned_pointcloud, center, inner_radius, outer_radius, height)
+    #scanned_pointcloud.scale(0.9, center=(0,0,0))
+    # normal_space_sampling_with_bin_control(scanned_pointcloud, num_samples=int(len(scanned_pointcloud.points)/12))
+    best_fact, fitniss = find_optimal_scaling_factor(Reference, scanned_pointcloud, 1)
+    print(f"Best scaling factor: {best_fact}")
+    print(f"Best fitness: {fitniss}")
+    o3d.visualization.draw_geometries([scanned_pointcloud, AxisArrow, Reference], window_name="Scanned point cloud")
+    
+    brk
+    transform, scanned_pointcloud = Point_to_Point(Reference, scanned_pointcloud, 0.7)
+    print(transform)
+    #dia = find_smallest_circle_diameter_general(scanned_pointcloud)
+    #print(f"Smallest circle diameter: {dia}")
+    
+    # Highlight the points and create the circle mesh
+    # circle_points_pcd, circle_mesh = highlight_smallest_circle_points(scanned_pointcloud, dia)
+    
+    # Visualize the point cloud with highlighted points and the circle mesh
+    # o3d.visualization.draw_geometries([scanned_pointcloud, AxisArrow, Reference, circle_points_pcd, circle_mesh], window_name="Scanned point cloud with Smallest Circle Points")
+
+    o3d.visualization.draw_geometries([scanned_pointcloud, AxisArrow, Reference], window_name="ICP point cloud")
+    brk
+    compare_point_clouds(Reference, scanned_pointcloud)
+    
+    
+    
+    #
+    dia = find_smallest_circle_diameter(scanned_pointcloud)
+    print(f"Smallest circle diameter: {dia}")
+    
+    # Highlight the points and create the circle mesh
+    circle_points_pcd, circle_mesh = highlight_smallest_circle_points(scanned_pointcloud, dia)
+    
+    # Visualize the point cloud with highlighted points and the circle mesh
+    o3d.visualization.draw_geometries([scanned_pointcloud, AxisArrow, Reference, circle_points_pcd, circle_mesh], window_name="Scanned point cloud with Smallest Circle Points")
+    brk
+    Reference = o3d.io.read_point_cloud(r"calibration\CalibrationCylinder.ply")
     o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
+    
+    
     
     cl, ind = test_cloud.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
     statistical_filtered_pcd = test_cloud.select_by_index(ind)

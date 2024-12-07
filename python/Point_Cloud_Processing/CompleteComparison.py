@@ -61,11 +61,18 @@ def complete_comparison(Idesign_STL, Iscanned_pc, rotation_manual = False):
 
 
 if __name__ == "__main__":
+    
+
+
     stl_file = r"C:\Users\ovikd\Downloads\AfskaarenTestemne.STL"
-    scanned_pc_path1 = r"C:\Users\ovikd\Documents\GitHub\automated-3d-scanning\scanner_interface\output\test_project\scan_1.ply"  # Replace with your scanned point cloud path
+    scanned_pc_path1 = r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_main.ply"  # Replace with your scanned point cloud path
 
-    scanned_pointcloud = o3d.io.read_point_cloud(scanned_pc_path1)
+    scanned_pointcloud = o3d.io.read_point_cloud(r"calibration\Smultring\scan_1.ply")
+    
+    #Visualize the pointcloud
+    o3d.visualization.draw_geometries([scanned_pointcloud], window_name="Scanned point cloud")
 
+    brk
     complete_comparison(stl_file, scanned_pointcloud, rotation_manual=True)
 
 

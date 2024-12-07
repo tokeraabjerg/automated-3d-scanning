@@ -5,7 +5,7 @@ import time
 import logging
 
 # Define usernames which run from python, and not docker
-your_username = "not" #"mikke"
+your_username = "mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
