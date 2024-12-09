@@ -141,7 +141,7 @@ def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
 
         min_bound = (-120.0, -200.0, -200)  # Replace with your box's minimum x, y, and z coordinates
         max_bound = (100, 200, 200) 
-        #pcd = remove_points_in_box(pcd, min_bound, max_bound)
+        pcd = remove_points_in_box(pcd, min_bound, max_bound)
 
         #pcd = remove_points_within_distance_of_pointcloud(pcd, Fikstur, 2)
 
@@ -162,11 +162,40 @@ def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
         # Visualize the point cloud after outlier removal
         inlier_cloud = pcd.select_by_index(ind)
         o3d.visualization.draw_geometries([inlier_cloud], window_name=f"Filtered Point Cloud - Folder {folder_num}")
+def compute_distance(point_cloud, index1, index2):
+    """
+    Compute the distance between two points in a point cloud given their indices.
+
+    Parameters:
+    - point_cloud: The point cloud containing the points.
+    - index1: The index of the first point.
+    - index2: The index of the second point.
+
+    Returns:
+    - distance: The Euclidean distance between the two points.
+    """
+    point1 = np.asarray(point_cloud.points[index1])
+    point2 = np.asarray(point_cloud.points[index2])
+    distance = np.linalg.norm(point1 - point2)
+    return distance
 
 if __name__ == "__main__":
     # Enable multiprocessing on Windows
     multiprocessing.set_start_method('spawn', force=True)
 
+    stl_file = r"calibration\CalibrationCylinder.ply"
+    scanned_pc_path1 = r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_1.ply"  # Replace with your scanned point cloud path
+    # compare_point_clouds(load_point_cloud(stl_file), load_point_cloud(scanned_pc_path1))
+    dist =  compute_distance(load_point_cloud(scanned_pc_path1), 69769, 71494)
+    print(dist)
+
+    """"
+    [Open3D INFO] Picked point #700115 (-25., 44., 3.6e+02) to add in queue.
+    [Open3D INFO] No point has been picked.
+    [Open3D INFO] No point has been picked.
+    [Open3D INFO] Picked point #68763 (-25., -56., 3.6e+02) to add in queue.
+    """ 
+    
     # File paths
     base_path = r"scanner_interface\output\Parameter_test"
     num_folders = 24

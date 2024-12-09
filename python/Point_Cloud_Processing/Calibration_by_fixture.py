@@ -202,6 +202,12 @@ if __name__ == "__main__":
     for arrow in arrows:
         combined_geometry += arrow
 
+    # pcd=o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_4.ply")
+    # o3d.visualization.draw_geometries([pcd, combined_geometry], window_name="Prior to transform")
+    # pcd = remove_points_in_box(pcd, (0, -1000.0, -1000), (1000.0, 1200.0, 1000.0))
+    # o3d.visualization.draw_geometries([pcd, combined_geometry], window_name="Prior to after")
+    # o3d.io.write_point_cloud("editednr4.ply", pcd)
+    
     ply_files = [
         r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply",
         r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_a_+15.ply",
@@ -212,7 +218,7 @@ if __name__ == "__main__":
     
     Fikstur = o3d.io.read_point_cloud(r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply")
+    Ny_alignment = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_1.ply")
     Ny_alignment.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(0), np.radians(0))))
     Norm, Ny_alignment_vox = preprocess_point_cloud(Ny_alignment, 1, 0.5)
     
@@ -226,7 +232,7 @@ if __name__ == "__main__":
     with open("Calibration.json", "w") as f:
         json.dump(Calibration_transformation.tolist(), f)
 
-    Ny_alignment = o3d.io.read_point_cloud(r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_1.ply")
+    Ny_alignment = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_1.ply")
     Fikstur_forskudt = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt_uden_trans = o3d.io.read_point_cloud(r"C:\Users\mikke\automated-3d-scanning\Fiktur_Forskudt.ply")
     Fikstur_forskudt.transform(Calibration_transformation)

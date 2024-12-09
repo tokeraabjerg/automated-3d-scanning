@@ -5,7 +5,7 @@ import time
 import logging
 
 # Define usernames which run from python, and not docker
-your_username = "not" #"mikke"
+your_username = "mikke"
 
 # Check if the current user is you
 if getpass.getuser() == your_username:
@@ -124,7 +124,7 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         np.digitize(phi, phi_bins) - 1
     ]).T
 
-    logger.debug("Binning normals into %d theta bins and %d phi bins", num_theta_bins, num_phi_bins)
+    logger.info("Binning normals into %d theta bins and %d phi bins", num_theta_bins, num_phi_bins)
 
     """
     OG scheme - This is SLOW for large sets of points
@@ -145,20 +145,26 @@ def normal_space_sampling_with_bin_control(point_cloud, num_samples, radius=3, m
         if bin_tuple not in bin_dict:
             bin_dict[bin_tuple] = []
         bin_dict[bin_tuple].append(idx)
-
+    logger.info("Number of bins: %d", len(bin_dict))
     #print("Randomly sampling points from each bin...")
     # Random scheme:
     sampled_indices = set()
     bin_keys = list(bin_dict.keys())  # Ensure bin_keys is a 1-dimensional list
-    while len(sampled_indices) < num_samples:
+    while len(sampled_indices) < num_samples and bin_keys:
         random_bin = bin_keys[np.random.randint(len(bin_keys))]
         random_point = np.random.choice(bin_dict[random_bin])
-        if random_point not in sampled_indices:
-            sampled_indices.add(random_point)
+        sampled_indices.add(random_point)
+        bin_dict[random_bin].remove(random_point)
+        if not bin_dict[random_bin]:
+            bin_keys.remove(random_bin)
         if len(sampled_indices) % 1000 == 0:
             logger.debug("Progress: %d/%d points sampled", len(sampled_indices), num_samples)
     sampled_indices = list(sampled_indices)
-    logger.debug("Number of bins: %d", len(bin_dict))
+    if len(sampled_indices) < num_samples:
+        logger.info("Could not sample enough points. Returning all sampled points.")
+    if len(bin_keys) == 0:
+        logger.info("All bins are empty. Returning all sampled points")
+                    
     logger.debug("Number of sampled points: %d", len(sampled_indices))
     """
     # Uniform scheme:

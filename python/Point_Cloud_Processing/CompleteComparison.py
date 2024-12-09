@@ -59,14 +59,53 @@ def complete_comparison(Idesign_STL, Iscanned_pc, rotation_manual = False):
     compare_point_clouds(aligned_design, Iscanned_pc)
     return
 
+def Auto_comparison(design_pc, scanned_pc, rotation_manual = False):
+    # scanned_pc.remove_statistical_outlier(nb_neighbors=80, std_ratio=1.5)
+    print("Aligning centroids of point clouds.")
+    design_pc.translate(-(design_pc.get_center()))
+    scanned_pc.translate(-(scanned_pc.get_center()))
+    print("Centroids aligned.")
+    o3d.visualization.draw_geometries([scanned_pc,design_pc],window_name="Aligned by centroids")
+    
+
+    if rotation_manual is True:
+        print("Manually rotate the pointcloud.")
+        aligned_design = design_pc.rotate(o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(0), np.radians(90), np.radians(-90))))
+        print("Rotating manually.")
+    else:
+        print("i aint doin jack shit rn i got lotion on my shit rn")
+        print("Automatically rotate the pointcloud.")
+        print("Aligning point clouds using optimal initial alignment and ICP.")
+        aligned_scan, stl_point_cloud  = align_point_clouds(Iscanned_pct, design_pointcloud)
+    
+    #Viser punktskyen fra scan, og punktskyen til designet der er (røft) flyttet og roteret
+    o3d.visualization.draw_geometries([aligned_design,scanned_pc],window_name="Rotated.")
+    
+    # Forsøger at lave en så god transform (rotation og translation) som muligt.
+    print("Running point to plane on pointclouds.")
+    Point_to_Plane(aligned_design, scanned_pc, max_correspondence_distance=3)
+    print("Point to plane done.")
+
+    print("Visualizing aligned point clouds.")
+    o3d.visualization.draw_geometries([scanned_pc, aligned_design], window_name="Aligned Point Clouds")
+    
+    print("Initializing point cloud comparison script.")
+    compare_point_clouds(aligned_design, scanned_pc)
+    return
+
 
 if __name__ == "__main__":
-    stl_file = r"C:\Users\ovikd\Downloads\AfskaarenTestemne.STL"
-    scanned_pc_path1 = r"C:\Users\ovikd\Documents\GitHub\automated-3d-scanning\scanner_interface\output\test_project\scan_1.ply"  # Replace with your scanned point cloud path
+    
 
-    scanned_pointcloud = o3d.io.read_point_cloud(scanned_pc_path1)
+    scanned_pc_path1 = r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\scan_main.ply"  # Replace with your scanned point cloud path
+    Reference = o3d.io.read_point_cloud(r"calibration\ProduceretEmne.ply")
+    scanned_pointcloud = o3d.io.read_point_cloud(r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter\White05_Standard_0.5_0.1_2_1.ply")
+    
+    #Visualize the pointcloud
+    o3d.visualization.draw_geometries([Reference, scanned_pointcloud], window_name="Scanned point cloud")
 
-    complete_comparison(stl_file, scanned_pointcloud, rotation_manual=True)
+    
+    MDP_complete_comparison(Reference, scanned_pointcloud, rotation_manual=True)
 
 
 
