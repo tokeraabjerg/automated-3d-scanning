@@ -161,9 +161,9 @@ if __name__ == "__main__":
     Start of point cloud analysis
     """
     folder_paths = [
-        r"scanner_interface\output\sort-fikstur-0.5-contrast-filter"
-        #r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter",
-        #r"scanner_interface\output\sort-fikstur-0.5-contrast-filter"
+        r"scanner_interface\output\sort-fikstur-0.5-contrast-filter",
+        r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter"
     ]
     
     design_pc = o3d.io.read_point_cloud(r"calibration\ProduceretEmne.ply")
