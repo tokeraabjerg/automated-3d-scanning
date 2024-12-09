@@ -1,6 +1,7 @@
 import open3d as o3d
 import numpy as np
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -741,10 +742,53 @@ def find_optimal_scaling_factor(source, target, max_correspondence_distance, sca
 
     return best_scaling_factor, best_fitness
 
+def contains_non_greyscale_colors(point_cloud):
+    """
+    Detect if a point cloud contains colors outside greyscale/black and white.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+
+    Returns:
+        bool: True if the point cloud contains non-greyscale colors, False otherwise.
+    """
+    if not point_cloud.has_colors():
+        return False
+
+    colors = np.asarray(point_cloud.colors)
+    avg_color = np.mean(colors, axis=0)
+    if not np.allclose(avg_color[0], avg_color[1]) or not np.allclose(avg_color[1], avg_color[2]):
+        print("Non-greyscale color detected:", avg_color)
+        return True
+    return False
+
+def rename_files_in_folder(folder_path):
+    """
+    Rename all .json and .ply files in the specified folder by inserting "_20" after the {std} part of the file name.
+
+    Args:
+        folder_path (str): The path to the folder containing the files to rename.
+    """
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".json") or filename.endswith(".ply"):
+            name, ext = os.path.splitext(filename)
+            parts = name.split('_')
+            if len(parts) >= 5 and filename.endswith(".json"):
+                parts[3] += "_20"
+            elif len(parts) >= 4 and filename.endswith(".ply"):
+                parts[2] += "_20"
+            new_name = '_'.join(parts) + ext
+            os.rename(os.path.join(folder_path, filename), os.path.join(folder_path, new_name))
+            print(f"Renamed: {filename} to {new_name}")
+
+# Example usage:
+# rename_files_in_folder("/path/to/folder")
+
 if __name__ == "__main__":
     from Comparison import compare_point_clouds
-    from  Normal_space_downsampling import normal_space_sampling_with_bin_control
-    
+    from Normal_space_downsampling import normal_space_sampling_with_bin_control
+    from Calibration_by_fixture import remove_points_in_box
+    import time
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
@@ -754,6 +798,28 @@ if __name__ == "__main__":
     for arrow in arrows:
         AxisArrow += arrow
 
+    # rename_files_in_folder(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter")
+    
+
+    pcd = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_8.ply")
+
+    pcd = remove_points_in_box(pcd, (-1000, -1000, -2000), (1000, 1000, 10))
+    #time the function:
+    # start = time.time()
+    # contains_non_greyscale_colors(pcd)
+    # end = time.time()
+    # print(f"Time taken: {end - start} seconds")
+    o3d.visualization.draw_geometries([pcd, AxisArrow], window_name="Scanned point cloud")
+    #logger.debug("Starting voxel downsampling")
+    #print("prior to downsampling len(pcd.points): ", len(pcd.points))
+    #pcd = pcd.voxel_down_sample(0.5)
+    #logger.info(f"Voxel downsampling completed, points count: {len(pcd.points)}")
+
+    save_path = r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_8_noiseless.ply"
+    o3d.io.write_point_cloud(save_path, pcd)
+
+    brk
+ #Test
   # Play with the resulting cloud:
     scanned_pointcloud = o3d.io.read_point_cloud(r"calibration\Smultring\scan_1.ply")
     Reference = o3d.io.read_point_cloud(r"calibration\CalibrationCylinder2.ply")

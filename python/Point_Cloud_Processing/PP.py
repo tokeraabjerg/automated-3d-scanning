@@ -51,7 +51,7 @@ Firstly, we shall consider different downsampling methods.
 Then, we shall consider removing outliers.
 Finally, we shall consider finding normals for the Point to Plane algorithm.
 """
-def Preproces_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
+def Preproces_pipeline(pcd, voxel_size=0.1, std_ratio=2.0, stdnn=20):
     
     """
     Preprocess the point cloud by downsampling, estimating normals, and removing outliers.
@@ -82,13 +82,13 @@ def Preproces_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
 
 
     logger.debug("Starting outlier removal")
-    pcd_downsampled, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+    pcd_downsampled, ind = pcd.remove_statistical_outlier(nb_neighbors=stdnn, std_ratio=std_ratio)
     logger.info(f"Outlier removal completed, points count: {len(pcd_downsampled.points)}")
 
     logger.info("Preproces_pipeline completed")
     return pcd_downsampled
 
-def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
+def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0, stdnn=20):
     
     """
     Preprocess the point cloud by estimating normals, downsampling in normal space, and removing outliers.
@@ -124,33 +124,38 @@ def Preproces_normal_pipeline(pcd, voxel_size=0.1, std_ratio=2.0):
 
 
     logger.debug("Starting outlier removal")
-    pcd_downsampled, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=std_ratio)
+    pcd_downsampled, ind = pcd.remove_statistical_outlier(nb_neighbors=stdnn, std_ratio=std_ratio)
     logger.info(f"Outlier removal completed, points count: {len(pcd_downsampled.points)}")
 
     logger.info("Preproces_normal_pipeline completed")
     return pcd_downsampled
 
-def Preproces_early_outliers_pipeline(pcd, voxel_size, std_ratio):
-
-    """
-    This method cannot accept as many points/low voxel size as the Preproces_normal_pipeline method.
-    """
+def Preproces_normal_late_pipeline(pcd, voxel_size=0.1, std_ratio=2.0, stdnn=20):
     
-    print(":: Voxel Downsample with voxel size %.3f." % voxel_size)
-    pcd_voxel=pcd.voxel_down_sample(voxel_size)
-    print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
-    # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
-    numb_samples = int(len(pcd_voxel.points)/12)
+    """
+    Preprocess the point cloud by estimating normals, downsampling in normal space, and removing outliers.
+    
+    Parameters:
+    - pcd: The input point cloud.
+    - voxel_size: Voxel size for downsampling.
+    - std_ratio: Standard deviation ratio for outlier removal.
+    
+    Returns:
+    - pcd: The preprocessed point cloud.
+    """
+    logger.info(f"Starting Preproces_normal_pipeline with voxel_size={voxel_size}, std_ratio={std_ratio}")
 
-    # Remove statistical outliers
-    print(":: Statistically remove outliers.")
-    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=int(100//voxel_size), std_ratio=std_ratio, print_progress=True)
+    # Voxel downsample
+    logger.debug("Starting voxel downsampling")
+    pcd = pcd.voxel_down_sample(voxel_size)
+    logger.info(f"Voxel downsampling completed, points count: {len(pcd.points)}")
 
-    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=3, max_nn=100, bin_size=360)
-
+    # Downsample using normal space sampling
+    pcd = normal_space_sampling_with_bin_control(pcd, int(len(pcd.points)/8), radius=3, max_nn=50, bin_size=360)
+    
     # Redudant, but ensures that the normals are present:
     if not pcd.has_normals():
-        logger.debug("Estimating normals...")
+        logger.debug("Normals are lacking! Estimating normals...")
         start_time = time.time()
         pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=3, max_nn=50), fast_normal_computation=True)
         end_time = time.time()
@@ -160,8 +165,45 @@ def Preproces_early_outliers_pipeline(pcd, voxel_size, std_ratio):
         pcd.orient_normals_to_align_with_direction(orientation_reference=([0., 0., -1.]))
 
 
+    logger.info("Preproces_normal_late_pipeline completed")
+    return pcd
+
+def Preproces_early_outliers_pipeline(pcd, voxel_size, std_ratio, stdnn=20):
+
+    """
+    This method cannot accept as many points/low voxel size as the Preproces_normal_pipeline method.
+    """
+    
+    print(":: Voxel Downsample with voxel size %.3f." % voxel_size)
+    pcd_voxel=pcd.voxel_down_sample(voxel_size)
+    print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
+    # o3d.visualization.draw_geometries([pcd_voxel], window_name="Vox Cloud")
+    
+
+    # Remove statistical outliers
+    print(":: Statistically remove outliers.")
+    # stdnn=int(100//voxel_size) old scheme
+    
+    pcd_voxel, ind = pcd_voxel.remove_statistical_outlier(nb_neighbors=stdnn, std_ratio=std_ratio, print_progress=True)
+    print(f"Outlier removal resulted in {len(pcd_voxel.points)} points")
+    numb_samples = int(len(pcd_voxel.points)/8)
+    print(f"Number of samples: {numb_samples}")
+    pcd_normal = normal_space_sampling_with_bin_control(pcd_voxel, numb_samples, radius=3, max_nn=50, bin_size=360)
+
+    # Redudant, but ensures that the normals are present:
+    if not pcd_normal.has_normals():
+        logger.debug("Estimating normals...")
+        start_time = time.time()
+        pcd_normal.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=3, max_nn=50), fast_normal_computation=True)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        logger.info("Time taken to estimate normals: %.2f seconds", elapsed_time)
+        # Orient normals towards the negative z-axis, improves sampling. (normals pointing away from the camera are inverted) 
+        pcd_normal.orient_normals_to_align_with_direction(orientation_reference=([0., 0., -1.]))
+
+
     #o3d.visualization.draw_geometries([pcd_voxel], window_name="vox Cloud")
-    return pcd_normal, pcd_voxel
+    return pcd_normal
 
 
 def assign_colors(labels):

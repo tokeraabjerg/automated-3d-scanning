@@ -80,7 +80,7 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
     """
     # Copy source to avoid modifying the original
     init_transformation=np.eye(4)
-    max_iterations=(50)
+    max_iterations=(25)
     transformation_log=np.eye(4)
     target_copy = target.transform(init_transformation)
     transformation = init_transformation
@@ -104,7 +104,7 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
         print(f"{i+1:<10}{fitness:<10.6f}{inlier_rmse:<15.6f}{delta_transform:<20.6f}")
 
         # Check for convergence (optional)
-        if delta_transform < 1e-6:
+        if delta_transform < 1e-5:
             print("Converged!")
             break
         
