@@ -37,7 +37,7 @@ def extract_file_info(file_path):
         raise ValueError("Unsupported file extension")
     return method, std, stdnn, voxel_size, mcd
 
-def loop_compute_cloud_to_cloud_distance(pcd_tree, pcd2, max_distance=5.0):
+def loop_compute_cloud_to_cloud_distance(pcd_tree, pcd2, max_distance=1.0):
     print("Computing Cloud-to-Cloud distance...")
     distances = []
     outlier_indices = []
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     Start of point cloud analysis
     """
     folder_paths = [
-        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter"
+        r"scanner_interface\output\sort-fikstur-0.5-contrast-filter"
         #r"scanner_interface\output\hvidt-fikstur-0.5-contrast-filter",
         #r"scanner_interface\output\sort-fikstur-0.5-contrast-filter"
     ]
