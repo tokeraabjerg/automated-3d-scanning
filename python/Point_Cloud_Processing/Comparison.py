@@ -7,6 +7,8 @@ import os
 from Translatory_crutch import align_centroids
 from Calibration_by_fixture import remove_points_in_box
 from Misc_functions import remove_points_within_distance_of_pointcloud
+
+
 #===========================================================================
 #  *                                 INFO
 #    Bruges til at sammenligne to punktskyer (scannet og fra design-STL)
@@ -120,7 +122,7 @@ def apply_calibration(pcd, calibration_path):
 
 def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
     # Ændre det første tal i range for at bestemme startpunkt.
-    for folder_num in range(21, num_folders + 1):
+    for folder_num in range(1, num_folders + 1):
         folder_path = os.path.join(base_path, str(folder_num))
         scan_path = os.path.join(folder_path, "scan_1.ply")
 
@@ -145,6 +147,7 @@ def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
 
         # Initial visualization
         o3d.visualization.draw_geometries([pcd], window_name=f"Initial Point Cloud - Folder {folder_num}")
+
 
         # Perform statistical outlier removal
         cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
@@ -177,13 +180,12 @@ if __name__ == "__main__":
     process_and_visualize_ply_files(base_path, num_folders, Fikstur)
     
     
-    # Ola's kode
+    #* Ikke længere superrelevant. CompleteComparison er bedre.
+    #* Lader det alligevel ligge for sikkerheds skyld.
+    # Example usage til Comparison.py
     # # File paths
     # design_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\DesignUdenTapPC_rotated.ply"  # Replace with your design point cloud path
     # scanned_pc_path1 = r"C:\Users\ovikd\Documents\Punktskyer\ScannedMerged.ply"  # Replace with your scanned point cloud path
-
-    # # Voxel size for downsampling
-    # voxel_size = 0.5
 
     # # Align the centroids of the point clouds
     # pcd1, pcd2_translated = align_centroids(design_pc_path1, scanned_pc_path1)

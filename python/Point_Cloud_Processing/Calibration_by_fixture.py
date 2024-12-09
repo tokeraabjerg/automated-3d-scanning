@@ -17,7 +17,7 @@ if getpass.getuser() == your_username:
     from ICP import Point_to_Plane
 else:
     print("The code is being run with modules")
-    from .ICP import Point_to_Plane
+    from ICP import Point_to_Plane
 
 
 def Calibration_by_fixture(alignment_point_cloud, Fikstur_fil):
