@@ -88,7 +88,7 @@ def load_point_cloud(file_path):
     return pcd
 
 # File path to the point cloud
-file_path = r"C:\Users\ovikd\Downloads\Bolger_ved_distancer\scan_dist520close.ply"
+file_path = r"C:\Users\ovikd\Documents\GitHub\automated-3d-scanning\scanner_interface\output\Parameter_test\12\scan_2.ply"
 
 # Load the point cloud
 point_cloud = load_point_cloud(file_path)
