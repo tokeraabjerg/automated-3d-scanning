@@ -262,12 +262,14 @@ def apply_calibration(pcd, calibration_path):
 
 def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
     # Ændre det første tal i range for at bestemme startpunkt.
-    for folder_num in range(1, num_folders + 1):
+    for folder_num in range(12, num_folders + 1):
         folder_path = os.path.join(base_path, str(folder_num))
         scan_path = os.path.join(folder_path, "scan_1.ply")
 
         # Load point cloud
         pcd = load_point_cloud(scan_path)
+        print("Loaded ply from " + str(scan_path))
+
         if pcd is None:
             print("Missing pcd, Continuing to next folder...")
             continue
@@ -287,7 +289,6 @@ def process_and_visualize_ply_files(base_path, num_folders, Fikstur):
 
         # Initial visualization
         o3d.visualization.draw_geometries([pcd], window_name=f"Initial Point Cloud - Folder {folder_num}")
-
 
         # Perform statistical outlier removal
         cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
