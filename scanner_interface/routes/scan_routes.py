@@ -294,10 +294,10 @@ def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_met
     """
     Thread function to perform auto scan.
     """
-    pcd_dict = {}  # Dictionary to store individual point clouds and their rotation information
+    pcd_dict = {}  # Use standard dict as it maintains insertion order in Python 3.7+
+    max_pcd_entries = 10  # Set your desired maximum number of entries
     auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
     config_manager = current_app.config.get('config_manager')
-
 
     try:
         with app.app_context():
@@ -308,65 +308,105 @@ def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_met
                 logger.error(f"No positions found for the project '{project_name}'.")
                 return None
 
-            for index, position in enumerate(positions):
+            scan_number = 0  # Initialize scan index
+
+            while scan_number < len(positions):
                 if stop_event.is_set() or auto_scan_stop_event.is_set():
                     logger.info("Scan stopped by stop event.")
                     break
 
-                # Ensure position is a dictionary
-                if not isinstance(position, dict):
-                    logger.error(f"Invalid position data at index {index}: {position}")
-                    continue
+                if len(pcd_dict) < max_pcd_entries:
+                    position = positions[scan_number]
 
-                # Perform movement to the position
-                logger.info(f"Moving to position {index + 1}/{len(positions)}: {position}")
-                response = interpret_command(position)  # Call the interpret_command function with the current position
+                    # Ensure position is a dictionary
+                    if not isinstance(position, dict):
+                        logger.error(f"Invalid position data at index {scan_number}: {position}")
+                        scan_number += 1
+                        continue
 
-                # Log the response from the motor movement
-                logger.info(f"Motor movement response: {response}")
+                    # Perform movement to the position
+                    logger.info(f"Moving to position {scan_number + 1}/{len(positions)}: {position}")
+                    response = interpret_command(position)  # Call the interpret_command function with the current position
 
-                # Check if the movement was successful
-                if "success" not in response.lower():
-                    logger.error(f"Error moving to position {index + 1}. Aborting auto scan.")
-                    break
+                    # Log the response from the motor movement
+                    logger.info(f"Motor movement response: {response}")
 
-                # Wait for the motor to stop before starting the scan
-                logger.info(f"Waiting for motor to stop before starting scan {index + 1}/{len(positions)}.")
-                time.sleep(2)  # Adjust the sleep duration as needed
+                    # Check if the movement was successful
+                    if "success" not in response.lower():
+                        logger.error(f"Error moving to position {scan_number + 1}. Perhaps the motor is out of bounds or the command timed out?")
+                        logger.error("Performing homing and reattempting the movement.")
+                        # Perform homing and reattempt the movement
+                        response = interpret_command({"home": True})
+                        if "success" not in response.lower():
+                            logger.error("Failed to perform homing. Stopping the capture process.")
+                            break
+                        else:
+                            response = interpret_command(position)
+                            if "success" not in response.lower():
+                                logger.error(f"Failed to move to position {scan_number + 1} after homing. Stopping the capture process.")
+                                break
 
-                # Start scan
-                logger.info(f"Attempting to start scan {index + 1}/{len(positions)}.")
-                scanner = current_app.config.get('scanner')
-                new_pcd = scanner.perform_scan(stop_event=stop_event)
-                if new_pcd is None:
-                    logger.warning(f"Scan {index + 1} failed or was stopped.")
-                    continue
+                    # Wait for the motor to stop before starting the scan
+                    logger.info(f"Waiting for motor to stop before starting scan {scan_number + 1}/{len(positions)}.")
+                    time.sleep(2)  # Adjust the sleep duration as needed
 
-                # Add the new point cloud and its rotation information to the dictionary
-                rotation = [position['deg_a'], position['deg_b']]
-                pcd_dict[f"scan_{index + 1}"] = {
-                    "pcd": new_pcd,
-                    "rotation": rotation,
-                    "icp_transformation": position.get('icp_transformation', [])
-                }
+                    # Start scan with retry mechanism
+                    logger.info(f"Attempting to start scan {scan_number + 1}/{len(positions)}.")
+                    scanner = current_app.config.get('scanner')
+                    
+                    attempt = 0
+                    max_attempts = 10
+                    new_pcd = None
+                    while attempt < max_attempts:
+                        new_pcd = scanner.perform_scan(stop_event=stop_event)
+                        if new_pcd is not None:
+                            logger.info(f"Scan {scan_number + 1} succeeded on attempt {attempt + 1}.")
+                            break
+                        else:
+                            attempt += 1
+                            logger.warning(f"Scan {scan_number + 1} failed or was stopped. Attempt {attempt}/{max_attempts}.")
+                            time.sleep(1)  # Optional: wait before retrying
 
-                logger.info(f"We currently got {len(pcd_dict)} scans")
+                    if new_pcd is None:
+                        logger.error(f"Scan {scan_number + 1} failed after {max_attempts} attempts.")
+                        scan_number += 1
+                        continue
 
-                # Save the combined point cloud
-                project_manager.save_point_cloud(new_pcd, project_name)
-                logger.info("Point cloud saved.")
+                    # Add the new point cloud and its rotation information to the dictionary
+                    rotation = [position['deg_a'], position['deg_b']]
+                    pcd_key = f"scan_{scan_number + 1}"
+                    pcd_dict[pcd_key] = {
+                        "pcd": new_pcd,
+                        "rotation": rotation,
+                        "icp_transformation": position.get('icp_transformation', [])
+                    }
 
-                # If there are 2 or more point clouds and no post-processing thread is running, start post-processing in a new thread
-                global post_processing_thread_running
-                if len(pcd_dict) >= 2 and not post_processing_thread_running:
-                    logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
-                    post_processing_thread_running = True
-                    # TODO: OBS: The len(positions) demand that the amount of positons is correct relative to the amount of scans. Other methods have been implimetned in manual PCP for convience.
-                    post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
-                    post_processing_thread.start()
+                    logger.info(f"We currently got {len(pcd_dict)} scans")
 
+                    # Maintain the maximum number of pcd entries
+                    if len(pcd_dict) > max_pcd_entries:
+                        oldest_scan, _ = pcd_dict.popitem(last=False)
+                        logger.info(f"Removed oldest scan: {oldest_scan} to maintain max_pcd_entries={max_pcd_entries}")
 
-            logger.info(f"Auto scan completed successfully for project: {project_name}")
+                    # Save the combined point cloud
+                    project_manager.save_point_cloud(new_pcd, project_name)
+                    logger.info("Point cloud saved.")
+
+                    scan_number += 1  # Increment scan index
+
+                    # If there are 2 or more point clouds and no post-processing thread is running, start post-processing in a new thread
+                    global post_processing_thread_running
+                    if len(pcd_dict) >= 2 and not post_processing_thread_running:
+                        logger.info(f"Starting post-processing thread for {len(pcd_dict)} point clouds.")
+                        post_processing_thread_running = True
+                        # TODO: OBS: The len(positions) demand that the amount of positons is correct relative to the amount of scans. Other methods have been implimetned in manual PCP for convience.
+                        post_processing_thread = threading.Thread(target=post_process_thread, args=(app, pcd_dict, project_name, len(positions), preprocessing_method, voxel_size, max_correspondence_distance))
+                        post_processing_thread.start()
+                else:
+                    logger.info(f"pcd_dict reached max size ({max_pcd_entries}). Waiting for space to perform next scan.")
+                    time.sleep(1)  # Wait before checking again
+
+        logger.info(f"Auto scan completed successfully for project: {project_name}")
 
     except Exception as e:
         current_app.logger.error(f"Error in auto scan thread: {e}")

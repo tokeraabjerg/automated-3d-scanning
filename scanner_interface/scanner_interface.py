@@ -6,6 +6,15 @@
 #                     It includes functionality to connect to the scanner, configure it, perform scans, 
 #                     and handle point cloud data.
 #---------------------------------------------------------------------------
+#======================================================================================================================#
+#  todo                  TODO
+#    Fix connection stability issues
+        #   Check the Python example (Google "wenglor sdk python"), test it out, and see if it works, it uses a port?
+        #   Try a simple script 
+#    Fix ping functionality
+#    Catch connection errors and try disconnecting/reconnecting?
+#   ...?
+#======================================================================================================================#
 
 from ctypes import *
 import logging
@@ -92,7 +101,6 @@ class ScannerInterface:
         self.last_ping_failed_log_time = 0  # Initialize the last log time for ping failure
         self.ping_log_interval = 60  # Set the log interval to 60 seconds
         self.last_ping_success_log_time = 0  # Initialize the last log time for ping success
-        self.ping_log_interval = 60  # Set the log interval to 60 seconds
         self.max_retries = 5  # Increase the number of retries for connection attempts
 
         self._configure_library_functions()
@@ -246,14 +254,14 @@ class ScannerInterface:
         try:
             # Hardcoded configurations
             sensor_mode = "4"        # 4: 3D Point Cloud
-            trigger_source = "0"     # 0: Internal trigger
+            #trigger_source = "0"     # 0: Internal trigger
             led_pattern = "28"       # 28: Predefined LED pattern
 
             # Ensure output directory exists
             os.makedirs(self.output_directory, exist_ok=True)
 
             # Configure sensor using hardcoded configurations
-            if not self.write_sensor_command(f"SetSensorMode={sensor_mode}"):
+            if not self.write_sensor_command(f"SetSensorMode=4"): # 3D Point Cloud
                 logger.error("Failed to set sensor mode.")
                 return None
 
@@ -411,7 +419,7 @@ class ScannerInterface:
                     command.encode(),
                     readBuffer,
                     1024,
-                    0  # Corrected: Reserved should be 0
+                    0  # Reserved, should be 0 per the SDK
                 )
                 if result != SENSOR3D_OK:
                     error_message = self.interpret_error(result)

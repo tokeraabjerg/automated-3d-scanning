@@ -166,6 +166,9 @@ th {
     margin-top: 5px;
 }
 
+#view_append_group {justify-content: end;} 
+.append-button{margin-right:5px;}
+
 .left-buttons, .right-buttons {
     display: flex;
     gap: 5px;
@@ -215,7 +218,15 @@ button, input[type="submit"] {
     background-color: #008CBA;
     color: white;
 }
-
+#config_button {
+    background-color: #ffffff;
+    border: 2px solid #f39c12;
+    color: #f39c12;
+}
+#config_button:hover {
+    background-color: #f39c12;
+    color: #ffffff;
+}
 .restart-button {
     background-color: #f39c12; /* Orange color */
     color: white;

@@ -98,7 +98,7 @@ This guide will help you set up a Docker image and container by building the ima
      - Set **Host Port** to `5001` and **Container Port** to `5001` to allow access to the web application.
    - **Volume Bind Configuration**:
      - Add a **bind mount** to link a directory on your computer to a directory inside the container. This will allow you to share files between the local machine and the container.
-     - **Host Path**: Enter the absolute path to your project directory:
+     - **Host Path**: Enter the absolute path to your project directory (same path you used to "cd" to previously):
 
        ```
        /Users/yourusername/path/to/your/project

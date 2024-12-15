@@ -97,12 +97,12 @@ def main():
     print("  MOVE_ABS B <position>    - Move Driver B to absolute position")
     print("  GETPOS                   - Get current positions")
     print("  PERFORM_SCAN             - Perform scan with predefined positions")
-    print("  TEST                     - Send a test position to perform_scan")
+    print("  START                    - Move to starting position")
     while True:
         command = input("Enter command: ")
         if command.lower() == 'exit':
             break
-        elif command.upper() == 'TEST':
+        elif command.upper() == 'START':
             test()
         elif command.upper() == 'PERFORM_SCAN':
             interpret_command()

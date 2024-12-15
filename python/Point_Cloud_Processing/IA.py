@@ -12,7 +12,7 @@ if getpass.getuser() == your_username:
     print("The code is being without modules")
     from ICP import Point_to_Plane
 else:
-    print("The code is not being run with modules")
+    # print("The code is not being run with modules")
     from .ICP import Point_to_Plane
 
 

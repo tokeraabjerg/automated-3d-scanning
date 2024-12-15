@@ -13,7 +13,7 @@ if getpass.getuser() == your_username:
     from Misc_functions import create_arrow
     from Calibration_by_fixture import inverse_center_and_filter_point_cloud
 else:
-    print("The code is being run with modules")
+    # print("The code is being run with modules")
     from python.Point_Cloud_Processing.Misc_functions import create_arrow
     from python.Point_Cloud_Processing.Calibration_by_fixture import inverse_center_and_filter_point_cloud
 

@@ -17,7 +17,7 @@ if getpass.getuser() == your_username:
     from PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline, Preproces_normal_late_pipeline
     from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
 else:
-    print("The code is being run with modules")
+    # print("The code is being run with modules")
     from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
     from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
     from .PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline

@@ -1,4 +1,9 @@
-# configurations_data.py
+#---------------------------------------------------------------------------
+#  ?                                ABOUT
+#  @author         :  Toke Raabjerg
+#  @repo           :  https://github.com/tokeraabjerg/automated-3d-scanning
+#  @description    :  
+#---------------------------------------------------------------------------
 # This is .py is ONLY for documentation purposes. It is never called nor edited 
 
 configurations_info = {
@@ -201,7 +206,5 @@ configurations_info = {
             '1': 'Activate',
         },
         'default': '0'
-    },
-    # Remove 'Acquisition Start' and 'Acquisition Stop' from configurations_info
-    # These are commands, not parameters, and should not be read as parameters.
+    }
 }

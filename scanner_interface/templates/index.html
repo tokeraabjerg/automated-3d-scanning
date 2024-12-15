@@ -10,7 +10,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MLAS214 - Control Panel (v0.9)</title>
+    <title>MLAS214 - Control Panel (v1.0)</title>
     <!-- Existing CSS -->
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
     
@@ -48,7 +48,7 @@
             <div class="spinner"></div>
             <span id="header-loading-text">Loading...</span>
         </div>
-        <h2>Wenglor MLAS214 - Control Panel (v0.9)</h2>
+        <h2>Wenglor MLAS214 - Control Panel (v1.0)</h2>
         
         <!-- Connection Status Indicators -->
         <div id="connection-status">
@@ -64,12 +64,9 @@
     </header>
     <div id="main-content">
         <div id="left-panel">
-            <h4>Scan Controls</h4>
-
-            <!-- Scan and Projects Container -->
-            <div class="scan-projects-container">
-                <!-- Removed Scan Interval Input -->
-                <span id="planned-scan-count">Planned Scans: NaN</span>
+            <div style="display: flex; align-items: center;">
+                <h3 style="margin: 0;">Scan Controls</h3>
+                <span id="planned-scan-count" style="margin-left: auto;">Planned Scans: NaN</span>
             </div>
             <br>
             <!-- Start and Stop Scan Buttons -->
@@ -92,10 +89,19 @@
             </div>
 
             <br>
+            <hr style="border-color: white;">
+            <br>
 
             <!-- Projects Section -->
             <div id="projects-section">
-                <h4>Projects</h4>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 style="margin: 0;">Project manager</h3>
+                    <div class="button-group" id="view_append_group" style="margin: 0;">
+                        <button class="append-button" onclick="promptNewPosition()" title="Append new scan">Append Scan</button>
+                        <button class="view-button" onclick="viewPlannedPositions()" title="View planned scans">View Scans</button>
+                    </div>
+                </div>
+                <br>
                 <ul id="projects-list" class="projects-list">
                     {% for project in projects %}
                     <li class="project-item">
@@ -124,21 +130,23 @@
                     <button type="submit" class="validate-button">Create Project</button>
                     <span id="create-project-spinner" class="spinner"></span>
                 </form>
-
-                <!-- Append and View Scan Buttons -->
-                <div class="button-group">
-                    <button class="append-button" onclick="promptNewPosition()" title="Append new scan">Append Scan</button>
-                    <button class="view-button" onclick="viewPlannedPositions()" title="View planned scans">View Scans</button>
-                </div>
             </div>
-            <br><br>
-            <br><br>
-            <h2>Configurations</h2>
+
+            <br>
+            <hr style="border-color: white;">
+            <br>
+
+            <div style="display: flex; align-items: center;">
+                <h3 style="margin: 0;">Configurations</h3>
+                <input id="config_button" type="submit" value="Update Configurations" class="validate-button" style="margin-left: auto;">
+            </div>
+
+            <br>
             <form id="configForm" action="{{ url_for('config_bp.update_configurations') }}" method="post">
                 <table class="configuration">
                     <tr>
                         <th>Parameter</th>
-                        <th>Value</th>
+                        <th style="max-width: 90px;">Value</th>
                         <th>Description</th>
                         <th>Range</th>
                     </tr>
@@ -148,7 +156,7 @@
                     </tr>
                     <tr>
                         <td>Preprocessing Method</td>
-                        <td>
+                        <td style="max-width: 90px;">
                             <select name="preprocessing_method" id="preprocessing-method" required>
                                 <option value="Standard">Standard</option>
                                 <option value="Early_outliers_NSS">Early_outliers_NSS</option>
@@ -218,8 +226,6 @@
                     </tr>
                     {% endfor %}
                 </table>
-                <br>
-                <input type="submit" value="Update Configurations" class="validate-button">
             </form>
 
             <br>
@@ -270,7 +276,7 @@
     <div id="new-position-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeNewPositionModal()">&times;</span>
-            <h2>Append New Scan</h2>
+            <h2>Append new scan angle</h2>
             <form id="new-position-form" onsubmit="appendNewPosition(event);">
                 <label for="pan-angle">Pan Angle (degrees):</label>
                 <input type="number" step="0.1" id="pan-angle" name="pan-angle" required> <!-- Allow non-integer input -->
