@@ -1,33 +1,177 @@
 import open3d as o3d
 import numpy as np
-from IA import RANSAC_initial_alignment, rotate_point_cloud, execute_global_registration
-from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
-from Misc_functions import remove_points_within_distance_of_pointcloud, compute_bounding_box, create_arrow, extract_rotation_axis_and_angle, decompose_transformation, sample_adjacent_point_pairs, average_distance_to_nearest_point
-from PP import preprocess_point_cloud
-from Calibration_by_fixture import Calibration_by_fixture
+import logging  # Add logging import
+import time
+import getpass
+import json  # Add json import
+import os  # Add os import
 
-def process_point_clouds(ply_files, rotation_vectors, resolution, max_correspondence_distance):
+# Define your username
+your_username = "mikke"
+
+# Check if the current user is you
+if getpass.getuser() == your_username:
+    print("The code is being without modules")
+    from ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
+    from Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
+    from PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline, Preproces_normal_late_pipeline
+    from Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+else:
+    print("The code is being run with modules")
+    from .ICP import Point_to_Plane, legacy_icp_with_logging, Point_to_Plane_with_Normal_Check
+    from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
+    from .PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
+    from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+
+#define global variables in global scope, tsk tsk.
+ShowMe = True
+legacyMode = False
+doInitial_alignment = True
+doICP = True
+Preprocessing_pipeline = "NSS"
+# options = "Standard", "Early-outliers-NSS" and "NSS"
+
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+
+def Point_Cloud_Processing(Fikstur, combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2, std=1,preprocessing_method="Standard", stdnn=20):
+    logger.info("Starting Point_Cloud_Processing")
+
     """
     Process a list of point clouds by registering and merging them iteratively.
     
     Parameters:
-    - ply_files: List of paths to the point cloud files.
+    - Combined_cloud: The initial point cloud, and the point cloud to which the other point clouds are registered.
+    - target_cloud: The point cloud to be registered to the combined_cloud.
+    - theta_pan: The pan angle of the target_cloud (motor A?).
+    - theta_tilt: The tilt angle of the target_cloud. (motor B?).
+    - zero_transform: The transformation matrix to zero the point clouds.
     - voxel_size: Voxel size for downsampling.
     - max_correspondence_distance: Max distance for point correspondence during ICP.
 
     Returns:
     - combined_cloud: The final merged point cloud.
     """
-    if len(ply_files) < 2:
-        raise ValueError("At least two point cloud files are required for registration.")
-    
-    # Load the first point cloud as the initial source
-    combined_cloud = o3d.io.read_point_cloud(ply_files[0])
-    # print(f"Voxelization resulted in {len(pcd_voxel.points)} points")
-    vox_meandist=sample_adjacent_point_pairs(combined_cloud, 100, 0.5)
-    print(f"Mean distance between points: {vox_meandist}")
 
+    # Print the parameters:
+    print(f"Parameters received in Point_Cloud_Processing: voxel_size={voxel_size}, max_correspondence_distance={max_correspondence_distance}, std={std}, preprocessing_method={preprocessing_method}")
+
+    # Paint the target cloud
+    # target_cloud.paint_uniform_color([1, 0.706, 0])
+    # logger.debug("Target cloud painted")
+
+    # Apply Calibration transformation to the target cloud
+    target_cloud.transform(Calibration_transformation)
+    logger.info("Applied calibration transformation to target cloud")
     
+    
+    # Preproces: Downsize, Find normals, downsample in normal space, remove outliers:
+    if preprocessing_method == "Standard":
+        logger.debug("Selecting Preproces_pipeline")
+        def Preproces(target_cloud, voxel_size, std_ratio, stdnn):
+            target_cloud = Preproces_pipeline(target_cloud, voxel_size, std_ratio, stdnn)
+            return target_cloud
+    elif preprocessing_method == "Early-outliers-NSS":
+        logger.debug("Selecting Early-outliers-NSS")
+        def Preproces(target_cloud, voxel_size, std_ratio, stdnn):
+            target_cloud = Preproces_early_outliers_pipeline(target_cloud, voxel_size, std_ratio, stdnn)
+            return target_cloud
+    elif preprocessing_method == "NSS":
+        logger.debug("Starting Preproces_normal_pipeline")
+        def Preproces(target_cloud, voxel_size, std_ratio, stdnn):
+            target_cloud = Preproces_normal_pipeline(target_cloud, voxel_size, std_ratio, stdnn)
+            return target_cloud
+    elif preprocessing_method == "NSS-late":
+        logger.debug("Starting Preproces_normal_late_pipeline")
+        def Preproces(target_cloud, voxel_size, std_ratio, stdnn):
+            target_cloud = Preproces_normal_late_pipeline(target_cloud, voxel_size, std_ratio, stdnn)
+            return target_cloud 
+    else:
+        raise ValueError("Invalid Preprocessing_pipeline option")
+
+
+
+    logger.debug("Starting Preproces")
+    target_cloud_normal_sample = Preproces(target_cloud, voxel_size, std_ratio=std, stdnn=stdnn)
+    if not target_cloud_normal_sample.has_normals():
+        logger.info("Target lost normals after preprocessing")
+    
+    # Ensure normals are computed for the combined cloud (Toke)
+    if not combined_cloud.has_normals():
+        if ShowMe is True:
+            o3d.visualization.draw_geometries([current_cloud, AxisArrow, Fikstur], window_name="First Point Cloud")
+        logger.info("Estimating normals for combined_cloud and applying calibration transformation")
+        combined_cloud.transform(Calibration_transformation)
+        combined_cloud = Preproces(combined_cloud, voxel_size, std_ratio=std, stdnn=stdnn)
+        combined_cloud += Fikstur
+        if ShowMe is True:
+                o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur], window_name="First Point Cloud post calibration")
+
+    if not target_cloud_normal_sample.has_normals():
+        logger.info("Target lost normals COMBINED preprocessing")
+    if not combined_cloud.has_normals():
+        logger.info("Combined lost normals after preprocessing")
+    
+    logger.debug("Normals estimated for combined_cloud_normal_sample")
+
+    logger.debug(f"Angles received in Point_Cloud_Processing: theta_pan_diff={theta_pan}, theta_tilt_diff={theta_tilt}")
+
+    if doInitial_alignment is False:
+        logger.info("Skipping alignment")
+    else:
+        if ShowMe is True:
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Unrotated Point Cloud")
+        initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_yxz((np.radians(theta_tilt), np.radians(theta_pan), np.radians(0)))
+        logger.debug(f"Initial rotation matrix: {initial_rotation}")
+        target_cloud_normal_sample.rotate(initial_rotation, center=(0, 0, 0))
+        logger.debug("Rotated target cloud")
+        if ShowMe is True:
+            o3d.visualization.draw_geometries([combined_cloud, target_cloud_normal_sample, AxisArrow], window_name="Rotated Point Cloud")
+        
+    # Step 2: Point-to-Plane ICP
+    if doICP is False:
+        logger.info("Skipping ICP")
+        icp_transformation = np.eye(4)
+        aligned_target = target_cloud_normal_sample
+    else:
+        logger.debug("Performing ICP registration...")
+        icp_transformation, aligned_target = Point_to_Plane(combined_cloud, target_cloud_normal_sample, max_correspondence_distance)
+        logger.info(f"ICP transformation matrix: {icp_transformation}")
+
+    combined_cloud += aligned_target
+    logger.debug("ICP registration completed")
+    
+    logger.info("voxeldownsampling the combined cloud post registration")
+    combined_cloud = combined_cloud.voxel_down_sample(voxel_size=voxel_size)
+    # Optional: Visualize the current merged cloud
+    if ShowMe is True:
+        o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Current cloud merged")
+
+    logger.info("Point_Cloud_Processing completed")
+
+    return combined_cloud, icp_transformation
+
+
+# Function to get the next available filename
+def get_next_filename(base_path, base_name, extension):
+    index = 1
+    while os.path.exists(f"{base_path}/{base_name}_{index}.{extension}"):
+        index += 1
+    return f"{base_path}/{base_name}_{index}.{extension}"
+
+# Example Usage, as in Tokes code
+if __name__ == "__main__":
+    # List of .ply files to process
+    
+    # Then, run "experiments" with PCP.
+    # Test preprocessing,
+    # Test Voxel size
+    # Test max_correspondence_distance
+    # Test std_ratio
+    # Send files to Comparison
+
+    Calibration_known = False
     arrows = [
     create_arrow(origin=(0, 0, 0), direction=(1, 0, 0), color=(1, 0, 0)),  # Red arrow along X-axis
     create_arrow(origin=(0, 0, 0), direction=(0, 1, 0), color=(0, 1, 0)),  # Green arrow along Y-axis
@@ -37,174 +181,235 @@ def process_point_clouds(ply_files, rotation_vectors, resolution, max_correspond
     for arrow in arrows:
         AxisArrow += arrow
 
-    # Visualize
-    # o3d.visualization.draw_geometries([AxisArrow])
-
-    # Preproces: Downsize, Remove outliers, Find normals, Find features:
-    # combined_cloud = combined_cloud.voxel_down_sample(voxel_size)
-    combined_cloud.translate(x_axis)
-    combined_cloud, combined_voxel, vox_meandist = preprocess_point_cloud(combined_cloud, resolution, std_ratio=0.5)
-    # combined_cloud.transform(zero_transformation)
-
-    # downsampled_pcd = downsample_normal_space(combined_cloud, num_samples=int(30000/voxel_size), voxel_size=voxel_size)
-
-    # Visualize the downsampled point cloud
+    #test_cloud = o3d.io.read_point_cloud(r"merged_point_cloud_white.ply")
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=60, std_ratio=0.5)
+    #o3d.visualization.draw_geometries([test_cloud], window_name="Test Cloud")
+    #min_bound = (-120.0, -200.0, -15)  # Replace with your box's minimum x, y, and z coordinates
+    #max_bound = (100, 200, 100) 
+    #test_cloud = remove_points_in_box(test_cloud, min_bound, max_bound)
     
-    o3d.visualization.draw_geometries([combined_voxel, AxisArrow], window_name="Preproccesed Point Cloud")
- 
-# Initialize combined_transformation as a list of independent identity matrices
-    combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
-    for i in range(1, len(ply_files)):
-        print(f"Processing point cloud {i + 1}/{len(ply_files)}...")
+    #test_cloud = test_cloud.voxel_down_sample(voxel_size=0.1)
+    
 
-        # Load the next point cloud
-        target_cloud = o3d.io.read_point_cloud(ply_files[i])
-        target_cloud.translate(x_axis)
-        target_cloud, target_voxel, vox_meandist = preprocess_point_cloud(target_cloud, resolution, std_ratio=0.5)
-        
-
-        target_cloud.paint_uniform_color([1, 0.706, 0])
-
-        # Step 1: Initial alignment (RANSAC or other coarse alignment)
-        # initial_transformation = [None] * len(ply_files) For storing initial transformations.
-        if rotation_vectors[i] == (None):
-            print("Performing RANSAC initial alignment...")
-            initial_transformation = RANSAC_initial_alignment(combined_cloud, target_cloud)
-            print("Initial alignment transformation applied:")
-            print(initial_transformation)
-            target_cloud.transform(initial_transformation)
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="RANSAC'ed Point Cloud")
-        else:
-            # unrotated_target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Unrotated Point Cloud")
-            initial_rotation = o3d.geometry.PointCloud.get_rotation_matrix_from_xyz((np.radians(rotation_vectors[i][0]), np.radians(rotation_vectors[i][1]), np.radians(rotation_vectors[i][2])))
-            print(initial_rotation)
-            target_cloud.rotate(initial_rotation, center=(0,0,0))
-            o3d.visualization.draw_geometries([combined_cloud, target_cloud, AxisArrow], window_name="Rotated Point Cloud")
-            # target_center = np.mean(np.asarray(target_cloud.points), axis=0)
-            # For now, translation by densitity alignment is not implimented
-            # translation_vector=combined_center-target_center
-            # translation_vector=unrotated_target_center-target_center
-            translation_vector=(0,0,0)
-            target_cloud.translate(translation_vector)
-            #o3d.visualization.draw_geometries([combined_cloud, target_cloud], window_name="Translated Point Cloud")
-            
-            int_rot_4x4=np.eye(4)
-            int_rot_4x4[:3, :3] = initial_rotation 
-            translation_matrix = np.eye(4)
-            translation_matrix[:3, 3] = translation_vector 
-            initial_transformation=np.dot(translation_matrix, int_rot_4x4)    
+    #ind = test_cloud.cluster_dbscan(eps=2, min_points=200, print_progress=True)
+    #test_cloud = test_cloud.select_by_index([i for i, label in enumerate(ind) if label != -1])
+    #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=1)
+    #o3d.visualization.draw_geometries([test_cloud, AxisArrow], window_name="Test Cloud")
+    
 
 
-        result=decompose_transformation(initial_transformation)
-        print("Translation (x, y, z):", result["translation"])
-        print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-        
-        # Step 2: Point-to-Plane ICP
-        # Estimating normals for source and target point clouds, som brugt i point to plane
-        #radius_normal = 2*resolution  # Radius til normal estimering
-        #combined_cloud.estimate_normals(
-        #search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50)) 
-        #target_cloud.estimate_normals(
-        #search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=50))
-        
-        print("Performing ICP registration...")
-        # Initialize the array containing all ICP transformaitons - outdated, no need when only the combined transformation is stored.
-        # icp_transformation = [None] * len(ply_files)
-
-        icp_transformation, aligned_target=legacy_icp_with_logging(combined_cloud, target_cloud, max_correspondence_distance)
-        # aligned_target=target_cloud.transform(icp_transformation)
-        # icp_transformation[i], aligned_target = Point_to_Plane(combined_cloud, target_cloud, max_correspondence_distance)
-
-        # Combine transformations for the i-th transformation
-        combined_transformation[i] = np.dot(icp_transformation, initial_transformation)
-        # Decompose the transformation and print results
-        result = decompose_transformation(combined_transformation[i])
-        print(f"PC nr {i} was transformed by:")
-        print("Translation (x, y, z):", result["translation"])
-        print("Rotation (roll, pitch, yaw) in degrees:", result["rotation"])
-
-
-        combined_cloud += aligned_target
-
-        # Anvend den samlede transformation på den højere opløsnings punktsky
-        aligned_voxel = target_voxel.transform(combined_transformation[i])
-        combined_voxel += aligned_voxel
-        
-        # R=combined_transformation[i][:3, :3]
-        # print('LOOK HERE')
-        # print(R)
-        # axis, angle = extract_rotation_axis_and_angle(R)
-        # print("Rotation Axis:", axis)
-        # print("Rotation Angle (degrees):", np.degrees(angle))
-
-        # Optional: Visualize the current merged cloud
-        o3d.visualization.draw_geometries([combined_cloud], window_name="Merged Point Cloud")
-        o3d.visualization.draw_geometries([combined_voxel], window_name="Merged Point Cloud voxel")
-
-    return combined_voxel, combined_transformation
-
-def extract_transformation_matrices(combined_transformation):
-    if isinstance(combined_transformation, np.ndarray):
-        # If combined_transformation is a single numpy array
-        print("Combined transformation matrix:")
-        print(combined_transformation)
-    elif isinstance(combined_transformation, list):
-        # If combined_transformation is a list of numpy arrays
-        for i, transformation in enumerate(combined_transformation):
-            print(f"Transformation matrix {i + 1}:")
-            print(transformation)
-    else:
-        print("Unknown format for combined_transformation")
-
-import json
-def save_transformations_to_json(transformations, output_file):
-    # Convert numpy arrays to lists
-    transformations_list = [transformation.tolist() for transformation in transformations]
-
-    # Save to JSON file
-    with open(output_file, 'w') as f:
-        json.dump(transformations_list, f, indent=4)
-
-if __name__ == "__main__":
-    # List of .ply files to process
     ply_files = [
-        #r"C:\Users\mikke\Desktop\scan_41.ply",
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\0 grader test 2.ply",
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\15 grader test 2.ply",
-        r"C:\Users\mikke\Desktop\0, 15, 45 (test 2 til Mikkel)\45 grader test 2.ply"
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_1.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_2.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_3.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\editednr4.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_5.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_7.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_8reflectfree.ply",
+        r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_6.ply"
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_5.ply",
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_6.ply",
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_7.ply",
+        #r"C:\Users\mikke\Desktop\40pct_15scans\40pct_15scans\scan_8.ply",
+        #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_+15.ply",
+        #r"C:\Users\mikke\Desktop\mikkel\mikkel\motor_b_-15.ply" # Appears to be 0, 0
     ]
 
-    # Input vectors for inital rotation. Rotate a point cloud using Euler angles (roll, pitch, yaw) at a specified index.
-    rotation_vectors = [
-    (None),    # Tom første indgang, "none" er eq. til ikke at kende rotationen.
-    (15, 0, 0),     # Rotation omkring en vilkårlig akse
-    (45, 0, 0)    # 90 grader omkring y-aksen
+    theta_pan = [0, 0, 0, 0, 45, -45, -130, 145.03]
+    theta_tilt = [0, -25.03, -14.97, 20, 0, 0, 0, 0]
+    ShowMe = False
+    legacyMode = False
+    doInitial_alignment = True
+    doICP = True
+
+    
+    # Define the list of input values
+    # redo these for black01, after removing the artefact/reaqureing scan 8:
+    tested_input_values = [
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
     ]
-
-    # Translation vectors to move from global to local coords. Must find a method of locating the motors axis of rotation.
-    # Hard coded translation for the first axis of rotation (Not perfect, since data appears inconsistent)
-    # Calculated x_axis=(143.31,24.85,-318.16)
     
-    # Working x_axis=(143.31, 15,-340.16)
-    x_axis=(143.31, 15,-345)
-
-    # Obtain zeroing transformation
-    # zero_transformation=Zero_point_cloud_by_fixture(point_cloud, Fikstur_fil)
-    # zero_transformation = np.eye(4)
-    # Process the point clouds
-    print("Starting point cloud processing...")
-    final_cloud, combined_transformation = process_point_clouds(ply_files, rotation_vectors, resolution=1, max_correspondence_distance=4)
-    extract_transformation_matrices(combined_transformation)    
-    # Save the final merged point cloud
-    output_file = "merged_point_cloud.ply"
-    output_trans = "combined_transformation.json"
-    save_transformations_to_json(combined_transformation, output_trans)
-    print(f"Transformation matrices saved to: {output_trans}")
+    input_values = [
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 20},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "Early-outliers-NSS", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "Standard", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "NSS", "std": 0.5, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "Standard", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "NSS", "std": 1, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.1, "mcd": 1, "stdnn": 200},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.1, "mcd": 2, "stdnn": 200},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 1, "stdnn": 200},
+        {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
+        {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 200}
+    ]
     
+    for values in input_values:
+        Method = values["Method"]
+        std = values["std"]
+        stdnn = values["stdnn"]
+        voxel_size = values["voxel_size"]
+        mcd = values["mcd"]
 
-    #o3d.io.write_point_cloud(output_file, final_cloud)
-    #print(f"Final merged point cloud saved to: {output_file}")
+        # Initialize combined_transformation as a list of independent identity matrices
+        # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
 
-    # Visualize the final result
-    #o3d.visualization.draw_geometries([final_cloud], window_name="Final Merged Point Cloud")
+        # Initialize the combined point cloud
+        combined_cloud = None
+
+        # Initialize list to store ICP transformations
+        icp_transformations = []
+
+        start_timePCP = time.time()
+
+        for i in range(0, len(ply_files)):
+            print(f"Processing point cloud {i+1}/{len(ply_files)}...")
+
+            current_cloud = o3d.io.read_point_cloud(ply_files[i])
+            # current_cloud.scale(1, center=(0, 0, 0))
+            if Calibration_known is False:
+                if theta_pan[i] == 0 and theta_tilt[i] == 0:
+                    print("Finding calibration by fixture-based method")
+                    Alignment_point_cloud = current_cloud
+                    Norm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5)
+                    Fikstur_fil = r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
+                    Calibration_transformation, Fikstur = Calibration_by_fixture(Alignment_point_cloud, Fikstur_fil)
+                    if ShowMe is True:
+                        current_cloud = o3d.io.read_point_cloud(ply_files[i])
+                        current_cloud.transform(Calibration_transformation)
+                        o3d.visualization.draw_geometries([Alignment_point_cloud, Fikstur, AxisArrow], window_name="Alignment Point Cloud")
+                    print("Calibration transformation found:")
+                    print(Calibration_transformation)
+                    Calibration_known = True
+                else:
+                    raise ValueError("lacking calibration point cloud")
+
+            logger.info("Removing points around the scanner")
+            current_cloud = remove_points_in_box(current_cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
+            # TODO: Implement this function or a version of it at scan level - maybe next to origen points?
+
+            if legacyMode is True:
+                combined_cloud, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=voxel_size, max_correspondence_distance=4)
+            elif combined_cloud == None:
+                combined_cloud = current_cloud  # .transform(Calibration_transformation)
+            else:
+                if ShowMe is True:
+                    o3d.visualization.draw_geometries([combined_cloud, current_cloud, AxisArrow, Fikstur], window_name="Current Point Cloud, before processing and calibration")
+                combined_cloud, ICP_transform = Point_Cloud_Processing(Fikstur, combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=voxel_size, max_correspondence_distance=mcd, std=std, preprocessing_method=Method, stdnn=stdnn)
+                icp_transformations.append(ICP_transform.tolist())  # Store the ICP transformation
+
+        combined_cloud = remove_points_within_distance_of_pointcloud(combined_cloud, Fikstur, 2)
+        min_bound = (-120.0, -200.0, -15)  # Replace with your box's minimum x, y, and z coordinates
+        max_bound = (100, 200, 100)
+        combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
+        min_bound = (-120.0, -200.0, -200)  # Replace with your box's minimum x, y, and z coordinates
+        max_bound = (50, 200, 200)
+        combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
+
+        # TODO. Implement this function in Standard? Test it.
+        # if Method == "NSS-late":
+        #     logger.debug("Starting outlier removal")
+        #     combined_cloud, ind = combined_cloud.remove_statistical_outlier(nb_neighbors=stdnn, std_ratio=std)
+        #     logger.info(f"Outlier removal completed, points count: {len(combined_cloud.points)}")
+        # o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
+        
+        end_timePCP = time.time()
+        elapsed_timePCP = end_timePCP - start_timePCP
+        print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")
+
+        # o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
+        # Save the final merged point cloud
+        base_path = "scanner_interface/output/sort-fikstur-0.1-contrast-filter"
+        output_ply_filename = get_next_filename(base_path, f"Black01_{Method}_{std}_{stdnn}_{voxel_size}_{mcd}", "ply")
+        o3d.io.write_point_cloud(output_ply_filename, combined_cloud)
+        print(f"Final merged point cloud saved to: {output_ply_filename}")
+
+        # Save the ICP transformations to a JSON file
+        icp_json_filename = get_next_filename(base_path, f"icp_transformations_{Method}_{std}_{stdnn}_{voxel_size}_{mcd}", "json")
+        with open(icp_json_filename, 'w') as f:
+            json.dump({"icp_transformations": icp_transformations, "elapsed_timePCP": elapsed_timePCP}, f, indent=4)
+        print(f"ICP transformations saved to: {icp_json_filename}")

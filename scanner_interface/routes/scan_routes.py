@@ -209,6 +209,84 @@ def auto_scan():
         #project_path = project_manager.get_project_path(project_name)
         project_manager.save_current_configurations(project_name)
 
+
+# TODO: Make this shiete work
+def true_auto_scan_thread(app, project_name, stop_event, preprocessing_method, voxel_size, max_correspondence_distance):
+    """
+    Thread function to perform true auto scan based on point cloud normals.
+    """
+    logger.info("True auto scan thread started.")
+    pcd_dict = {}  # Dictionary to store individual point clouds and their rotation information
+    auto_scan_stop_event = current_app.config.get('auto_scan_stop_event')
+    config_manager = current_app.config.get('config_manager')
+
+    try:
+        with app.app_context():
+            # Move to zero/home position
+            zero_position = {"home": True}
+            response = interpret_command(zero_position)
+            if "success" not in response.lower():
+                logger.error("Failed to move to zero position. Exiting true auto scan thread.")
+                return None
+
+            logger.info("Moved to zero position successfully.")
+            time.sleep(1)  # Wait for motors to settle
+
+            # Perform initial scan at zero position
+            scanner = current_app.config.get('scanner')
+            initial_pcd = scanner.perform_scan(stop_event=stop_event)
+            if initial_pcd is None:
+                logger.error("Initial scan failed. Exiting true auto scan thread.")
+                return None
+
+            # Save the initial point cloud
+            project_manager = current_app.config.get('project_manager')
+            project_manager.save_point_cloud(initial_pcd, project_name, save_as_main=False)
+            pcd_dict["scan_1"] = {"pcd": initial_pcd, "rotation": [0, 0]}
+
+            # Determine next scan positions based on normals
+            while not stop_event.is_set() and not auto_scan_stop_event.is_set():
+                # Calculate normals and determine next scan position
+                normals = np.asarray(initial_pcd.normals)
+                weights = np.ones(len(normals))  # Uniform weights for now
+                rotation_matrix = align_normals_with_z_axis(normals, weights)
+
+                # Convert rotation matrix to angles
+                theta_pan, theta_tilt, _ = np.degrees(np.linalg.inv(rotation_matrix).dot([0, 0, 1]))
+
+                # Move to the next scan position
+                next_position = {"deg_a": theta_pan, "deg_b": theta_tilt}
+                response = interpret_command(next_position)
+                if "success" not in response.lower():
+                    logger.error(f"Failed to move to next position: {next_position}. Exiting true auto scan thread.")
+                    break
+
+                logger.info(f"Moved to next position: {next_position}.")
+                time.sleep(1)  # Wait for motors to settle
+
+                # Perform scan at the new position
+                new_pcd = scanner.perform_scan(stop_event=stop_event)
+                if new_pcd is None:
+                    logger.warning("Scan failed or was stopped.")
+                    continue
+
+                # Save the new point cloud
+                scan_index = len(pcd_dict) + 1
+                pcd_dict[f"scan_{scan_index}"] = {"pcd": new_pcd, "rotation": [theta_pan, theta_tilt]}
+                project_manager.save_point_cloud(new_pcd, project_name, save_as_main=False)
+
+                logger.info(f"Scan {scan_index} completed and saved.")
+
+            logger.info("True auto scan completed successfully.")
+
+    except Exception as e:
+        current_app.logger.error(f"Error in true auto scan thread: {e}")
+    finally:
+        with app.app_context():
+            current_app.config['scan_in_progress'] = False
+            reset_stop_events()  # Ensure stop events are cleared
+        logger.info("True auto scan thread terminating.")
+
 # Add a flag to track the post-processing thread status
 post_processing_thread_running = False
 

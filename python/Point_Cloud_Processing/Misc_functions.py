@@ -801,7 +801,7 @@ if __name__ == "__main__":
     # rename_files_in_folder(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter")
     
 
-    pcd = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.5-contrast-filter\Black05_NSS_0.5_20_0.1_1_2.ply")
+    pcd = o3d.io.read_point_cloud(r"scanner_interface\output\sort-fikstur-0.1-contrast-filter\scan_8.ply")
 
     #pcd = remove_points_in_box(pcd, (-1000, -1000, -2000), (1000, 1000, 10))
     #time the function:

@@ -104,8 +104,7 @@ if __name__ == "__main__":
     #Visualize the pointcloud
     o3d.visualization.draw_geometries([Reference, scanned_pointcloud], window_name="Scanned point cloud")
 
-    
-    MDP_complete_comparison(Reference, scanned_pointcloud, rotation_manual=True)
+    complete_comparison(Reference, scanned_pointcloud, rotation_manual = False)
 
 
 

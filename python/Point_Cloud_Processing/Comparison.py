@@ -6,7 +6,7 @@ import json
 import os
 from Translatory_crutch import align_centroids
 from Calibration_by_fixture import remove_points_in_box
-from Misc_functions import remove_points_within_distance_of_pointcloud
+from Misc_functions import remove_points_within_distance_of_pointcloud, create_arrow
 
 
 #===========================================================================
@@ -59,21 +59,158 @@ def paint_point_cloud_by_distance(pcd, distances):
     colors = plt.cm.jet(normalized_distances)[:, :3]
     pcd.colors = o3d.utility.Vector3dVector(colors)
 
+def paint_point_cloud_by_log_distance(pcd, distances):
+    log_distances = np.log1p(distances)  # Apply logarithmic scale
+    normalized_log_distances = (log_distances - np.min(log_distances)) / (np.max(log_distances) - np.min(log_distances))
+
+    # Use jet colormap for coloring the points
+    colors = plt.cm.jet(normalized_log_distances)[:, :3]
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+
 def plot_legend(distances):
     min_dist = np.min(distances)
     max_dist = np.max(distances)
 
-    fig, ax = plt.subplots(figsize=(8, 1))
-    fig.subplots_adjust(bottom=0.4)
+    fig, ax = plt.subplots(figsize=(7.5, 1.5))  # Adjust the height here
+    fig.subplots_adjust(bottom=0.7)
 
     cmap = plt.cm.jet
     norm = plt.Normalize(vmin=min_dist, vmax=max_dist)
     cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=ax, orientation='horizontal')
-    cbar.set_label('Distance to Design Point Cloud')
+    cbar.set_label('Distance to Design Point Cloud [mm]', fontsize=14)  # Increase text size
+    cbar.ax.tick_params(labelsize=14)  # Make the numbers on the colorbar the same size
 
     plt.show()
 
+def plot_log_legend(distances):
+    min_dist = np.min(distances)
+    max_dist = np.max(distances)
+    log_distances = np.log1p(distances)  # Apply logarithmic scale
+
+    fig, ax = plt.subplots(figsize=(7.5, 1.5))  # Adjust the height here
+    fig.subplots_adjust(bottom=0.7)
+
+    cmap = plt.cm.jet
+    norm = plt.Normalize(vmin=np.min(log_distances), vmax=np.max(log_distances))
+    cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), cax=ax, orientation='horizontal')
+    cbar.set_label('Distance to Design Point Cloud [mm]', fontsize=14, labelpad=4)  # Increase text size and add padding
+    cbar.ax.tick_params(labelsize=14, rotation=90)  # Make the numbers on the colorbar the same size and tilt them 90 degrees back
+
+    # Set logarithmic ticks with specified density
+    tick_locs = np.log1p(np.concatenate([
+        np.linspace(0, 1, num=5, endpoint=False),
+        np.arange(1, 11, 1)
+    ]))
+    if np.log1p(19.99) <= np.log1p(max_dist):
+        tick_locs = np.append(tick_locs, np.log1p(19.99))
+    tick_locs = tick_locs[tick_locs <= np.log1p(max_dist)]  # Ensure ticks do not extend beyond max distance
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels([f"{np.expm1(tick):.1f}" for tick in tick_locs])
+
+    plt.show()
+
+def set_camera_view(vis, intrinsic):
+    parameters = o3d.io.read_pinhole_camera_parameters("calibration\Orientation.json")
+    ctr = vis.get_view_control()
+    ctr.convert_from_pinhole_camera_parameters(parameters)
+
 def compare_point_clouds(design_pc, scanned_pc):
+
+    print("Computing distances between the point clouds...")
+    distances = compute_cloud_to_cloud_distance(design_pc, scanned_pc)
+
+    print("Painting scanned point cloud based on distances as a heatmap...")
+    paint_point_cloud_by_distance(scanned_pc, distances)
+
+
+    # Start multiprocessing for both Open3D visualization and the legend plot
+    p1 = multiprocessing.Process(target=plot_legend, args=(distances,))
+    p1.start()
+
+    # Visualize with interactive point picking
+    parameters = o3d.io.read_pinhole_camera_parameters("calibration\Orientation.json")
+    intrinsic = parameters.intrinsic
+    vis = o3d.visualization.VisualizerWithEditing()
+    vis.create_window(window_name="Point Cloud Comparison with Distance Heatmap", width=intrinsic.width, height=intrinsic.height)
+    vis.add_geometry(scanned_pc)
+    
+    # Set the camera view
+    # set_camera_view(vis, intrinsic)
+
+    # Run the visualizer to allow point picking
+    vis.run()
+    vis.destroy_window()
+
+    # Get picked points
+    picked_points = vis.get_picked_points()
+    if picked_points:
+        print("Picked Points (Scanned Point Cloud):")
+        for idx in picked_points:
+            if idx < len(scanned_pc.points):
+                coord = np.asarray(scanned_pc.points)[idx]
+                distance = distances[idx]
+                print(f"Point Index: {idx}, Coordinates: {coord}, Distance to Design: {distance:.6f}")
+    else:
+        print("No points were picked.")
+
+    p1.join()
+
+def compare_point_clouds_log(design_pc, scanned_pc):
+    # Get the enlarged bounding box
+    enlarged_bbox = get_enlarged_bounding_box(design_pc)
+
+    # Crop the scanned point cloud to the enlarged bounding box
+    scanned_pc = scanned_pc.crop(enlarged_bbox)
+
+    print("Computing distances between the point clouds...")
+    distances = compute_cloud_to_cloud_distance(design_pc, scanned_pc)
+
+    print("Painting scanned point cloud based on log distances as a heatmap...")
+    paint_point_cloud_by_log_distance(scanned_pc, distances)
+
+    # Start multiprocessing for both Open3D visualization and the legend plot
+    p1 = multiprocessing.Process(target=plot_log_legend, args=(distances,))
+    p1.start()
+
+    # Visualize with interactive point picking
+    parameters = o3d.io.read_pinhole_camera_parameters("calibration\Orientation.json")
+    intrinsic = parameters.intrinsic
+    vis = o3d.visualization.VisualizerWithEditing()
+    vis.create_window(window_name="Point Cloud Comparison with Log Distance Heatmap", width=intrinsic.width, height=intrinsic.height)
+    vis.add_geometry(scanned_pc)
+    
+    # Set the camera view
+    # set_camera_view(vis, intrinsic)
+
+    # Run the visualizer to allow point picking
+    vis.run()
+    vis.destroy_window()
+
+    # Get picked points
+    picked_points = vis.get_picked_points()
+
+    if len(picked_points) < 6:
+        print("Not enough points were picked. Please select at least 6 points.")
+    else:
+        point1 = np.asarray(scanned_pc.points)[picked_points[0]]
+        for i in range(1, 4):
+            point = np.asarray(scanned_pc.points)[picked_points[i]]
+            distance = np.linalg.norm(point1 - point)
+            print(f"Distance between point 1 and point {i + 1}: {distance:.2f} mm")
+        
+        point5 = np.asarray(scanned_pc.points)[picked_points[4]]
+        point6 = np.asarray(scanned_pc.points)[picked_points[5]]
+        distance = np.linalg.norm(point5 - point6)
+        print(f"Distance between point 5 and point 6: {distance:.2f} mm")
+
+    p1.join()
+
+def compare_point_clouds_bounding_box(design_pc, scanned_pc):
+    # Get the enlarged bounding box
+    enlarged_bbox = get_enlarged_bounding_box(design_pc)
+
+    # Crop the scanned point cloud to the enlarged bounding box
+    scanned_pc = scanned_pc.crop(enlarged_bbox)
 
     print("Computing distances between the point clouds...")
     distances = compute_cloud_to_cloud_distance(design_pc, scanned_pc)
@@ -86,11 +223,14 @@ def compare_point_clouds(design_pc, scanned_pc):
     p1.start()
 
     # Visualize with interactive point picking
+    parameters = o3d.io.read_pinhole_camera_parameters("calibration\Orientation.json")
+    intrinsic = parameters.intrinsic
     vis = o3d.visualization.VisualizerWithEditing()
-    vis.create_window(window_name="Point Cloud Comparison with Distance Heatmap")
-    #vis.add_geometry(design_pc)
+    vis.create_window(window_name="Point Cloud Comparison with Distance Heatmap", width=intrinsic.width, height=intrinsic.height)
     vis.add_geometry(scanned_pc)
-
+    
+    # Set the camera view
+    # set_camera_view(vis, intrinsic)
 
     # Run the visualizer to allow point picking
     vis.run()
@@ -179,6 +319,13 @@ def compute_distance(point_cloud, index1, index2):
     distance = np.linalg.norm(point1 - point2)
     return distance
 
+def get_enlarged_bounding_box(pcd, enlargement=20):
+    bbox = pcd.get_axis_aligned_bounding_box()
+    min_bound = bbox.min_bound - enlargement
+    max_bound = bbox.max_bound + enlargement
+    enlarged_bbox = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+    return enlarged_bbox
+
 if __name__ == "__main__":
     # Enable multiprocessing on Windows
     multiprocessing.set_start_method('spawn', force=True)
@@ -221,4 +368,30 @@ if __name__ == "__main__":
 
     # # Compare the point clouds and paint scanned PC based on distances
     # compare_point_clouds(pcd1, pcd2_translated)
+
+    # Save the camera parameters to a JSON file
+    camera_params = {
+        "class_name": "PinholeCameraParameters",
+        "extrinsic": [
+            -0.5317827803127757, 0.46781625108626318, -0.70594265332419792, 0.0,
+            0.089816055488240371, -0.79772416909884658, -0.59629625708374878, 0.0,
+            -0.84210459608017085, -0.38050506600457934, 0.38219856620021903, 0.0,
+            84.752610037172346, -101.31738821983899, 312.88177547609172, 1.0
+        ],
+        "intrinsic": {
+            "height": 754,
+            "intrinsic_matrix": [
+                652.9831544534668, 0.0, 0.0,
+                0.0, 652.9831544534668, 0.0,
+                331.5, 376.5, 1.0
+            ],
+            "width": 664
+        },
+        "version_major": 1,
+        "version_minor": 0
+    }
+    with open("camera_params.json", "w") as f:
+        json.dump(camera_params, f)
+
+    # ...existing code...
 

@@ -80,7 +80,7 @@ def legacy_icp_with_logging(source, target, max_correspondence_distance):
     """
     # Copy source to avoid modifying the original
     init_transformation=np.eye(4)
-    max_iterations=(25)
+    max_iterations=(15)
     transformation_log=np.eye(4)
     target_copy = target.transform(init_transformation)
     transformation = init_transformation

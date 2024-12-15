@@ -35,8 +35,11 @@ Preprocessing_pipeline = "NSS"
 logger = logging.getLogger(__name__)
 
 
-def Point_Cloud_Processing(Fikstur, combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.01, max_correspondence_distance=2, std=1,preprocessing_method="Standard", stdnn=20):
+def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, Calibration_transformation, voxel_size=0.1, max_correspondence_distance=1, std=1,preprocessing_method="Standard", stdnn=20, Fikstur=None):
     logger.info("Starting Point_Cloud_Processing")
+
+    if Fikstur is None:
+        Fikstur = o3d.io.read_point_cloud(r"calibration\ref.ply")
 
     """
     Process a list of point clouds by registering and merging them iteratively.
@@ -104,6 +107,8 @@ def Point_Cloud_Processing(Fikstur, combined_cloud, target_cloud, theta_pan, the
         logger.info("Estimating normals for combined_cloud and applying calibration transformation")
         combined_cloud.transform(Calibration_transformation)
         combined_cloud = Preproces(combined_cloud, voxel_size, std_ratio=std, stdnn=stdnn)
+        # TODO: Test white dataset without fikstur!
+        # TODO: Add a step to perform initial alignment of the combined cloud, if applicable.
         combined_cloud += Fikstur
         if ShowMe is True:
                 o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur], window_name="First Point Cloud post calibration")
@@ -163,13 +168,6 @@ def get_next_filename(base_path, base_name, extension):
 # Example Usage, as in Tokes code
 if __name__ == "__main__":
     # List of .ply files to process
-    
-    # Then, run "experiments" with PCP.
-    # Test preprocessing,
-    # Test Voxel size
-    # Test max_correspondence_distance
-    # Test std_ratio
-    # Send files to Comparison
 
     Calibration_known = False
     arrows = [
@@ -180,6 +178,10 @@ if __name__ == "__main__":
     AxisArrow = o3d.geometry.TriangleMesh()
     for arrow in arrows:
         AxisArrow += arrow
+
+
+
+
 
     #test_cloud = o3d.io.read_point_cloud(r"merged_point_cloud_white.ply")
     #test_cloud, ind = test_cloud.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.1)
@@ -224,6 +226,96 @@ if __name__ == "__main__":
     doICP = True
 
     
+    input_values = [
+        {"Method": "Standard", "std": 1, "voxel_size": 0.1, "mcd": 1, "stdnn": 20},
+    ]
+    
+    for values in input_values:
+        Method = values["Method"]
+        std = values["std"]
+        stdnn = values["stdnn"]
+        voxel_size = values["voxel_size"]
+        mcd = values["mcd"]
+
+        # Initialize combined_transformation as a list of independent identity matrices
+        # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
+
+        # Initialize the combined point cloud
+        combined_cloud = None
+
+        # Initialize list to store ICP transformations
+        icp_transformations = []
+
+        start_timePCP = time.time()
+
+        for i in range(0, len(ply_files)):
+            print(f"Processing point cloud {i+1}/{len(ply_files)}...")
+
+            current_cloud = o3d.io.read_point_cloud(ply_files[i])
+            # current_cloud.scale(1, center=(0, 0, 0))
+            if Calibration_known is False:
+                if theta_pan[i] == 0 and theta_tilt[i] == 0:
+                    print("Finding calibration by fixture-based method")
+                    Alignment_point_cloud = current_cloud
+                    Norm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5)
+                    Fikstur_fil = r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
+                    Calibration_transformation, Fikstur = Calibration_by_fixture(Alignment_point_cloud, Fikstur_fil)
+                    if ShowMe is True:
+                        current_cloud = o3d.io.read_point_cloud(ply_files[i])
+                        current_cloud.transform(Calibration_transformation)
+                        o3d.visualization.draw_geometries([Alignment_point_cloud, Fikstur, AxisArrow], window_name="Alignment Point Cloud")
+                    print("Calibration transformation found:")
+                    print(Calibration_transformation)
+                    Calibration_known = True
+                else:
+                    raise ValueError("lacking calibration point cloud")
+
+            logger.info("Removing points around the scanner")
+            current_cloud = remove_points_in_box(current_cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
+            # TODO: Implement this function or a version of it at scan level - maybe next to origen points?
+
+            if legacyMode is True:
+                combined_cloud, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=voxel_size, max_correspondence_distance=4)
+            elif combined_cloud == None:
+                combined_cloud = current_cloud  # .transform(Calibration_transformation)
+            else:
+                if ShowMe is True:
+                    o3d.visualization.draw_geometries([combined_cloud, current_cloud, AxisArrow, Fikstur], window_name="Current Point Cloud, before processing and calibration")
+                combined_cloud, ICP_transform = Point_Cloud_Processing(combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=voxel_size, max_correspondence_distance=mcd, std=std, preprocessing_method=Method, stdnn=stdnn, Fikstur=Fikstur)
+                icp_transformations.append(ICP_transform.tolist())  # Store the ICP transformation
+
+        combined_cloud = remove_points_within_distance_of_pointcloud(combined_cloud, Fikstur, 2)
+        min_bound = (-120.0, -200.0, -15)  # Replace with your box's minimum x, y, and z coordinates
+        max_bound = (100, 200, 100)
+        combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
+        min_bound = (-120.0, -200.0, -200)  # Replace with your box's minimum x, y, and z coordinates
+        max_bound = (50, 200, 200)
+        combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
+
+        # TODO. Implement this function in Standard? Test it.
+        # if Method == "NSS-late":
+        #     logger.debug("Starting outlier removal")
+        #     combined_cloud, ind = combined_cloud.remove_statistical_outlier(nb_neighbors=stdnn, std_ratio=std)
+        #     logger.info(f"Outlier removal completed, points count: {len(combined_cloud.points)}")
+        # o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
+        
+        end_timePCP = time.time()
+        elapsed_timePCP = end_timePCP - start_timePCP
+        print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")
+
+        # o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
+        # Save the final merged point cloud
+        base_path = "scanner_interface/output/sort-fikstur-0.1-contrast-filter"
+        output_ply_filename = get_next_filename(base_path, f"Black01_{Method}_{std}_{stdnn}_{voxel_size}_{mcd}", "ply")
+        o3d.io.write_point_cloud(output_ply_filename, combined_cloud)
+        print(f"Final merged point cloud saved to: {output_ply_filename}")
+
+        # Save the ICP transformations to a JSON file
+        icp_json_filename = get_next_filename(base_path, f"icp_transformations_{Method}_{std}_{stdnn}_{voxel_size}_{mcd}", "json")
+        with open(icp_json_filename, 'w') as f:
+            json.dump({"icp_transformations": icp_transformations, "elapsed_timePCP": elapsed_timePCP}, f, indent=4)
+        print(f"ICP transformations saved to: {icp_json_filename}")
+"""
     # Define the list of input values
     # redo these for black01, after removing the artefact/reaqureing scan 8:
     tested_input_values = [
@@ -327,89 +419,4 @@ if __name__ == "__main__":
         {"Method": "Standard", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 200},
         {"Method": "NSS", "std": 2, "voxel_size": 0.5, "mcd": 2, "stdnn": 200}
     ]
-    
-    for values in input_values:
-        Method = values["Method"]
-        std = values["std"]
-        stdnn = values["stdnn"]
-        voxel_size = values["voxel_size"]
-        mcd = values["mcd"]
-
-        # Initialize combined_transformation as a list of independent identity matrices
-        # combined_transformation = [np.eye(4) for _ in range(len(ply_files))]
-
-        # Initialize the combined point cloud
-        combined_cloud = None
-
-        # Initialize list to store ICP transformations
-        icp_transformations = []
-
-        start_timePCP = time.time()
-
-        for i in range(0, len(ply_files)):
-            print(f"Processing point cloud {i+1}/{len(ply_files)}...")
-
-            current_cloud = o3d.io.read_point_cloud(ply_files[i])
-            # current_cloud.scale(1, center=(0, 0, 0))
-            if Calibration_known is False:
-                if theta_pan[i] == 0 and theta_tilt[i] == 0:
-                    print("Finding calibration by fixture-based method")
-                    Alignment_point_cloud = current_cloud
-                    Norm, Alignment_point_cloud = preprocess_point_cloud(current_cloud, resolution=1, std_ratio=0.5)
-                    Fikstur_fil = r"C:\Users\mikke\OneDrive - Aalborg Universitet\CAD\Fiktur.ply"
-                    Calibration_transformation, Fikstur = Calibration_by_fixture(Alignment_point_cloud, Fikstur_fil)
-                    if ShowMe is True:
-                        current_cloud = o3d.io.read_point_cloud(ply_files[i])
-                        current_cloud.transform(Calibration_transformation)
-                        o3d.visualization.draw_geometries([Alignment_point_cloud, Fikstur, AxisArrow], window_name="Alignment Point Cloud")
-                    print("Calibration transformation found:")
-                    print(Calibration_transformation)
-                    Calibration_known = True
-                else:
-                    raise ValueError("lacking calibration point cloud")
-
-            logger.info("Removing points around the scanner")
-            current_cloud = remove_points_in_box(current_cloud, (-1000.0, -1000, -10), (1000, 1000, 10))
-            # TODO: Implement this function or a version of it at scan level - maybe next to origen points?
-
-            if legacyMode is True:
-                combined_cloud, combined_transformation = Legacy_process_point_clouds(ply_files, theta_pan, theta_tilt, Calibration_transformation, voxel_size=voxel_size, max_correspondence_distance=4)
-            elif combined_cloud == None:
-                combined_cloud = current_cloud  # .transform(Calibration_transformation)
-            else:
-                if ShowMe is True:
-                    o3d.visualization.draw_geometries([combined_cloud, current_cloud, AxisArrow, Fikstur], window_name="Current Point Cloud, before processing and calibration")
-                combined_cloud, ICP_transform = Point_Cloud_Processing(Fikstur, combined_cloud, current_cloud, theta_pan[i], theta_tilt[i], Calibration_transformation, voxel_size=voxel_size, max_correspondence_distance=mcd, std=std, preprocessing_method=Method, stdnn=stdnn)
-                icp_transformations.append(ICP_transform.tolist())  # Store the ICP transformation
-
-        combined_cloud = remove_points_within_distance_of_pointcloud(combined_cloud, Fikstur, 2)
-        min_bound = (-120.0, -200.0, -15)  # Replace with your box's minimum x, y, and z coordinates
-        max_bound = (100, 200, 100)
-        combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
-        min_bound = (-120.0, -200.0, -200)  # Replace with your box's minimum x, y, and z coordinates
-        max_bound = (50, 200, 200)
-        combined_cloud = remove_points_in_box(combined_cloud, min_bound, max_bound)
-
-        # TODO. Implement this function in Standard? Test it.
-        # if Method == "NSS-late":
-        #     logger.debug("Starting outlier removal")
-        #     combined_cloud, ind = combined_cloud.remove_statistical_outlier(nb_neighbors=stdnn, std_ratio=std)
-        #     logger.info(f"Outlier removal completed, points count: {len(combined_cloud.points)}")
-        # o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
-        
-        end_timePCP = time.time()
-        elapsed_timePCP = end_timePCP - start_timePCP
-        print(f"Time taken by PCP: {elapsed_timePCP:.2f} seconds")
-
-        # o3d.visualization.draw_geometries([combined_cloud, AxisArrow], window_name="Proccesed Point Clouds")
-        # Save the final merged point cloud
-        base_path = "scanner_interface/output/sort-fikstur-0.1-contrast-filter"
-        output_ply_filename = get_next_filename(base_path, f"Black01_{Method}_{std}_{stdnn}_{voxel_size}_{mcd}", "ply")
-        o3d.io.write_point_cloud(output_ply_filename, combined_cloud)
-        print(f"Final merged point cloud saved to: {output_ply_filename}")
-
-        # Save the ICP transformations to a JSON file
-        icp_json_filename = get_next_filename(base_path, f"icp_transformations_{Method}_{std}_{stdnn}_{voxel_size}_{mcd}", "json")
-        with open(icp_json_filename, 'w') as f:
-            json.dump({"icp_transformations": icp_transformations, "elapsed_timePCP": elapsed_timePCP}, f, indent=4)
-        print(f"ICP transformations saved to: {icp_json_filename}")
+    """
