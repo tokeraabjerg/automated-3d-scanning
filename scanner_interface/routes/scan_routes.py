@@ -451,6 +451,19 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
             logger.debug(f"Using saved calibration transformation: {matrix}")
             processedClouds = 0
 
+            # Get base directory from app config
+            base_dir = current_app.config.get('base_dir')
+            calibration_dir = os.path.join(base_dir, '..', 'calibration')
+            fixture_path = os.path.join(calibration_dir, 'ref.ply')
+
+            # Get fixture path and perform calibration
+            if not os.path.exists(fixture_path):
+                logger.error("Fixture file not found")
+            else:
+                fikstur = o3d.io.read_point_cloud(fixture_path)
+
+
+
             while True:
                 logger.info(f"Current pcd_dict length: {len(pcd_dict)}. Waiting for more scans...")
                 if len(pcd_dict) >= 2:
@@ -475,14 +488,15 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
                         logger.info(f"Combining scan_main with {lowest_scan_key}, using rotations {target_rotation}")
                         
                         combined_pcd, icp_transform = Point_Cloud_Processing(
-                            combined_pcd,
-                            target_pcd,
-                            target_rotation[0], 
-                            -target_rotation[1],  
-                            matrix,
-                            voxel_size,
-                            max_correspondence_distance,
-                            preprocessing_method
+                            combined_cloud = combined_pcd,
+                            target_cloud = target_pcd,
+                            theta_pan = target_rotation[0], 
+                            theta_tilt = -target_rotation[1],  
+                            Calibration_transformation = matrix,
+                            voxel_size = voxel_size,
+                            max_correspondence_distance = max_correspondence_distance,
+                            preprocessing_method = preprocessing_method,
+                            Fikstur = fikstur
                         )
                         logger.info(f"ICP transform: {icp_transform}")
 
@@ -500,14 +514,15 @@ def post_process_thread(app, pcd_dict, project_name, total_positions, preprocess
                         
                         logger.debug(f"Angles sent to Point_Cloud_Processing: theta_pan_diff={rotation_list[1][0]}, theta_tilt_diff={ rotation_list[1][1]}")
                         combined_pcd, icp_transform = Point_Cloud_Processing(
-                            pcd_list[0],
-                            pcd_list[1],
-                            rotation_list[1][0], #pan, motor a
-                            -rotation_list[1][1],  #tilt, motor b
-                            matrix,
-                            voxel_size,
-                            max_correspondence_distance,
-                            preprocessing_method
+                            combined_cloud = pcd_list[0],
+                            target_cloud = pcd_list[1],
+                            theta_pan = rotation_list[1][0], #pan, motor a
+                            theta_tilt = -rotation_list[1][1],  #tilt, motor b
+                            Calibration_transformation = matrix,
+                            voxel_size = voxel_size,
+                            max_correspondence_distance = max_correspondence_distance,
+                            preprocessing_method = preprocessing_method,
+                            Fikstur = fikstur
                         )
                         
                         logger.info(f"ICP transform: {icp_transform}")
@@ -621,7 +636,7 @@ def increase_led_power(scanner, increment):
 
 
 
-@scan_bp.route('/Scanner_calibration_scan', methods=['POST'])
+@scan_bp.route('/led_power_calibration_scan', methods=['POST'])
 def Scanner_calibration_scan():
     """Start an scanner calibration scan at the zero position (0,0)."""
     try:

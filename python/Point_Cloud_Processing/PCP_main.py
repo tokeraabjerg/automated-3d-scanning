@@ -22,13 +22,14 @@ else:
     from .Misc_functions import create_arrow, decompose_transformation, remove_points_within_distance_of_pointcloud, sample_adjacent_point_pairs
     from .PP import preprocess_point_cloud, Preproces_pipeline, Preproces_normal_pipeline, Preproces_early_outliers_pipeline
     from .Calibration_by_fixture import Calibration_by_fixture, remove_points_in_box
+    
 
-#define global variables in global scope, tsk tsk.
-ShowMe = True
+#define global variables in global scope
+ShowMe = False
 legacyMode = False
 doInitial_alignment = True
 doICP = True
-Preprocessing_pipeline = "NSS"
+Preprocessing_pipeline = "Standard"
 # options = "Standard", "Early-outliers-NSS" and "NSS"
 
 # Initialize logger
@@ -109,7 +110,7 @@ def Point_Cloud_Processing(combined_cloud, target_cloud, theta_pan, theta_tilt, 
         combined_cloud = Preproces(combined_cloud, voxel_size, std_ratio=std, stdnn=stdnn)
         # TODO: Test white dataset without fikstur!
         # TODO: Add a step to perform initial alignment of the combined cloud, if applicable.
-        combined_cloud += Fikstur
+        #combined_cloud += Fikstur # I DONT KNOW WHY THE FIKSTUR IS ADDED HERE BUT OBVIOUSLY I REMOVED IT / TOKE
         if ShowMe is True:
                 o3d.visualization.draw_geometries([combined_cloud, AxisArrow, Fikstur], window_name="First Point Cloud post calibration")
 

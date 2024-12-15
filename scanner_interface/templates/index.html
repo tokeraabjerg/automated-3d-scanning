@@ -136,13 +136,13 @@
             <hr style="border-color: white;">
             <br>
 
-            <div style="display: flex; align-items: center;">
-                <h3 style="margin: 0;">Configurations</h3>
-                <input id="config_button" type="submit" value="Update Configurations" class="validate-button" style="margin-left: auto;">
-            </div>
-
             <br>
             <form id="configForm" action="{{ url_for('config_bp.update_configurations') }}" method="post">
+                <div style="display: flex; align-items: center;">
+                    <h3 style="margin: 0;">Configurations</h3>
+                    <input id="config_button" type="submit" value="Update Configurations" class="validate-button" style="margin-left: auto;">
+                </div>
+    
                 <table class="configuration">
                     <tr>
                         <th>Parameter</th>
