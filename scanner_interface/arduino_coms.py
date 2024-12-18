@@ -1,7 +1,7 @@
 import socket
 import time
-import json  # Add this line
-import os     # Add this line
+import json  
+import os     
 
 # Configure the Ethernet connection
 arduino_ip = '192.168.100.115'  # Change this to your Arduino's IP address
@@ -32,7 +32,23 @@ def send_command(command):
 
 def interpret_command(positions):
     """
-    Perform a scan by moving motors to the specified positions.
+    Args:
+        positions (list or dict): A list of dictionaries or a single dictionary specifying the positions to move the motors.
+            Each dictionary can have the following keys:
+                - 'home' (bool): If True, the motors will be homed.
+                - 'pos_a' (int or float): The absolute position to move motor A.
+                - 'pos_b' (int or float): The absolute position to move motor B.
+    Returns:
+        str: "success" if all commands are executed successfully, otherwise an error message.
+    Raises:
+        Exception: If an error occurs during the scan.
+    Example:
+        positions = [
+            {'home': True},
+            {'pos_a': 10, 'pos_b': 20},
+            {'pos_a': 30, 'pos_b': 40}
+        ]
+        result = interpret_command(positions)
     """
     try:
         if not isinstance(positions, list):
@@ -116,7 +132,6 @@ def main():
             response = send_command(command)
             print(f"Response: {response}")
     
-    # No need to manually close the socket as 'with' handles it
 
 if __name__ == "__main__":
     main()

@@ -360,6 +360,11 @@ def auto_scan_thread(app, project_name, positions, stop_event, preprocessing_met
                     while attempt < max_attempts:
                         new_pcd = scanner.perform_scan(stop_event=stop_event)
                         if new_pcd is not None:
+                            if contains_non_greyscale_colors(new_pcd):
+                                logger.warning("Non-greyscale colors detected in the point cloud. Retrying scan.")
+                                attempt += 1
+                                time.sleep(1)  # Optional: wait before retrying
+                                continue
                             logger.info(f"Scan {scan_number + 1} succeeded on attempt {attempt + 1}.")
                             break
                         else:
@@ -635,6 +640,25 @@ def increase_led_power(scanner, increment):
 
 
 
+def contains_non_greyscale_colors(point_cloud):
+    """
+    Detect if a point cloud contains colors outside greyscale/black and white.
+
+    Args:
+        point_cloud (o3d.geometry.PointCloud): The input point cloud.
+
+    Returns:
+        bool: True if the point cloud contains non-greyscale colors, False otherwise.
+    """
+    if not point_cloud.has_colors():
+        return False
+
+    colors = np.asarray(point_cloud.colors)
+    avg_color = np.mean(colors, axis=0)
+    if not np.allclose(avg_color[0], avg_color[1]) or not np.allclose(avg_color[1], avg_color[2]):
+        print("Non-greyscale color detected:", avg_color)
+        return True
+    return False
 
 @scan_bp.route('/led_power_calibration_scan', methods=['POST'])
 def Scanner_calibration_scan():
