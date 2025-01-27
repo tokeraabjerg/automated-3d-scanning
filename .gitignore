@@ -16,3 +16,4 @@ scanner_interface/routes/__pycache__/
 scanner_interface/app.log
 .DS_Store
 *.DS_Store
+calibration/etellerandet.ply
