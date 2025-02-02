@@ -4,6 +4,10 @@
 
 This project provides a web-based control panel for automating 3D scanning using the Wenglor MLAS214 sensor. It allows users to manage scan projects, configure settings, and visualize point cloud data through an intuitive interface.
 
+See it in action:
+
+https://www.youtube.com/watch?v=JDepGS2HYEw
+
 ## Features
 
 - **Project Management**: Create, rename, and delete scanning projects.
