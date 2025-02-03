@@ -42,8 +42,8 @@ def stl_to_point_cloud(stl_file, output_file, num_points=100000):
 
 if __name__ == "__main__":
     # File paths
-    stl_file = r"calibration\Endeligt testemne-producerede-tolerancer.STL"  # Replace with your STL file path
-    output_ply_file = r"C:\Users\mikke\automated-3d-scanning\calibration\ProduceretEmne.ply"  # Output PLY file
+    stl_file = r"C:\Users\Toke\Downloads\deformed_comparison.stl"  # Replace with your STL file path
+    output_ply_file = r"C:\Users\Toke\Downloads\deformed_comparison_4mil.ply"  # Output PLY file
 
     # Convert and save the point cloud
-    stl_to_point_cloud(stl_file, output_ply_file, num_points=500000)
+    stl_to_point_cloud(stl_file, output_ply_file, num_points=4000000)
